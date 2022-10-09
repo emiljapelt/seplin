@@ -14,18 +14,28 @@ let get_globvars (tds : topdecs) =
   in match tds with 
   | Topdecs l -> aux l [] 0
 
-let globvars_toRep lst =
-  let rec aux l acc = 
-    match l with
+(*    list of: string * access_mod * (typ * string) list * statement    *)
+let get_routines (tds : topdecs) =
+  let rec aux topdecs acc =
+    match topdecs with
     | [] -> acc
-    | (_,_,l,ty,a_expr)::t -> (
-      match (ty, a_expr) with
-      | (T_Bool, Bool b) -> aux t ((G_Bool(l, b))::acc)
-      | (T_Int, Int i) ->  aux t ((G_Int(l, i))::acc)
-      | _ -> failwith "Global variables are lacking in features"
+    | h::t -> (
+      match h with
+      | Routine (accmod, name, params, stmt) -> aux t ((name, params)::acc)
+      | _ -> aux t acc
     )
+  in match tds with
+  | Topdecs l -> aux l []
+
+
+
+let lookup_routine (name: string) routines =
+  let rec aux li =
+    match li with
+    | [] -> None
+    | (n,ps)::t -> if n = name then Some(ps) else aux t
   in
-  aux lst []
+  aux routines
 
 let lookup_globvar (name: string) globvars =
   let rec aux li c =
@@ -43,15 +53,7 @@ let lookup_localvar (name: string) localvars =
   in
   aux localvars ((List.length localvars) - 1)
 
-(*    list of: string * access_mod * (typ * string) list * statement    *)
-(* let getRoutines ap =
-  let aux topdecs acc =
-    match topdecs with
-    | [] -> acc
-    | h::t -> (
-      match h with
-      | Routine (accmod, name, params, stmt) -> aux t ((name, accmod, params, stmt)::acc)
-    ) *)
+
 
 let count_decl stmt_dec_list =
   let rec aux sdl c =
@@ -99,6 +101,15 @@ let fetch_var_val (name : string) globvars localvars =
   | T_Int -> (t, (fetch_var_index name globvars localvars) :: [Instruction(12)])
   | T_Bool -> (t, (fetch_var_index name globvars localvars) :: [Instruction(11)])
 
+let var_locked (name : string) globvars localvars = 
+  match lookup_localvar name localvars with
+    | Some (_,_,ll) -> ll
+    | None -> 
+      match lookup_globvar name globvars with
+      | Some (_,_,gl) -> gl
+      | None -> failwith "variable lookup failed"
+  
+
 let rec compile_assignable_expr expr globvars localvars routines =
   match expr with
   | Bool b -> (T_Bool, [BoolInstruction(5, b)])
@@ -106,23 +117,53 @@ let rec compile_assignable_expr expr globvars localvars routines =
   | Lookup n -> fetch_var_val n globvars localvars
   | Binary_op (op, e1, e2) -> (
       let (t1, ins1) = compile_assignable_expr e1 globvars localvars routines in
-      let (t2, ins2) = compile_assignable_expr e1 globvars localvars routines in
+      let (t2, ins2) = compile_assignable_expr e2 globvars localvars routines in
       match (op, t1, t2) with
       | ("&", T_Bool, T_Bool) ->  (T_Bool, ins1 @ ins2 @ [Instruction(24)])
       | ("|", T_Bool, T_Bool) -> (T_Bool, ins1 @ ins2 @ [Instruction(25)])
       | ("=", T_Bool, T_Bool) -> (T_Bool, ins1 @ ins2 @ [Instruction(22)])
+      | ("!=", T_Bool, T_Bool) -> (T_Bool, ins1 @ ins2 @ [Instruction(22)] @ [Instruction(23)])
       | ("=", T_Int, T_Int) -> (T_Bool, ins1 @ ins2 @ [Instruction(20)])
+      | ("!=", T_Int, T_Int) -> (T_Bool, ins1 @ ins2 @ [Instruction(20)] @ [Instruction(23)])
+      | ("<=", T_Int, T_Int) -> (T_Bool, ins1 @ ins2 @ [Instruction(21)] @ [Instruction(23)]) 
+      | ("<", T_Int, T_Int) -> (T_Bool, ins2 @ ins1 @ [Instruction(21)])
+      | (">=", T_Int, T_Int) -> (T_Bool, ins2 @ ins1 @ [Instruction(21)] @ [Instruction(23)])
+      | (">", T_Int, T_Int) -> (T_Bool, ins1 @ ins2 @ [Instruction(21)])
       | ("+", T_Int, T_Int) -> (T_Int, ins1 @ ins2 @ [Instruction(17)])
-      | ("-", T_Int, T_Int) -> (T_Int, ins1 @ ins2 @ [Instruction(19)])
+      | ("-", T_Int, T_Int) -> (T_Int, ins2 @ ins1 @ [Instruction(19)])
       | ("*", T_Int, T_Int) -> (T_Int, ins1 @ ins2 @ [Instruction(18)])
       | _ -> failwith "Unknown binary operator, or type mismatch"
     )
   | Unary_op (op, e) -> (
     let (t, ins) = compile_assignable_expr e globvars localvars routines in
     match (op, t) with
-    | ("!", T_Bool) -> (T_Bool, ins)
+    | ("!", T_Bool) -> (T_Bool, ins @ [Instruction(23)])
     | _ -> failwith "Unknown unary operator, or type mismatch"
   )
+
+let compile_arguments params exprs globvars localvars routines =
+  let rec aux ps es acc =
+    match (ps, es) with
+    | ([],[]) -> acc
+    | ((pl,pty,pn)::pt,eh::et) -> (
+      let (ety, ins) = compile_assignable_expr eh globvars localvars routines in
+      if pty != ety then failwith "Type mismatch"
+      else match eh with
+      | Lookup n -> (
+        match (pl, var_locked n globvars localvars) with
+        | (false, true) -> failwith "Cannot give a locked variable to parameter that is not locked"
+        | _ -> aux pt et ((fetch_var_index n globvars localvars) :: acc)
+      )
+      | _ -> (
+        match ety with
+        | T_Int -> aux pt et (Instruction(14) :: Instruction(7) :: ins @ (Instruction(16) :: acc))
+        | T_Bool -> aux pt et (Instruction(13) :: Instruction(7) :: ins @ (Instruction(15) :: acc))
+      )
+    )
+    | _ -> failwith "Insufficient arguments in call"
+  in
+  aux params exprs []
+
 
 let compile_unassignable_expr expr globvars localvars routines =
   match expr with
@@ -147,8 +188,13 @@ let compile_unassignable_expr expr globvars localvars routines =
     | T_Bool -> get :: ins @ [Instruction(15)]
     | T_Int -> get :: ins @ [Instruction(16)]
   )
-  | Call (n, aexpr_list) -> (
-    [LabelInstruction(2, n)]
+  | Call (n, aexprs) -> (
+    match lookup_routine n routines with
+    | None -> failwith "Call to non-existing routine"
+    | Some (ps) when (List.length ps) = (List.length aexprs) -> (
+      (compile_arguments ps aexprs globvars localvars routines) @ (IntInstruction(6, List.length ps) :: [LabelInstruction(2, n)])
+    )
+    | _ -> failwith "Insufficient arguments in call"
   )
   | Stop -> [Instruction(1)]
   | Print expr -> (
@@ -182,21 +228,43 @@ and compile_stmt stmt globvars localvars routines =
     if t != T_Bool then failwith "Conditional requires boolean"
     else ins @ [LabelInstruction(4, label_name1)] @ (compile_stmt s2 globvars localvars routines) @ [LabelInstruction(3,label_name2)] @ [Label(label_name1)] @ (compile_stmt s1 globvars localvars routines) @ [Label(label_name2)]
   )
+  | While (e, s) -> (
+    let label_cond = new_label () in
+    let label_start = new_label () in
+    let (t, ins) = compile_assignable_expr e globvars localvars routines in
+    if t != T_Bool then failwith "Conditional requires boolean"
+    else (LabelInstruction(3, label_cond)) :: Label(label_start) :: (compile_stmt s globvars localvars routines) @ [Label(label_cond)] @ ins @ [LabelInstruction(4, label_start)]
+  )
   | Block (sod_list) -> (
     (compile_sod_list sod_list globvars localvars routines) @ [IntInstruction(32, (count_decl sod_list))]
   )
   | Expression (expr) -> compile_unassignable_expr expr globvars localvars routines
 
+
+
+let compile_globvars lst =
+  let rec aux l acc = 
+    match l with
+    | [] -> acc
+    | (_,_,l,ty,a_expr)::t -> (
+      match (ty, a_expr) with
+      | (T_Bool, Bool b) -> aux t ((G_Bool(l, b))::acc)
+      | (T_Int, Int i) ->  aux t ((G_Int(l, i))::acc)
+      | _ -> failwith "Global variables are lacking in features"
+    )
+  in
+  aux lst []
+
 let compile topdecs =
   let globvars = get_globvars topdecs in
-  let routines = [] in
-  let rec aux tds =
+  let routines = get_routines topdecs in
+  let rec aux tds acc =
     match tds with
-    | [] -> []
+    | [] -> acc
     | h::t -> match h with
       | Routine (accmod, n, params, stmt) -> 
-        (routine_head accmod n params)::(compile_stmt stmt globvars params routines) @ [Instruction(1)]
-      | _ -> aux t
+        aux t ((routine_head accmod n params)::(compile_stmt stmt globvars params routines) @ [Instruction(1)] @ acc)
+      | _ -> aux t acc
   in
   match topdecs with
-  | Topdecs tds -> Program(globvars_toRep globvars, aux tds)
+  | Topdecs tds -> Program(compile_globvars globvars, aux tds [])

@@ -1,11 +1,56 @@
-int funny := 69;
+locked int funny := 69;
 
 external routine main() {
-    int meme := 3;
-    bool meme2 := meme = 2; 
-    print meme;
-    print meme2;
-    meme := 2;
-    print meme;
+
+    print (4 < 5);
+    print (4 <= 5);
+    print (4 > 5);
+    print (4 >= 5);
+    print (true != false);
+    print (3 != 2);
+
     print funny;
+}
+
+external routine test() {
+    int x := 4;
+    test1(x);
+    print x;
+}
+
+internal routine test1(locked int x) {
+    modify(x, 2);
+}
+
+internal routine modify(int x, int a) {
+    x := a;
+}
+
+internal routine add(locked int a, locked int b, int res) {
+    res := a + b;
+}
+
+internal routine sub(locked int a, locked int b, int res) {
+    res := a - b;
+}
+
+external routine funny_time(int c) {
+    while(!(c = 0)) {
+        print funny;
+        c := c - 1;
+    }
+}
+
+external routine fib(int c) {
+    int res := 0;
+    in_fib(res, 1, c);
+    print res;
+}
+
+internal routine in_fib(int a, int b, int c) {
+    if (c <= 0) stop;
+    int temp := a;
+    a := b;
+    b := temp + b;
+    in_fib(a, b, c-1);
 }

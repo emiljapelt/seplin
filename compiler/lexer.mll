@@ -10,6 +10,7 @@
                           "locked", LOCKED;
                           "if", IF;
                           "else", ELSE;
+                          "while", WHILE;
                           "stop", STOP;
                           "print", PRINT]
 }
@@ -25,6 +26,11 @@ rule lex = parse
     |   '+'           { PLUS }
     |   '-'           { MINUS }
     |   '='           { EQ }
+    |   "!="          { NEQ }
+    |   "<="          { LTEQ }
+    |   "<"           { LT }
+    |   ">="          { GTEQ }
+    |   ">"           { GT }
     |   '&'           { AND }
     |   '|'           { OR }
     |   '!'           { NOT }

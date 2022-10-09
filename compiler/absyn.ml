@@ -2,6 +2,7 @@ open ProgramRep
 
 type statement =
     | If of assignable_expression * statement * statement
+    | While of assignable_expression * statement
     | Block of statement_or_declaration list
     | Expression of unassignable_expression
 
@@ -26,16 +27,6 @@ and assignable_expression =
     | Bool of bool
     | Int of int
     | Lookup of string
-
-(* and bool_expression =
-    | Bool of bool
-    | Binary_bool_op of string * assignable_expression * assignable_expression
-    | Unary_bool_op of string * assignable_expression
-
-and int_expression =
-    | Int of int
-    | Binary_int_op of string * assignable_expression * assignable_expression
-    | Unary_int_op of string * assignable_expression *)
 
 and top_declaration =
     | Routine of access_mod * string * (bool * typ * string) list * statement

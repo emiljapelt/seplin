@@ -11,10 +11,11 @@
 %token ASSIGNMENT
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
 %token STOP
-%token PLUS MINUS EQ
+%token PLUS MINUS EQ NEQ LT GT LTEQ GTEQ
 %token AND OR NOT
 %token COMMA SEMI EOF
 %token IF ELSE
+%token WHILE
 %token ROUTINE LOCKED
 %token PRINT
 %start main
@@ -52,10 +53,16 @@ assignable_expression:
   | assignable_expression AND assignable_expression       { Binary_op ("&", $1, $3) }
   | assignable_expression OR assignable_expression        { Binary_op ("|", $1, $3) }
   | assignable_expression EQ assignable_expression        { Binary_op ("=", $1, $3) }
+  | assignable_expression NEQ assignable_expression       { Binary_op ("!=", $1, $3) }
+  | assignable_expression LTEQ assignable_expression      { Binary_op ("<=", $1, $3) }
+  | assignable_expression LT assignable_expression        { Binary_op ("<", $1, $3) }
+  | assignable_expression GTEQ assignable_expression      { Binary_op (">=", $1, $3) }
+  | assignable_expression GT assignable_expression        { Binary_op (">", $1, $3) }
   | assignable_expression PLUS assignable_expression      { Binary_op ("+", $1, $3) }
   | assignable_expression MINUS assignable_expression     { Binary_op ("-", $1, $3) }
-  | assignable_expression EQ assignable_expression        { Binary_op ("=", $1, $3) }
+  | MINUS assignable_expression                           { Binary_op ("-", Int 0, $2) }
   | NOT assignable_expression                             { Unary_op ("!", $2) }
+  | LPAR assignable_expression RPAR                       { $2 }
 ;
 
 unassignable_expression:
@@ -91,6 +98,7 @@ stmt:
   | block                                              { $1 }
   | IF LPAR assignable_expression RPAR stmt ELSE stmt        { If ($3, $5, $7) }
   | IF LPAR assignable_expression RPAR stmt                  { If ($3, $5, Block []) }
+  | WHILE LPAR assignable_expression RPAR stmt               { While ($3, $5) }
 ;
 
 paramdecs:

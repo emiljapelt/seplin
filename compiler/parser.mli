@@ -17,6 +17,11 @@ type token =
   | PLUS
   | MINUS
   | EQ
+  | NEQ
+  | LT
+  | GT
+  | LTEQ
+  | GTEQ
   | AND
   | OR
   | NOT
@@ -25,6 +30,7 @@ type token =
   | EOF
   | IF
   | ELSE
+  | WHILE
   | ROUTINE
   | LOCKED
   | PRINT
