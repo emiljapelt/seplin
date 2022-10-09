@@ -1,0 +1,11 @@
+int funny := 69;
+
+external routine main() {
+    int meme := 3;
+    bool meme2 := meme = 2; 
+    print meme;
+    print meme2;
+    meme := 2;
+    print meme;
+    print funny;
+}

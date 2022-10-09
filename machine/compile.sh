@@ -1,0 +1,1 @@
+gcc ./ISA.c ./types.c ./commands.c ./disass.c ./file_analysis.c ./inex.c -o inex.exe

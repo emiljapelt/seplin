@@ -1,0 +1,72 @@
+#PROGRAM
+    #ENTRY more INT INT
+        DECLARE_INT
+        CLONE_FULL
+        PLACE_INT 0
+        ASSIGN_INT
+
+        #LABEL more_start
+        BP_FETCH 1
+        FETCH_INT
+        BP_FETCH 2
+        FETCH_INT
+        INT_EQ
+        IF_TRUE more_stop
+        BP_FETCH 0
+        BP_FETCH 2
+        PLACE_INT 2
+        CALL sqr_mult
+        BP_FETCH 2
+        CLONE_FULL
+        FETCH_INT
+        PLACE_INT 1
+        INT_ADD
+        ASSIGN_INT
+        GOTO more_start
+        #LABEL more_stop
+        FREE_VARS 3
+        STOP
+    #ENTRY sqr_mult INT INT
+        DECLARE_INT
+        CLONE_FULL
+        BP_FETCH 0
+        FETCH_INT
+        ASSIGN_INT
+
+        DECLARE_INT
+        CLONE_FULL
+        BP_FETCH 1
+        FETCH_INT
+        ASSIGN_INT
+        
+        #LABEL start
+        BP_FETCH 3
+        FETCH_INT
+        PLACE_INT 0
+        INT_EQ
+        IF_TRUE stop
+        BP_FETCH 2
+        PLACE_INT 1
+        CALL sqr
+        BP_FETCH 3
+        CLONE_FULL
+        FETCH_INT
+        PLACE_INT -1
+        INT_ADD
+        ASSIGN_INT
+        GOTO start
+        #LABEL stop
+        BP_FETCH 2
+        PRINT_VAR
+        FREE_VARS 4
+        STOP
+    #LABEL sqr
+        BP_FETCH 0
+        BP_FETCH 0
+        FETCH_INT
+        BP_FETCH 0
+        FETCH_INT
+        INT_MUL
+        ASSIGN_INT
+        STOP
+#

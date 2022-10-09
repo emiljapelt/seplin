@@ -1,0 +1,85 @@
+#PROGRAM
+    #ENTRY fib INT
+        DECLARE_INT
+        CLONE_FULL
+        PLACE_INT 0
+        ASSIGN_INT
+
+        DECLARE_INT
+        CLONE_FULL
+        PLACE_INT 1
+        ASSIGN_INT
+
+        DECLARE_INT
+        CLONE_FULL
+        PLACE_INT 0
+        ASSIGN_INT
+
+        #LABEL fib_aux
+        PLACE_INT 2
+        BP_FETCH 0
+        FETCH_INT
+        INT_LT
+        IF_TRUE fib_out
+
+        BP_FETCH 3
+        BP_FETCH 1
+        FETCH_INT
+        ASSIGN_INT
+
+        BP_FETCH 1
+        BP_FETCH 2
+        FETCH_INT
+        ASSIGN_INT
+
+        BP_FETCH 2
+        CLONE_FULL
+        FETCH_INT
+        BP_FETCH 3
+        FETCH_INT
+        INT_ADD
+        ASSIGN_INT
+
+        BP_FETCH 0
+        CLONE_FULL
+        FETCH_INT
+        PLACE_INT -1
+        INT_ADD
+        ASSIGN_INT
+        GOTO fib_aux
+
+        #LABEL fib_out
+        BP_FETCH 1
+        PRINT_VAR
+        HALT
+
+    #ENTRY fac INT
+        DECLARE_INT
+        CLONE_FULL
+        PLACE_INT 1
+        ASSIGN_INT
+        #LABEL fac_aux
+        BP_FETCH 1
+        CLONE_FULL
+        FETCH_INT
+        BP_FETCH 0
+        FETCH_INT
+        INT_MUL
+        ASSIGN_INT
+        PLACE_INT 2
+        BP_FETCH 0
+        FETCH_INT
+        INT_LT
+        IF_TRUE fac_out
+        BP_FETCH 0
+        CLONE_FULL
+        FETCH_INT
+        PLACE_INT -1
+        INT_ADD
+        ASSIGN_INT
+        GOTO fac_aux
+        #LABEL fac_out
+        BP_FETCH 1
+        PRINT_VAR
+        HALT
+#

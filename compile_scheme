@@ -1,0 +1,87 @@
+statement {
+    If :
+        [bool_expression]
+        IF_TRUE x
+        [statement 2]
+        GOTO y
+        LABEL x
+        [statement 1]
+        LABEL y
+
+    Block :
+        [stmt_dec]*
+        FREE_VARS (count of decs in the list)
+
+    Expression :
+        ?
+}
+
+and unassignable_expression =
+    Assign :
+        STACK_FETCH x | BP_FETCH x
+        [assignable_expression]
+        ASSIGN_INT | ASSIGN_BOOL
+    Call :
+        [assignable_expression]*
+        CALL name
+    Stop :
+        STOP
+
+assignable_expression {
+    Bool_expression :
+        [bool_expression]
+
+    Int_expression :
+        [int_expression]
+}
+
+bool_expression {
+    Bool :
+        PLACE_BOOL b
+
+    Bool_access :
+        STACK_FETCH x | BP_FETCH x
+        FETCH_BOOL
+
+    Binary_bool_op :
+        [bool_expression 1]
+        [bool_expression 2]
+        [op]
+
+    Unary_bool_op :
+        [bool_expression 1]
+        [op]
+}
+
+int_expression {
+    Int :
+        PLACE_INT i
+
+    Bool_access :
+        STACK_FETCH x | BP_FETCH x
+        FETCH_INT
+
+    Binary_int_op :
+        [int_expression 1]
+        [int_expression 2]
+        [op]
+
+    int_op :
+        [int_expression 1]
+        [op]
+}
+
+top_declaration {
+    Routine :
+        LABEL name
+        [statement]
+        STOP
+
+    Constant :
+        ?
+}
+
+topdecs {
+    Topdecs :
+        [top_declaration]*
+}

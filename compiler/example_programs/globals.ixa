@@ -1,0 +1,24 @@
+#GLOBAL
+    LOCKED INT 42
+    INT 10
+    LOCKED BOOL true
+    BOOL false
+#
+#PROGRAM
+    #ENTRY lint
+        STACK_FETCH 0
+        PRINT_VAR
+        HALT
+    #ENTRY int
+        STACK_FETCH 1
+        PRINT_VAR
+        HALT
+    #ENTRY lbool
+        STACK_FETCH 2
+        PRINT_VAR
+        HALT
+    #ENTRY bool
+        STACK_FETCH 3
+        PRINT_VAR
+        HALT
+#
