@@ -12,20 +12,6 @@ external routine main() {
     print funny;
 }
 
-external routine test() {
-    int x := 4;
-    test1(x);
-    print x;
-}
-
-internal routine test1(locked int x) {
-    modify(x, 2);
-}
-
-internal routine modify(int x, int a) {
-    x := a;
-}
-
 internal routine add(locked int a, locked int b, int res) {
     res := a + b;
 }

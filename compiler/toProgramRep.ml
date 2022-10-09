@@ -67,6 +67,11 @@ let count_decl stmt_dec_list =
   in
   aux stmt_dec_list 0
 
+let type_string t =
+  match t with
+  | T_Bool -> "'bool'"
+  | T_Int -> "'int'"
+
 let routine_head accmod name params =
   match accmod with
   | Internal -> Label(name)
@@ -87,7 +92,7 @@ let fetch_var_index (name : string) globvars localvars =
   | None -> 
     match lookup_globvar name globvars with
     | Some (gc,_,_) -> IntInstruction(36, gc)
-    | None -> failwith "variable lookup failed"
+    | None -> failwith ("No such variable " ^ name)
 
 let fetch_var_val (name : string) globvars localvars = 
   let t = match lookup_localvar name localvars with
@@ -95,7 +100,7 @@ let fetch_var_val (name : string) globvars localvars =
     | None -> 
       match lookup_globvar name globvars with
       | Some (_,gt,_) -> gt
-      | None -> failwith "variable lookup failed"
+      | None -> failwith ("No such variable " ^ name)
   in
   match t with
   | T_Int -> (t, (fetch_var_index name globvars localvars) :: [Instruction(12)])
@@ -107,7 +112,7 @@ let var_locked (name : string) globvars localvars =
     | None -> 
       match lookup_globvar name globvars with
       | Some (_,_,gl) -> gl
-      | None -> failwith "variable lookup failed"
+      | None -> failwith ("No such variable " ^ name)
   
 
 let rec compile_assignable_expr expr globvars localvars routines =
@@ -147,11 +152,11 @@ let compile_arguments params exprs globvars localvars routines =
     | ([],[]) -> acc
     | ((pl,pty,pn)::pt,eh::et) -> (
       let (ety, ins) = compile_assignable_expr eh globvars localvars routines in
-      if pty != ety then failwith "Type mismatch"
+      if pty != ety then failwith ("Type mismatch on assignment: expected " ^ (type_string pty) ^ ", got " ^ (type_string ety)) 
       else match eh with
       | Lookup n -> (
         match (pl, var_locked n globvars localvars) with
-        | (false, true) -> failwith "Cannot give a locked variable to parameter that is not locked"
+        | (false, true) -> failwith "Cannot give a locked variable as a parameter that is not locked"
         | _ -> aux pt et ((fetch_var_index n globvars localvars) :: acc)
       )
       | _ -> (
@@ -171,18 +176,18 @@ let compile_unassignable_expr expr globvars localvars routines =
     let (ty, ins) = compile_assignable_expr aexpr globvars localvars routines in
     let get = match lookup_localvar name localvars with
     | Some(cl,tl,ll) -> (
-        if ll then failwith "trying to assign to locked variable" 
-        else if tl != ty then failwith "Type mismatch" 
+        if ll then failwith ("Cannot assign to locked variable: " ^ name)
+        else if tl != ty then failwith ("Type mismatch on assignment: expected " ^ (type_string tl) ^ ", got " ^ (type_string ty)) 
         else IntInstruction(37, cl)
       )
     | None -> (
       match lookup_globvar name globvars with
       | Some(cg,tg,lg) -> (
-        if lg then failwith "trying to assign to locked variable" 
-        else if tg != ty then failwith "Type mismatch" 
+        if lg then failwith ("Cannot assign to locked variable: " ^ name) 
+        else if tg != ty then failwith ("Type mismatch on assignment: expected " ^ (type_string tg) ^ ", got " ^ (type_string ty))  
         else IntInstruction(36, cg)
       )
-      | None -> failwith "variable lookup failed"
+      | None -> failwith ("No such variable " ^ name)
     )
     in match ty with
     | T_Bool -> get :: ins @ [Instruction(15)]
@@ -190,11 +195,11 @@ let compile_unassignable_expr expr globvars localvars routines =
   )
   | Call (n, aexprs) -> (
     match lookup_routine n routines with
-    | None -> failwith "Call to non-existing routine"
+    | None -> failwith ("No such routine: " ^ n)
     | Some (ps) when (List.length ps) = (List.length aexprs) -> (
       (compile_arguments ps aexprs globvars localvars routines) @ (IntInstruction(6, List.length ps) :: [LabelInstruction(2, n)])
     )
-    | _ -> failwith "Insufficient arguments in call"
+    | Some (ps) -> failwith (n ^ " requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
   )
   | Stop -> [Instruction(1)]
   | Print expr -> (
@@ -215,7 +220,7 @@ let rec compile_sod_list sod_list globvars localvars routines =
       match ty with
       | T_Int when expr_ty = T_Int -> Instruction(14) :: [Instruction(7)] @ ins @ [Instruction(16)] @ compile_sod_list t globvars ((l,ty,n)::localvars) routines
       | T_Bool when expr_ty = T_Bool -> Instruction(13) :: [Instruction(7)] @ ins @ [Instruction(15)] @ compile_sod_list t globvars ((l,ty,n)::localvars) routines
-      | _ -> failwith "Type mismatch"
+      | _ -> failwith ("Type mismatch on declaration: expected " ^ (type_string ty) ^ ", got " ^ (type_string expr_ty)) 
     )
   )
 
@@ -225,14 +230,14 @@ and compile_stmt stmt globvars localvars routines =
     let label_name1 = new_label () in
     let label_name2 = new_label () in
     let (t, ins) = compile_assignable_expr e globvars localvars routines in
-    if t != T_Bool then failwith "Conditional requires boolean"
+    if t != T_Bool then failwith "Conditional requires 'bool'"
     else ins @ [LabelInstruction(4, label_name1)] @ (compile_stmt s2 globvars localvars routines) @ [LabelInstruction(3,label_name2)] @ [Label(label_name1)] @ (compile_stmt s1 globvars localvars routines) @ [Label(label_name2)]
   )
   | While (e, s) -> (
     let label_cond = new_label () in
     let label_start = new_label () in
     let (t, ins) = compile_assignable_expr e globvars localvars routines in
-    if t != T_Bool then failwith "Conditional requires boolean"
+    if t != T_Bool then failwith "Conditional requires 'bool'"
     else (LabelInstruction(3, label_cond)) :: Label(label_start) :: (compile_stmt s globvars localvars routines) @ [Label(label_cond)] @ ins @ [LabelInstruction(4, label_start)]
   )
   | Block (sod_list) -> (
@@ -250,7 +255,7 @@ let compile_globvars lst =
       match (ty, a_expr) with
       | (T_Bool, Bool b) -> aux t ((G_Bool(l, b))::acc)
       | (T_Int, Int i) ->  aux t ((G_Int(l, i))::acc)
-      | _ -> failwith "Global variables are lacking in features"
+      | _ -> failwith "Global variables are lacking in features, sorry :("
     )
   in
   aux lst []
