@@ -1,42 +1,42 @@
 locked int funny := 69;
 
-external routine main() {
+external main(bool do_funny) {
 
     print (4 < 5);
-    print (4 <= 5);
+    print (5 <= 5);
     print (4 > 5);
     print (4 >= 5);
     print (true != false);
     print (3 != 2);
-
+    if (!do_funny) halt;
     print funny;
 }
 
-internal routine add(locked int a, locked int b, int res) {
+internal add(locked int a, locked int b, int res) {
     res := a + b;
 }
 
-internal routine sub(locked int a, locked int b, int res) {
+internal sub(locked int a, locked int b, int res) {
     res := a - b;
 }
 
-external routine funny_time(int c) {
+external funny_time(int c) {
     while(!(c = 0)) {
         print funny;
         c := c - 1;
     }
 }
 
-external routine fib(int c) {
+external fib(int c) {
     int res := 0;
-    in_fib(res, 1, c);
+    'fib(res, 1, c);
     print res;
 }
 
-internal routine in_fib(int a, int b, int c) {
+internal 'fib(int a, int b, int c) {
     if (c <= 0) stop;
     int temp := a;
     a := b;
     b := temp + b;
-    in_fib(a, b, c-1);
+    'fib(a, b, c-1);
 }

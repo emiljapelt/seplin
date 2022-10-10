@@ -6,12 +6,12 @@
                           "bool", BOOL;
                           "internal", INTERNAL;
                           "external", EXTERNAL;
-                          "routine", ROUTINE;
                           "locked", LOCKED;
                           "if", IF;
                           "else", ELSE;
                           "while", WHILE;
                           "stop", STOP;
+                          "halt", HALT;
                           "print", PRINT]
 }
 rule lex = parse
@@ -19,11 +19,12 @@ rule lex = parse
     |   ['0'-'9']+ as lxm { CSTINT (int_of_string lxm) }
     |   "true"            { CSTBOOL true}
     |   "false"           { CSTBOOL false}
-    |   ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '0'-'9' '_' '''] * as id
+    |   ['A'-'Z' 'a'-'z' '''] ['A'-'Z' 'a'-'z' '0'-'9' '_'] * as id
                 { try
                     Hashtbl.find keyword_table id
                   with Not_found -> NAME id }
     |   '+'           { PLUS }
+    |   '*'           { TIMES }
     |   '-'           { MINUS }
     |   '='           { EQ }
     |   "!="          { NEQ }

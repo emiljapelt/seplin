@@ -19,6 +19,7 @@ and unassignable_expression =
     | Assign of string * assignable_expression
     | Call of string * assignable_expression list
     | Stop
+    | Halt
     | Print of assignable_expression
 
 and assignable_expression =

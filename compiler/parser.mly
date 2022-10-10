@@ -10,14 +10,22 @@
 %token <string> NAME
 %token ASSIGNMENT
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
-%token STOP
-%token PLUS MINUS EQ NEQ LT GT LTEQ GTEQ
+%token STOP HALT
+%token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
 %token AND OR NOT
 %token COMMA SEMI EOF
 %token IF ELSE
 %token WHILE
-%token ROUTINE LOCKED
+%token LOCKED
 %token PRINT
+
+%left ELSE
+%left EQ NEQ
+%left GT LT GTEQ LTEQ
+%left PLUS MINUS OR
+%left TIMES AND
+%nonassoc NOT
+
 %start main
 %type <Absyn.topdecs> main
 %%
@@ -33,8 +41,8 @@ topdecs:
 topdec:
     typ NAME ASSIGNMENT assignable_expression SEMI            { GlobalVar (false, $1, $2, $4)   }
   | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI     { GlobalVar (true, $2, $3, $5)    }
-  | INTERNAL ROUTINE NAME LPAR paramdecs RPAR block           { Routine (Internal, $3, $5, $7) }
-  | EXTERNAL ROUTINE NAME LPAR paramdecs RPAR block           { Routine (External, $3, $5, $7) }
+  | INTERNAL NAME LPAR paramdecs RPAR block           { Routine (Internal, $2, $4, $6) }
+  | EXTERNAL NAME LPAR paramdecs RPAR block           { Routine (External, $2, $4, $6) }
 ;
 
 typ:
@@ -59,6 +67,7 @@ assignable_expression:
   | assignable_expression GTEQ assignable_expression      { Binary_op (">=", $1, $3) }
   | assignable_expression GT assignable_expression        { Binary_op (">", $1, $3) }
   | assignable_expression PLUS assignable_expression      { Binary_op ("+", $1, $3) }
+  | assignable_expression TIMES assignable_expression     { Binary_op ("*", $1, $3) }
   | assignable_expression MINUS assignable_expression     { Binary_op ("-", $1, $3) }
   | MINUS assignable_expression                           { Binary_op ("-", Int 0, $2) }
   | NOT assignable_expression                             { Unary_op ("!", $2) }
@@ -66,9 +75,10 @@ assignable_expression:
 ;
 
 unassignable_expression:
-    NAME ASSIGNMENT assignable_expression     { Assign ($1, $3) }
+    NAME ASSIGNMENT assignable_expression       { Assign ($1, $3) }
   | NAME LPAR params RPAR                       { Call ($1, $3) }
   | STOP                                        { Stop }
+  | HALT                                        { Halt }
   | PRINT assignable_expression                 { Print $2 }
 ;
 
@@ -108,7 +118,6 @@ paramdecs:
 
 paramdecs1:
     param                     { [$1] }
-  | param COMMA paramdecs1    { $1 :: $3 }
   | param COMMA paramdecs1    { $1 :: $3 }
 ;
 

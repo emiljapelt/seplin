@@ -120,6 +120,9 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
     while(true) {
         byte i = p[ip];
 
+        if (sp < bp) { printf("stack underflow!"); return -1; }
+        if (sp > STACKSIZE) { printf("stack overflow!"); return -1; }
+
         if (debug) print_stack(stack, bp, sp);
         if (debug) printf("instruction #%llu: 0x%x %s\n", ip, i, instruction_to_string(i));
 
@@ -132,15 +135,23 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 if (debug) printf("Halting...\n");
                 return 0;
             }
+
+            uword i = sp - move(ADDR, 1);
+            while (i >= bp) {
+                if (!is_on_stack((word*)(stack+i), stack, sp)) try_free((word*)(stack+i), stack, sp);
+                i -= move(ADDR, 1);
+            }
+
             uword old_bp = *(word*)(stack + bp + move(ADDR, -1));
             uword next_ip = *(word*)(stack + bp + move(ADDR, -2));;
-            uword i = bp;
-            // while(i <= sp) {
-            //    if (!is_on_stack((word*)(stack+i), stack, sp)) free((word*)(stack+i));
-            //    i += move(ADDR, 1);
-            // }
             sp = bp - move(ADDR, 3);
-            sp -= move(ADDR, *((word*)(stack + sp)));
+            word arg_count = *((word*)(stack + sp));
+            i = 0;
+            while(i < arg_count) {
+                if (!is_on_stack((word*)((stack + sp) - move(ADDR, 1+i)), stack, sp)) try_free((word*)((stack + sp) - move(ADDR, 1+i)), stack, sp);
+                i++;
+            }
+            sp -= move(ADDR, arg_count);
             bp = old_bp;
             ip = next_ip;
         }

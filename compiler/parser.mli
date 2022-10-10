@@ -14,8 +14,10 @@ type token =
   | LBRAKE
   | RBRAKE
   | STOP
+  | HALT
   | PLUS
   | MINUS
+  | TIMES
   | EQ
   | NEQ
   | LT
@@ -31,7 +33,6 @@ type token =
   | IF
   | ELSE
   | WHILE
-  | ROUTINE
   | LOCKED
   | PRINT
 

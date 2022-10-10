@@ -202,6 +202,7 @@ let compile_unassignable_expr expr globvars localvars routines =
     | Some (ps) -> failwith (n ^ " requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
   )
   | Stop -> [Instruction(1)]
+  | Halt -> [Instruction(0)]
   | Print expr -> (
     let (t, ins) = compile_assignable_expr expr globvars localvars routines in
     match t with
