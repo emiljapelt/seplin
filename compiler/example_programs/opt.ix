@@ -1,0 +1,28 @@
+
+external main() {
+    int i1 := 2 + 0;
+    int i2 := 0 + 2;
+    int i3 := 4 - 0;
+    int i4 := 6 * 1;
+    int i5 := 1 * 5;
+    int i6 := 0 * 5;
+    int i7 := 14 * 0;
+
+    print i1;
+    print i2;
+    print i3;
+    print i4;
+    print i5;
+    print i6;
+    print i7;
+
+    bool b1 := true | false;
+    bool b2 := false | true;
+    bool b3 := false & true;
+    bool b4 := true & false;
+
+    print b1;
+    print b2;
+    print b3;
+    print b4;
+}
