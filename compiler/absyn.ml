@@ -8,7 +8,9 @@ type statement =
 
 and statement_or_declaration =
     | Statement of statement
-    | Declaration of bool * typ * string * assignable_expression
+    | Declaration of bool * typ * string
+    | AssignDeclaration of bool * typ * string * assignable_expression
+    | VarDeclaration of bool * string * assignable_expression
 
 (* Might not be necessary *)
 and expression =
@@ -31,7 +33,8 @@ and assignable_expression =
 
 and top_declaration =
     | Routine of access_mod * string * (bool * typ * string) list * statement
-    | GlobalVar of bool * typ * string * assignable_expression
+    | Global of bool * typ * string
+    | GlobalAssign of bool * typ * string * assignable_expression
 
 and access_mod =
     | Internal

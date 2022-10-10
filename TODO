@@ -2,4 +2,4 @@
   - Make sure type related instructions (INT_ADD, BOOL_EQ etc.) all start with their type (DECLARE_INT should be INT_DECLARE for example).
   - Make sure to use follow_trail, for all address related instructions
 - Do some testing of the assembly compiler
-- Make sure temporary declarations get freed
+- Remove VM level variable locks, including the related instructions (LOCK, UNLOCK)

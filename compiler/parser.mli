@@ -34,6 +34,7 @@ type token =
   | ELSE
   | WHILE
   | LOCKED
+  | VAR
   | PRINT
 
 val main :

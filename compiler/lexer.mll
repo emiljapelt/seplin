@@ -7,6 +7,7 @@
                           "internal", INTERNAL;
                           "external", EXTERNAL;
                           "locked", LOCKED;
+                          "var", VAR;
                           "if", IF;
                           "else", ELSE;
                           "while", WHILE;

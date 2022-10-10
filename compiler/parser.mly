@@ -16,7 +16,7 @@
 %token COMMA SEMI EOF
 %token IF ELSE
 %token WHILE
-%token LOCKED
+%token LOCKED VAR
 %token PRINT
 
 %left ELSE
@@ -39,8 +39,10 @@ topdecs:
 ;
 
 topdec:
-    typ NAME ASSIGNMENT assignable_expression SEMI            { GlobalVar (false, $1, $2, $4)   }
-  | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI     { GlobalVar (true, $2, $3, $5)    }
+  | typ NAME SEMI                                             { Global (false, $1, $2) }
+  | LOCKED typ NAME SEMI                                      { Global (true, $2, $3) }
+  | typ NAME ASSIGNMENT assignable_expression SEMI            { GlobalAssign (false, $1, $2, $4)   }
+  | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI     { GlobalAssign (true, $2, $3, $5)    }
   | INTERNAL NAME LPAR paramdecs RPAR block           { Routine (Internal, $2, $4, $6) }
   | EXTERNAL NAME LPAR paramdecs RPAR block           { Routine (External, $2, $4, $6) }
 ;
@@ -99,8 +101,12 @@ stmtOrDecSeq:
 
 stmtOrDec:
     stmt                                                     { Statement $1 }
-  | typ NAME ASSIGNMENT assignable_expression SEMI           { Declaration (false, $1, $2, $4) }
-  | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI    { Declaration (true, $2, $3, $5) }
+  | typ NAME SEMI                                            { Declaration (false, $1, $2) }
+  | LOCKED typ NAME SEMI                                     { Declaration (true, $2, $3) }
+  | typ NAME ASSIGNMENT assignable_expression SEMI           { AssignDeclaration (false, $1, $2, $4) }
+  | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, $2, $3, $5) }
+  | VAR NAME ASSIGNMENT assignable_expression SEMI           { VarDeclaration (false, $2, $4) }
+  | LOCKED VAR NAME ASSIGNMENT assignable_expression SEMI    { VarDeclaration (true, $3, $5) }
 ;
 
 stmt:
