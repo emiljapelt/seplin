@@ -1,5 +1,4 @@
 locked int funny := 69;
-locked int double_funny := 2 * funny;
 
 external main(bool do_funny) {
 
@@ -11,7 +10,6 @@ external main(bool do_funny) {
     print (3 != 2);
     if (!do_funny) halt;
     print funny;
-    print double_funny;
 }
 
 internal add(locked int a, locked int b, int res) {

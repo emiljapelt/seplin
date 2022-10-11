@@ -35,16 +35,6 @@ byte parse_bool(char* str) {
     else return -1;
 }
 
-byte is_locked(word* addr) {
-    byte header = *((byte*)addr);
-    return (header>>7);
-}
-
-byte type_index(word* addr) {
-    byte header = *((byte*)addr);
-    return (header & 0b01111111);
-}
-
 byte* payload(word* addr) {
     return ((byte*)addr)+1;
 }

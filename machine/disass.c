@@ -168,12 +168,6 @@ void dissas(byte* p, word file_len) {
                 printf("%i: BP_FETCH %lld\n", i, *((word*)(p+i+1)));
                 i+=8;
                 break;
-            case LOCK:
-                printf("%i: LOCK\n", i);
-                break;
-            case UNLOCK:
-                printf("%i: UNLOCK\n", i);
-                break;
             default: return;
         }
     }

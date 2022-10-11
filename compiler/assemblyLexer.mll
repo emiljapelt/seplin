@@ -49,8 +49,6 @@
                             "PRINT_BOOL",     PRINT_BOOL;
                             "STACK_FETCH",    STACK_FETCH;
                             "BP_FETCH",       BP_FETCH;
-                            "LOCK",           LOCK;
-                            "UNLOCK",         UNLOCK;
                         ]
 }
 rule lex = parse

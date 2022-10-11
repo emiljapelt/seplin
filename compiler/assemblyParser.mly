@@ -122,8 +122,6 @@ program:
     | PRINT_BOOL program { Instruction(35) :: $2 }
     | STACK_FETCH CST_INT program { IntInstruction(36, $2) :: $3 }
     | BP_FETCH CST_INT program { IntInstruction(37, $2) :: $3 }
-    | LOCK program { Instruction(38) :: $2 }
-    | UNLOCK program { Instruction(39) :: $2 }
 ;
 
 type_list:

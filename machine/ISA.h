@@ -146,11 +146,3 @@ int string_to_instruction(char* str);
 #define STACK_FETCH 0x24
 
 #define BP_FETCH 0x25
-
-#define LOCK 0x26
-// Set the lock of a variable to 1
-// [s,addr,_ => s,_]
-
-#define UNLOCK 0x27
-// Set the lock of a variable to 0
-// [s,addr,_ => s,_]
