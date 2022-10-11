@@ -10,7 +10,6 @@
                             "#LABEL",         LABEL;
                             "INT" ,           INT;
                             "BOOL" ,          BOOL;
-                            "LOCKED",         LOCKED;
                             "HALT",           HALT;
                             "STOP",           STOP;
                             "CALL",           CALL;
@@ -40,7 +39,6 @@
                             "GETSP",          GETSP;
                             "GETBP",          GETBP;
                             "MODSP",          MODSP;
-                            "CLONE_FRAME",    CLONE_FRAME;
                             "FETCH_ADDR",     FETCH_ADDR;
                             "FREE_VAR",       FREE_VAR;
                             "FREE_VARS",      FREE_VARS;
@@ -49,6 +47,7 @@
                             "PRINT_BOOL",     PRINT_BOOL;
                             "STACK_FETCH",    STACK_FETCH;
                             "BP_FETCH",       BP_FETCH;
+                            "STACK_TRANSFER", STACK_TRANSFER;
                         ]
 }
 rule lex = parse

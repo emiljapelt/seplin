@@ -35,6 +35,10 @@ byte parse_bool(char* str) {
     else return -1;
 }
 
+byte type(word* addr) {
+    return *((byte*)addr);
+}
+
 byte* payload(word* addr) {
     return ((byte*)addr)+1;
 }

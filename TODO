@@ -3,7 +3,7 @@
   - Make sure to use follow_trail, for all address related instructions
 - Do some testing of the assembly compiler
 
-
+- This had problems for conditional execution and loops :()
 - For more advanced types, i.e. arrays and bundles, that can contain other arrays or bundles
   - Ownership transfer
     - A routine, r1, can take a transfer as an argument, the calling routine, r2

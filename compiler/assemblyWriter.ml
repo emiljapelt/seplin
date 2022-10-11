@@ -70,13 +70,13 @@ let rec write_global_vars f gvs =
   match gvs with
   | [] -> ()
   | h::t -> match h with
-    | G_Int (lock, v) -> (
-      if lock then fprintf f "%c" '\x82' else fprintf f "\x02" ;
+    | G_Int v -> (
+      fprintf f "\x02" ;
       write_word f (Int64.of_int v) ;
       write_global_vars f t
     )
-    | G_Bool (lock, v) -> (
-      if lock then fprintf f "\x81" else fprintf f "\x01" ;
+    | G_Bool v -> (
+      fprintf f "\x01" ;
       if v then fprintf f "%c" '\x01' else fprintf f "%c" '\x00' ;
       write_global_vars f t
     )

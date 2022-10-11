@@ -11,4 +11,6 @@ word parse_int(char* str);
 
 byte parse_bool(char* str);
 
+byte type(word* addr);
+
 byte* payload(word* addr);

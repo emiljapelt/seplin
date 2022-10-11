@@ -66,12 +66,20 @@ let fetch_globvar_expr (name: string) globvars =
   in
   aux globvars
 
-let fetch_var_index (name: string) globvars localvars = 
+let var_index (name: string) globvars localvars = 
   match lookup_localvar name localvars with
-  | Some (lc,_,_) -> IntInstruction(37, lc)
+  | Some (lc,_,_) -> lc
   | None -> 
     match lookup_globvar name globvars with
-    | Some (gc,_,_) -> IntInstruction(36, gc)
+    | Some (gc,_,_) -> gc
+    | None -> failwith ("No such variable " ^ name)
+
+let fetch_var_index (name: string) globvars localvars = 
+  match lookup_localvar name localvars with
+  | Some (lc,_,_) -> IntInstruction(36, lc)
+  | None -> 
+    match lookup_globvar name globvars with
+    | Some (gc,_,_) -> IntInstruction(35, gc)
     | None -> failwith ("No such variable " ^ name)
 
 let fetch_var_val (name: string) globvars localvars = 
@@ -199,25 +207,25 @@ let rec compile_assignable_expr expr globvars localvars =
     | _ -> failwith "Unknown unary operator, or type mismatch"
   )
 
-let compile_arguments params exprs globvars localvars routines =
+let compile_arguments params exprs globvars localvars =
   let rec aux ps es acc =
     match (ps, es) with
     | ([],[]) -> acc
-    | ((pl,pty,pn)::pt,eh::et) -> (
-      let (ety, ins) = compile_assignable_expr eh globvars localvars in
-      if pty != ety then failwith ("Type mismatch on assignment: expected " ^ (type_string pty) ^ ", got " ^ (type_string ety)) 
-      else match eh with
-      | Lookup n -> (
-        match (pl, var_locked n globvars localvars) with
-        | (false, true) -> failwith "Cannot give a locked variable as a parameter that is not locked"
-        | _ -> aux pt et ((fetch_var_index n globvars localvars) :: acc)
+    | ((plock, pty, pname)::pt,eh::et) -> (
+        let (ety, ins) = compile_assignable_expr eh globvars localvars in
+        if pty != ety then failwith ("Type mismatch on assignment: expected " ^ (type_string pty) ^ ", got " ^ (type_string ety)) 
+        else match eh with
+        | Lookup n -> (
+          match (plock, var_locked n globvars localvars) with
+          | (false, true) -> failwith "Cannot give a locked variable as a parameter that is not locked"
+          | _ -> aux pt et ((fetch_var_index n globvars localvars) :: acc)
+        )
+        | _ -> (
+          match ety with
+          | T_Int -> aux pt et (Instruction(14) :: Instruction(7) :: ins @ (Instruction(16) :: acc))
+          | T_Bool -> aux pt et (Instruction(13) :: Instruction(7) :: ins @ (Instruction(15) :: acc))
+        )
       )
-      | _ -> (
-        match ety with
-        | T_Int -> aux pt et (Instruction(14) :: Instruction(7) :: ins @ (Instruction(16) :: acc))
-        | T_Bool -> aux pt et (Instruction(13) :: Instruction(7) :: ins @ (Instruction(15) :: acc))
-      )
-    )
     | _ -> failwith "Insufficient arguments in call"
   in
   aux params exprs []
@@ -231,14 +239,14 @@ let compile_unassignable_expr expr globvars localvars routines =
     | Some(cl,tl,ll) -> (
         if ll then failwith ("Cannot assign to locked variable: " ^ name)
         else if tl != ty then failwith ("Type mismatch on assignment: expected " ^ (type_string tl) ^ ", got " ^ (type_string ty)) 
-        else IntInstruction(37, cl)
+        else IntInstruction(36, cl)
       )
     | None -> (
       match lookup_globvar name globvars with
       | Some(cg,tg,lg) -> (
         if lg then failwith ("Cannot assign to locked variable: " ^ name) 
         else if tg != ty then failwith ("Type mismatch on assignment: expected " ^ (type_string tg) ^ ", got " ^ (type_string ty))  
-        else IntInstruction(36, cg)
+        else IntInstruction(35, cg)
       )
       | None -> failwith ("No such variable: " ^ name)
     )
@@ -250,7 +258,7 @@ let compile_unassignable_expr expr globvars localvars routines =
     match lookup_routine n routines with
     | None -> failwith ("No such routine: " ^ n)
     | Some (ps) when (List.length ps) = (List.length aexprs) -> (
-      (compile_arguments ps aexprs globvars localvars routines) @ (IntInstruction(6, List.length ps) :: [LabelInstruction(2, n)])
+      (compile_arguments ps aexprs globvars localvars) @ (IntInstruction(6, List.length ps) :: [LabelInstruction(2, n)])
     )
     | Some (ps) -> failwith (n ^ " requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
   )
@@ -259,8 +267,8 @@ let compile_unassignable_expr expr globvars localvars routines =
   | Print expr -> (
     let (t, ins) = compile_assignable_expr expr globvars localvars in
     match t with
-    | T_Bool -> ins @ [Instruction(35)]
-    | T_Int -> ins @ [Instruction(34)]
+    | T_Bool -> ins @ [Instruction(34)]
+    | T_Int -> ins @ [Instruction(33)]
   )
 
 let rec compile_sod_list sod_list globvars localvars routines =
@@ -309,7 +317,7 @@ and compile_stmt stmt globvars localvars routines =
     else (LabelInstruction(3, label_cond)) :: Label(label_start) :: (compile_stmt s globvars localvars routines) @ [Label(label_cond)] @ ins @ [LabelInstruction(4, label_start)]
   )
   | Block (sod_list) -> (
-    (compile_sod_list sod_list globvars localvars routines) @ [IntInstruction(32, (count_decl sod_list))]
+    (compile_sod_list sod_list globvars localvars routines) @ [IntInstruction(31, (count_decl sod_list))]
   )
   | Expression (expr) -> compile_unassignable_expr expr globvars localvars routines
 
@@ -354,8 +362,8 @@ let compile_globvars lst =
     | (n,_,l,ty,expr)::t -> (
       let v = evaluate_globvar [n] expr lst in
       match (ty, v) with
-      | (T_Bool, Bool b) -> aux t ((G_Bool(l, b))::acc)
-      | (T_Int, Int i) ->  aux t ((G_Int(l, i))::acc)
+      | (T_Bool, Bool b) -> aux t ((G_Bool(b))::acc)
+      | (T_Int, Int i) ->  aux t ((G_Int(i))::acc)
       | _ -> failwith ("Type mismatch in global variable: " ^ n)
     )
   in

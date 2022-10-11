@@ -20,19 +20,16 @@ void dissas(byte* p, word file_len) {
     offset += 8;
     printf("\n    GLOBAL VARIABLES:\n");
     for(int i = 0; i < globvars; i++) {
-        byte type_header = ((byte*)p)[offset++];
-        byte type = (type_header & 0b01111111);
-        byte locked = (type_header>>7);
-        char* lock_str = (locked) ? "LOCKED " : "" ;
+        byte type = ((byte*)p)[offset++];
         switch (type) {
             case BOOL:;
                 char* b_value = (((byte*)p)[offset++]) ? "true" : "false";
-                printf("%s%s: %s\n", lock_str, type_name(type), b_value);
+                printf("%s: %s\n", type_name(type), b_value);
                 break;
             case INT:;
                 word i_value = p[offset];
                 offset += 8;
-                printf("%s%s: %lli\n", lock_str, type_name(type), i_value);
+                printf("%s: %lli\n", type_name(type), i_value);
                 break;
             default: 
                 printf("Global variable of unknown type");
@@ -139,9 +136,6 @@ void dissas(byte* p, word file_len) {
                 printf("%i: MODSP %lld\n", i, *((word*)(p+i+1)));
                 i+=8;
                 break;
-            case CLONE_FRAME:
-                printf("%i: CLONE_FRAME\n", i);
-                break;
             case FETCH_ADDR:
                 printf("%i: FETCH_ADDR\n", i);
                 break;
@@ -166,6 +160,10 @@ void dissas(byte* p, word file_len) {
                 break;
             case BP_FETCH:
                 printf("%i: BP_FETCH %lld\n", i, *((word*)(p+i+1)));
+                i+=8;
+                break;
+            case STACK_TRANSFER:
+                printf("%i: STACK_TRANSFER %lld\n", i, *((word*)(p+i+1)));
                 i+=8;
                 break;
             default: return;

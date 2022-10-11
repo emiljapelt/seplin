@@ -11,7 +11,6 @@
                             "#LABEL",         LABEL;
                             "INT" ,           INT;
                             "BOOL" ,          BOOL;
-                            "LOCKED",         LOCKED;
                             "HALT",           HALT;
                             "STOP",           STOP;
                             "CALL",           CALL;
@@ -41,7 +40,6 @@
                             "GETSP",          GETSP;
                             "GETBP",          GETBP;
                             "MODSP",          MODSP;
-                            "CLONE_FRAME",    CLONE_FRAME;
                             "FETCH_ADDR",     FETCH_ADDR;
                             "FREE_VAR",       FREE_VAR;
                             "FREE_VARS",      FREE_VARS;
@@ -50,9 +48,10 @@
                             "PRINT_BOOL",     PRINT_BOOL;
                             "STACK_FETCH",    STACK_FETCH;
                             "BP_FETCH",       BP_FETCH;
+                            "STACK_TRANSFER", STACK_TRANSFER;
                         ]
 
-# 56 "assemblyLexer.ml"
+# 55 "assemblyLexer.ml"
 let __ocaml_lex_tables = {
   Lexing.lex_base =
    "\000\000\250\255\075\000\160\000\235\000\150\000\054\001\255\255\
@@ -342,46 +341,46 @@ let rec lex lexbuf =
 and __ocaml_lex_lex_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 55 "assemblyLexer.mll"
+# 54 "assemblyLexer.mll"
                                     ( lex lexbuf )
-# 348 "assemblyLexer.ml"
+# 347 "assemblyLexer.ml"
 
   | 1 ->
 let
-# 56 "assemblyLexer.mll"
+# 55 "assemblyLexer.mll"
                             lxm
-# 354 "assemblyLexer.ml"
+# 353 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 56 "assemblyLexer.mll"
+# 55 "assemblyLexer.mll"
                                           ( CST_INT (int_of_string lxm) )
-# 358 "assemblyLexer.ml"
+# 357 "assemblyLexer.ml"
 
   | 2 ->
-# 57 "assemblyLexer.mll"
+# 56 "assemblyLexer.mll"
                            ( CST_BOOL true )
-# 363 "assemblyLexer.ml"
+# 362 "assemblyLexer.ml"
 
   | 3 ->
-# 58 "assemblyLexer.mll"
+# 57 "assemblyLexer.mll"
                             ( CST_BOOL false )
-# 368 "assemblyLexer.ml"
+# 367 "assemblyLexer.ml"
 
   | 4 ->
 let
-# 59 "assemblyLexer.mll"
+# 58 "assemblyLexer.mll"
                                                                   id
-# 374 "assemblyLexer.ml"
+# 373 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 60 "assemblyLexer.mll"
+# 59 "assemblyLexer.mll"
                 ( try
                     Hashtbl.find keyword_table id
                   with Not_found -> NAME id )
-# 380 "assemblyLexer.ml"
+# 379 "assemblyLexer.ml"
 
   | 5 ->
-# 63 "assemblyLexer.mll"
+# 62 "assemblyLexer.mll"
                       ( EOF )
-# 385 "assemblyLexer.ml"
+# 384 "assemblyLexer.ml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf;
       __ocaml_lex_lex_rec lexbuf __ocaml_lex_state

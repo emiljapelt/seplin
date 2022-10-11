@@ -33,7 +33,6 @@ char* instruction_to_string(int inst) {
         case GETSP: return "GETSP";
         case GETBP: return "GETBP";
         case MODSP: return "MODSP";
-        case CLONE_FRAME: return "CLONE_FRAME";
         case FETCH_ADDR: return "FETCH_ADDR";
         case FREE_VAR: return "FREE_VAR";
         case FREE_VARS: return "FREE_VARS";
@@ -42,6 +41,7 @@ char* instruction_to_string(int inst) {
         case PRINT_BOOL: return "PRINT_BOOL";
         case STACK_FETCH: return "STACK_FETCH";
         case BP_FETCH: return "BP_FETCH";
+        case STACK_TRANSFER: return "STACK_TRANSFER";
         default: return "?";
     }
 }
@@ -76,7 +76,6 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "GETSP") == 0) return GETSP;
     if (strcmp(str, "GETBP") == 0) return GETBP;
     if (strcmp(str, "MODSP") == 0) return MODSP;
-    if (strcmp(str, "CLONE_FRAME") == 0) return CLONE_FRAME;
     if (strcmp(str, "FETCH_ADDR") == 0) return FETCH_ADDR;
     if (strcmp(str, "FREE_VAR") == 0) return FREE_VAR;
     if (strcmp(str, "FREE_VARS") == 0) return FREE_VARS;
@@ -85,5 +84,6 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "PRINT_BOOL") == 0) return PRINT_BOOL;
     if (strcmp(str, "STACK_FETCH") == 0) return STACK_FETCH;
     if (strcmp(str, "BP_FETCH") == 0) return BP_FETCH;
+    if (strcmp(str, "STACK_TRANSFER") == 0) return STACK_TRANSFER;
     return -1;
 }

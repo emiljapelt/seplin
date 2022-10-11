@@ -9,7 +9,6 @@
 %token <string> NAME
 %token INT
 %token BOOL
-%token LOCKED
 %token <int> CST_INT
 %token <bool> CST_BOOL
 %token HALT
@@ -50,8 +49,7 @@
 %token PRINT_BOOL
 %token STACK_FETCH
 %token BP_FETCH
-%token LOCK
-%token UNLOCK
+%token STACK_TRANSFER
 %token EOF
 
 %start main
@@ -70,10 +68,8 @@ global_section:
 
 global_variables:
         {[]}
-    | LOCKED INT CST_INT global_variables { (G_Int (true, $3)) :: $4 }
-    | INT CST_INT global_variables { (G_Int (false, $2)) :: $3 }
-    | LOCKED BOOL CST_BOOL global_variables { (G_Bool (true, $3)) :: $4 }
-    | BOOL CST_BOOL global_variables { (G_Bool (false, $2)) :: $3 }
+    | INT CST_INT global_variables { (G_Int $2) :: $3 }
+    | BOOL CST_BOOL global_variables { (G_Bool $2) :: $3 }
 ;
 
 program_section:
@@ -113,15 +109,15 @@ program:
     | GETSP program { Instruction(26) :: $2 }
     | GETBP program { Instruction(27) :: $2 }
     | MODSP CST_INT program { IntInstruction(28, $2) :: $3 }
-    | CLONE_FRAME program { Instruction(29) :: $2 }
-    | FETCH_ADDR program { Instruction(30) :: $2 }
-    | FREE_VAR program { Instruction(31) :: $2 }
-    | FREE_VARS CST_INT program { IntInstruction(32, $2) :: $3 }
-    | PRINT_VAR program { Instruction(33) :: $2 }
-    | PRINT_INT program { Instruction(34) :: $2 }
-    | PRINT_BOOL program { Instruction(35) :: $2 }
-    | STACK_FETCH CST_INT program { IntInstruction(36, $2) :: $3 }
-    | BP_FETCH CST_INT program { IntInstruction(37, $2) :: $3 }
+    | FETCH_ADDR program { Instruction(29) :: $2 }
+    | FREE_VAR program { Instruction(30) :: $2 }
+    | FREE_VARS CST_INT program { IntInstruction(31, $2) :: $3 }
+    | PRINT_VAR program { Instruction(32) :: $2 }
+    | PRINT_INT program { Instruction(33) :: $2 }
+    | PRINT_BOOL program { Instruction(34) :: $2 }
+    | STACK_FETCH CST_INT program { IntInstruction(35, $2) :: $3 }
+    | BP_FETCH CST_INT program { IntInstruction(36, $2) :: $3 }
+    | STACK_TRANSFER CST_INT program { IntInstruction(37, $2) :: $3}
 ;
 
 type_list:

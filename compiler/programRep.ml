@@ -2,8 +2,8 @@ type program =
   | Program of global_var list * program_part list
 
 and global_var =
-  | G_Int of bool * int
-  | G_Bool of bool * bool
+  | G_Int of int
+  | G_Bool of bool
 
 and program_part =
   | EntryPoint of string * typ list

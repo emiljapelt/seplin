@@ -57,7 +57,7 @@ void print_stack(byte* stack, uword bp, uword sp) {
     printf("_ ]\n");
 }
 
-byte* allocate(byte type, byte constant) {
+byte* allocate(byte type) {
     int size;
     switch (type) {
         case BOOL:
@@ -71,13 +71,12 @@ byte* allocate(byte type, byte constant) {
     }
     byte* alloc = (byte*)malloc(size);
     byte header = type;
-    if (constant) header = header | 0b10000000;
     *alloc = header;
     return alloc;
 }
 
 void print_var(word* target) {
-    switch (type_index(target)) {
+    switch (type(target)) {
         case BOOL:
             if (*payload(target)) printf("true\n");
             else printf("false\n");
@@ -138,7 +137,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
 
             uword i = sp - move(ADDR, 1);
             while (i >= bp) {
-                if (!is_on_stack((word*)(stack+i), stack, sp)) try_free((word*)(stack+i), stack, sp);
+                try_free(*((word**)(stack+i)), stack, sp);
                 i -= move(ADDR, 1);
             }
 
@@ -146,11 +145,6 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
             uword next_ip = *(word*)(stack + bp + move(ADDR, -2));;
             sp = bp - move(ADDR, 3);
             word arg_count = *((word*)(stack + sp));
-            i = 0;
-            while(i < arg_count) {
-                if (!is_on_stack((word*)((stack + sp) - move(ADDR, 1+i)), stack, sp)) try_free((word*)((stack + sp) - move(ADDR, 1+i)), stack, sp);
-                i++;
-            }
             sp -= move(ADDR, arg_count);
             bp = old_bp;
             ip = next_ip;
@@ -162,12 +156,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
             *(word*)(stack + sp + move(ADDR, 1)) = (word)bp;
             for(int i = 0; i < arg_count; i++) {
                 word* arg = *(word**)(stack + arg_start + move(ADDR, i));
-                if (is_on_stack(arg, stack, sp)) {
-                    *(word*)(stack + sp + move(ADDR, 2+i)) = (word)(arg);
-                }
-                else {
-                    *(word*)(stack + sp + move(ADDR, 2+i)) = (word)(stack + arg_start + move(ADDR, i));
-                }
+                *(word*)(stack + sp + move(ADDR, 2+i)) = (word)(arg);
             }
             bp = sp + move(ADDR, 2);
             sp += move(ADDR, 2+arg_count);
@@ -248,7 +237,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
         else if (i == FETCH_INT) {
             word* target = *(word**)(stack + sp + move(INT, -1));
             follow_trail(&target, stack, sp);
-            if (type_index(target) != INT) { printf("Failure: Type mismatch\n"); return -1; }
+            if (type(target) != INT) { printf("Failure: Type mismatch\n"); return -1; }
 
             *(word*)(stack + sp + move(INT, -1)) = *((word*)payload(target));
             ip++;
@@ -263,8 +252,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
         else if (i == ASSIGN_INT) {
             word* target = *(word**)(stack + sp + move(ADDR, -1) + move(INT, -1));
             follow_trail(&target, stack, sp);
-            if (is_locked(target) == true) { printf("Failure: Can't assign to a locked variable!\n"); return -1; }
-            if (type_index(target) != INT) { printf("Failure: Type mismatch!\n"); return -1; }
+            if (type(target) != INT) { printf("Failure: Type mismatch!\n"); return -1; }
             word* pl = (word*)payload(target); 
 
             word value = *(word*)(stack + sp + move(INT, -1));
@@ -288,7 +276,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
         else if (i == FETCH_BOOL) {
             word* target = *(word**)(stack + sp + move(ADDR, -1));
             follow_trail(&target, stack, sp);
-            if (type_index(target) != BOOL) { printf("Failure: Type mismatch\n"); return -1; }
+            if (type(target) != BOOL) { printf("Failure: Type mismatch\n"); return -1; }
 
             *(byte*)(stack + sp + move(ADDR, -1)) = *((byte*)payload(target));
             sp -= move(BOOL, 7);
@@ -297,8 +285,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
         else if (i == ASSIGN_BOOL) {
             word* target = *(word**)(stack + sp + move(ADDR, -1) + move(BOOL, -1));
             follow_trail(&target, stack, sp);
-            if (is_locked(target) == true) { printf("Failure: Can't assign to a locked variable!\n"); return -1; }
-            if (type_index(target) != BOOL) { printf("Failure: Type mismatch!\n"); return -1; }
+            if (type(target) != BOOL) { printf("Failure: Type mismatch!\n"); return -1; }
             byte* pl = (byte*)payload(target); 
 
             byte value = *(byte*)(stack + sp + move(BOOL, -1));
@@ -343,7 +330,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
             sp += amount;
             ip += move(INT, 1) + 1;
         }
-        else if (i == FETCH_ADDR) {
+        else if (i == FETCH_ADDR) { // REMOVE THIS, NOT NEEDED
             word* target = *(word**)(stack + sp + move(ADDR, -1));
             follow_trail(&target, stack, sp);
             *(word*)(stack + sp + move(ADDR, -1)) = (word)target;
@@ -401,6 +388,14 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
             sp += move(ADDR, 1);
             ip += move(INT, 1) + 1;
         }
+        else if (i == STACK_TRANSFER) {
+            word offset = *(word*)(p + ip + 1);
+            word target = *(word*)(stack + bp + offset);
+            *(word*)(stack + bp + offset) = 0;
+            *(word*)(stack + sp) = target;
+            sp += move(ADDR, 1);
+            ip += move(INT, 1) + 1;
+        }
         else {
             printf("Failure: Unknown instruction: %x\n", p[ip]);
             return -1;
@@ -455,8 +450,8 @@ int main(int argc, char** argv) {
             glob_var_ptr += 8;
             int i = 0;
             while (i < glob_var_count) {
-                byte type = type_index((word*)glob_var_ptr);
-                byte* alloc = allocate(type, is_locked((word*)glob_var_ptr));
+                byte type = *glob_var_ptr;
+                byte* alloc = allocate(type);
                 glob_var_ptr += 1;
                 switch (type){
                     case BOOL:
@@ -484,14 +479,14 @@ int main(int argc, char** argv) {
                     case BOOL: ;
                         byte bool_v = parse_bool(argv[4+i]);
                         if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", argv[4+i]); return -1; }
-                        byte* bool_alloc = allocate(BOOL, false);
+                        byte* bool_alloc = allocate(BOOL);
                         *(bool_alloc+1) = bool_v;
                         *(word*)(stack + move(ADDR, glob_var_count) + move(ADDR, i)) = (word)bool_alloc;
                         break;
                     case INT: ;
                         word int_v = parse_int(argv[4+i]);
                         if (int_v == 0 && !(strcmp(argv[4+i], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", argv[4+i]); return -1; }
-                        byte* int_alloc = allocate(INT, false);
+                        byte* int_alloc = allocate(INT);
                         *((word*)(int_alloc+1)) = int_v;
                         *(word*)(stack + move(ADDR, glob_var_count) + move(ADDR, i)) = (word)int_alloc;
                         break;

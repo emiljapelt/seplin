@@ -7,7 +7,6 @@ type token =
   | NAME of (string)
   | INT
   | BOOL
-  | LOCKED
   | CST_INT of (int)
   | CST_BOOL of (bool)
   | HALT
@@ -48,8 +47,7 @@ type token =
   | PRINT_BOOL
   | STACK_FETCH
   | BP_FETCH
-  | LOCK
-  | UNLOCK
+  | STACK_TRANSFER
   | EOF
 
 val main :

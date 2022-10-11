@@ -16,7 +16,7 @@
 %token COMMA SEMI EOF
 %token IF ELSE
 %token WHILE
-%token LOCKED VAR
+%token LOCKED TRANSFER VAR
 %token PRINT
 
 %left ELSE
@@ -43,8 +43,8 @@ topdec:
   | LOCKED typ NAME SEMI                                      { Global (true, $2, $3) }
   | typ NAME ASSIGNMENT assignable_expression SEMI            { GlobalAssign (false, $1, $2, $4)   }
   | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI     { GlobalAssign (true, $2, $3, $5)    }
-  | INTERNAL NAME LPAR paramdecs RPAR block           { Routine (Internal, $2, $4, $6) }
-  | EXTERNAL NAME LPAR paramdecs RPAR block           { Routine (External, $2, $4, $6) }
+  | INTERNAL NAME LPAR params RPAR block           { Routine (Internal, $2, $4, $6) }
+  | EXTERNAL NAME LPAR params RPAR block           { Routine (External, $2, $4, $6) }
 ;
 
 typ:
@@ -78,20 +78,20 @@ assignable_expression:
 
 unassignable_expression:
     NAME ASSIGNMENT assignable_expression       { Assign ($1, $3) }
-  | NAME LPAR params RPAR                       { Call ($1, $3) }
+  | NAME LPAR arguments RPAR                    { Call ($1, $3) }
   | STOP                                        { Stop }
   | HALT                                        { Halt }
   | PRINT assignable_expression                 { Print $2 }
 ;
 
-params:
-              { [] }
-  | params1   { $1 }
+arguments:
+                 { [] }
+  | arguments1   { $1 }
 ;
 
-params1:
-    assignable_expression                               { [$1] }
-  | assignable_expression COMMA params1    { $1 :: $3 }
+arguments1:
+    assignable_expression                     { [$1] }
+  | assignable_expression COMMA arguments1    { $1 :: $3 }
 ;
 
 stmtOrDecSeq:
@@ -117,18 +117,17 @@ stmt:
   | WHILE LPAR assignable_expression RPAR stmt               { While ($3, $5) }
 ;
 
-paramdecs:
-                  { [] }
-  | paramdecs1    { $1 }
+params:
+               { [] }
+  | params1    { $1 }
 ;
 
-paramdecs1:
-    param                     { [$1] }
-  | param COMMA paramdecs1    { $1 :: $3 }
+params1:
+    param                  { [$1] }
+  | param COMMA params1    { $1 :: $3 }
 ;
 
 param:
-    typ NAME              { (false, $1, $2) }
-  | LOCKED typ NAME       { (true, $2, $3) }
+  | LOCKED typ NAME            { (true, $2, $3) }
+  | typ NAME                   { (false, $1, $2) }
 ;
-

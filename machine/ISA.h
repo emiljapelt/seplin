@@ -116,33 +116,32 @@ int string_to_instruction(char* str);
 // Modify the stack pointer by 'x'
 // [s,_ => s,_]
 
-#define CLONE_FRAME 0x1d
-// Creates a new stackframe containing the same variables as the current stackframe. 
-// Except they are all marked as not being created in the new stackframe. 
-// [s,r_0,b_0,v_0...v_x => s,r_0,b_0,v_0...v_x,r_1,b_2,v_0...v_x]
-
-#define FETCH_ADDR 0x1e
+#define FETCH_ADDR 0x1d
 // Fetch a variable heap address from 's_addr' on the stack
 // [s,s_addr,_ => s,v_addr,_]
 
-#define FREE_VAR 0x1f
+#define FREE_VAR 0x1e
 // Free the allocation referenced at the stack address 's_addr'
 // [s,s_addr,_ => s,_]
 
-#define FREE_VARS 0x20
+#define FREE_VARS 0x1f
 
-#define PRINT_VAR 0x21
+#define PRINT_VAR 0x20
 // Print a variable
 // [s,addr,_ => s,_]
 
-#define PRINT_INT 0x22
+#define PRINT_INT 0x21
 // Print an int of the stack
 // [s,i,_ => s,_]
 
-#define PRINT_BOOL 0x23
+#define PRINT_BOOL 0x22
 // Print an int of the stack
 // [s,b,_ => s,_]
 
-#define STACK_FETCH 0x24
+#define STACK_FETCH 0x23
 
-#define BP_FETCH 0x25
+#define BP_FETCH 0x24
+
+#define STACK_TRANSFER 0x25
+// Pull an address 'a', to the top of the stack. Replacing the original 0.
+// [s,...,a,...,offset,_ => s,...,0,...,a,_] 

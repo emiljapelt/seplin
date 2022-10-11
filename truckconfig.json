@@ -1,6 +1,0 @@
-{
-  "hiddenFiles": [
-    "*.exe",
-    "inex/compiler/test"
-  ]
-}

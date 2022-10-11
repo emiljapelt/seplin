@@ -28,7 +28,7 @@ void find_instruction_start(byte* ptr, byte** progresser) {
 
     int i = 0;
     while (i < variables) {
-        byte type = type_index((word*)ptr);
+        byte type = *ptr;
         switch (type){
             case BOOL:
                 ptr += 2;
