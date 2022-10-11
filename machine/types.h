@@ -11,8 +11,4 @@ word parse_int(char* str);
 
 byte parse_bool(char* str);
 
-byte is_locked(word* addr);
-
-byte type_index(word* addr);
-
 byte* payload(word* addr);

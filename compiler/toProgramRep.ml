@@ -313,17 +313,17 @@ and compile_stmt stmt globvars localvars routines =
   )
   | Expression (expr) -> compile_unassignable_expr expr globvars localvars routines
 
-let rec evaluate_globvar name expr globvars = 
+let rec evaluate_globvar used_vars expr globvars = 
   match expr with
   | Bool b -> Bool b
   | Int i -> Int i
   | Lookup n -> (
-    if n = name then failwith "Self referencing global variables are not allowed"
-    else evaluate_globvar n (fetch_globvar_expr n globvars) globvars
+    if List.for_all (fun var -> n != var) used_vars then evaluate_globvar (n::used_vars) (fetch_globvar_expr n globvars) globvars
+    else failwith "Cyclic referencing detected in global variables"
     )
   | Binary_op (op, e1, e2) -> (
-      let v1 = evaluate_globvar name e1 globvars in
-      let v2 = evaluate_globvar name e2 globvars in
+      let v1 = evaluate_globvar used_vars e1 globvars in
+      let v2 = evaluate_globvar used_vars e2 globvars in
       match (op, v1, v2) with
       | ("&", Bool b1, Bool b2) -> Bool (b1 && b2)
       | ("|", Bool b1, Bool b2) -> Bool (b1 || b2)
@@ -341,7 +341,7 @@ let rec evaluate_globvar name expr globvars =
       | _ -> failwith "Unknown binary operator, or type mismatch"
     )
   | Unary_op (op, e) -> (
-    let v = evaluate_globvar name e globvars in
+    let v = evaluate_globvar used_vars e globvars in
     match (op, v) with
     | ("!", Bool b) -> Bool (not b)
     | _ -> failwith "Unknown unary operator, or type mismatch"
@@ -352,7 +352,7 @@ let compile_globvars lst =
     match l with
     | [] -> acc
     | (n,_,l,ty,expr)::t -> (
-      let v = evaluate_globvar n expr lst in
+      let v = evaluate_globvar [n] expr lst in
       match (ty, v) with
       | (T_Bool, Bool b) -> aux t ((G_Bool(l, b))::acc)
       | (T_Int, Int i) ->  aux t ((G_Int(l, i))::acc)

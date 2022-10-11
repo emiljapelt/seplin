@@ -2,4 +2,22 @@
   - Make sure type related instructions (INT_ADD, BOOL_EQ etc.) all start with their type (DECLARE_INT should be INT_DECLARE for example).
   - Make sure to use follow_trail, for all address related instructions
 - Do some testing of the assembly compiler
-- Remove VM level variable locks, including the related instructions (LOCK, UNLOCK)
+
+
+- For more advanced types, i.e. arrays and bundles, that can contain other arrays or bundles
+  - Ownership transfer
+    - A routine, r1, can take a transfer as an argument, the calling routine, r2
+      - r2 will then lose access to the variable
+      - r1 can only transfer variables that it owns (has declared, or transfer parameters)
+      - Syntax: external example(transfer locked int x, transfer bool b) { ... }
+      - In VM this means that the variable address in r1 will be set to 0, and the variable address in r2 will be the direct heap address
+    - A routine, r1, can transfer ownership of an array or a bundle, to an array or a bundle, o1
+      - r1 will then lose access to the variable (still accesible via o1)
+      - r1 can only transfer arrays and bundles that it owns (has declared, or transfer parameters)
+      - Syntax: ... { bndl.lst <: arr; 2d_arr[0] <: 1d_arr }
+      - In VM this means that variable address will be set to 0, the address to be replaced in o1 will be freed, and then replaced by the direct heap address
+  - Arrays
+    - Has its own type, in memory it could look like this: [T_ARRAY][Any type that is not T_ARRAY][size][]...[]
+    - To reference other array the second type is T_ADDR
+  - Bundles
+    - Must be defined at top level, maybe by the syntax: bundle list { locked int id, int size, int[] list }

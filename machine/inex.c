@@ -401,22 +401,6 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
             sp += move(ADDR, 1);
             ip += move(INT, 1) + 1;
         }
-        else if (i == LOCK) {
-            word* target = *(word**)(stack + sp + move(ADDR, -1));
-            follow_trail(&target, stack, sp);
-            byte* header = (byte*)target;
-            *header = *header | 0b10000000;
-            sp -= move(ADDR, 1);
-            ip++;
-        }
-        else if (i == UNLOCK) {
-            word* target = *(word**)(stack + sp + move(ADDR, -1));
-            follow_trail(&target, stack, sp);
-            byte* header = (byte*)target;
-            *header = *header & 0b01111111;
-            sp -= move(ADDR, 1);
-            ip++;
-        }
         else {
             printf("Failure: Unknown instruction: %x\n", p[ip]);
             return -1;
