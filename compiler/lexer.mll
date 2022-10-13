@@ -1,5 +1,6 @@
 {
     open Parser
+    open Exceptions
     let keyword_table = Hashtbl.create 53
     let () = List.iter (fun (kwd, tok) -> Hashtbl.add keyword_table kwd tok)
                         [ "int", INT;
@@ -14,9 +15,13 @@
                           "stop", STOP;
                           "halt", HALT;
                           "print", PRINT]
+
+
+  let line_num = ref 1
 }
 rule lex = parse
-        [' ' '\t' '\r' '\n']        { lex lexbuf }
+        [' ' '\t' '\r']        { lex lexbuf }
+    |   ['\n']        { incr line_num; lex lexbuf }
     |   ['0'-'9']+ as lxm { CSTINT (int_of_string lxm) }
     |   "true"            { CSTBOOL true}
     |   "false"           { CSTBOOL false}
@@ -45,4 +50,5 @@ rule lex = parse
     |   ']'           { RBRAKE }
     |   ','           { COMMA }
     |   ';'           { SEMI }
+    |   _             { syntax_error "Unknown token" line_num }
     |   eof           { EOF }

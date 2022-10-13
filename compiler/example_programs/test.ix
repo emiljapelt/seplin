@@ -2,7 +2,9 @@ locked int funny := 69;
 
 external main(bool do_funny) {
 
-    print (4 < 5);
+    var test := 5 * (2 - 1);
+    print test;
+    
     print (5 <= 5);
     print (4 > 5);
     print (4 >= 5);
