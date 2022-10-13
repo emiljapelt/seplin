@@ -21,7 +21,7 @@
 }
 rule lex = parse
         [' ' '\t' '\r']        { lex lexbuf }
-    |   ['\n']        { incr line_num; lex lexbuf }
+    |   '\n'        { incr line_num; lex lexbuf }
     |   ['0'-'9']+ as lxm { CSTINT (int_of_string lxm) }
     |   "true"            { CSTBOOL true}
     |   "false"           { CSTBOOL false}

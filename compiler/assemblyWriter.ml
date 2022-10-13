@@ -1,5 +1,6 @@
 open Printf
 open ProgramRep
+open Exceptions
 
 (* HELPERS *)
 
@@ -107,7 +108,7 @@ let rec write_program_parts f pp labels =
     | LabelInstruction (i, l) -> (
       fprintf f "%c" (Char.chr i);
       match find_label l labels with
-      | None -> failwith (String.concat " " ["Undefined label:"; l])
+      | None -> compile_error ("Undefined label: " ^ l)
       | Some a -> write_word f (Int64.of_int a);
       write_program_parts f t labels
     )

@@ -325,7 +325,7 @@ and __ocaml_lex_lex_rec lexbuf __ocaml_lex_state =
 
   | 1 ->
 # 24 "lexer.mll"
-                      ( incr line_num; lex lexbuf )
+                    ( incr line_num; lex lexbuf )
 # 330 "lexer.ml"
 
   | 2 ->
