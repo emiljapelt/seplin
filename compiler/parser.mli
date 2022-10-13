@@ -35,6 +35,8 @@ type token =
   | WHILE
   | UNTIL
   | FOR
+  | BREAK
+  | CONTINUE
   | LOCKED
   | TRANSFER
   | VAR

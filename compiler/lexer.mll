@@ -15,6 +15,8 @@
                           "until", UNTIL;
                           "for", FOR;
                           "stop", STOP;
+                          "break", BREAK;
+                          "continue", CONTINUE;
                           "halt", HALT;
                           "print", PRINT]
 

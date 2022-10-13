@@ -26,6 +26,8 @@ and unassignable_expression =
     | Call of string * assignable_expression list
     | Stop
     | Halt
+    | Break
+    | Continue
     | Print of assignable_expression
 
 and assignable_expression =

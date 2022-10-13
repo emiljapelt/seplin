@@ -145,6 +145,7 @@ void dissas(byte* p, word file_len) {
             case FREE_VARS:
                 printf("%i: FREE_VARS %lld\n", i, *((word*)(p+i+1)));
                 i+=8;
+                break;
             case PRINT_VAR:
                 printf("%i: PRINT_VAR\n", i);
                 break;

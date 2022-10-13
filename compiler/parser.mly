@@ -17,6 +17,7 @@
 %token COMMA SEMI EOF
 %token IF ELSE
 %token WHILE UNTIL FOR
+%token BREAK CONTINUE
 %token LOCKED TRANSFER VAR
 %token PRINT
 
@@ -82,6 +83,8 @@ unassignable_expression:
   | NAME LPAR arguments RPAR                    { Call ($1, $3) }
   | STOP                                        { Stop }
   | HALT                                        { Halt }
+  | BREAK                                       { Break }
+  | CONTINUE                                    { Continue }
   | PRINT assignable_expression                 { Print $2 }
 ;
 

@@ -232,7 +232,7 @@ let compile_arguments params exprs globvars localvars =
   aux params exprs []
 
 
-let compile_unassignable_expr expr globvars localvars routines =
+let compile_unassignable_expr expr globvars localvars routines break continue cleanup =
   match expr with
   | Assign (name, aexpr) -> (
     let (ty, ins) = compile_assignable_expr aexpr globvars localvars in
@@ -265,6 +265,18 @@ let compile_unassignable_expr expr globvars localvars routines =
   )
   | Stop -> [Instruction(1)]
   | Halt -> [Instruction(0)]
+  | Break -> (
+    match break with
+    | Some name when cleanup = 0 -> [LabelInstruction(3, name)]
+    | Some name -> IntInstruction(31, cleanup) :: [LabelInstruction(3, name)]
+    | None -> compile_error "No loop to break out of"
+  )
+  | Continue -> (
+    match continue with
+    | Some name when cleanup = 0 -> [LabelInstruction(3, name)]
+    | Some name -> IntInstruction(31, cleanup) :: [LabelInstruction(3, name)]
+    | None -> compile_error "No loosp to continue in"
+  )
   | Print expr -> (
     let (t, ins) = compile_assignable_expr expr globvars localvars in
     match t with
@@ -296,47 +308,51 @@ let rec compile_declaration dec globvars localvars =
     | T_Bool -> (Instruction(13) :: [Instruction(7)] @ ins @ [Instruction(15)], (l,ty,n)::localvars)
   )
 
-let rec compile_sod_list sod_list globvars localvars routines =
+let rec compile_sod_list sod_list globvars localvars routines break continue cleanup =
   match sod_list with
   | [] -> []
   | h::t -> (
     match h with
-    | Statement s -> compile_stmt s globvars localvars routines @ compile_sod_list t globvars localvars routines
+    | Statement s -> compile_stmt s globvars localvars routines break continue cleanup @ compile_sod_list t globvars localvars routines break continue cleanup
     | Declaration dec -> (
       let (dec_ins, new_localvars) = compile_declaration dec globvars localvars in
-      dec_ins @ compile_sod_list t globvars new_localvars routines
+      dec_ins @ compile_sod_list t globvars new_localvars routines break continue (cleanup+1)
     )
   )
 
-and compile_stmt stmt globvars localvars routines =
+and compile_stmt stmt globvars localvars routines break continue cleanup =
   match stmt with
   | If (e, s1, s2) -> (
-    let label_name1 = new_label () in
-    let label_name2 = new_label () in
+    let label_true = new_label () in
+    let label_stop = new_label () in
     let (t, ins) = compile_assignable_expr e globvars localvars in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
-    else ins @ [LabelInstruction(4, label_name1)] @ (compile_stmt s2 globvars localvars routines) @ [LabelInstruction(3,label_name2)] @ [Label(label_name1)] @ (compile_stmt s1 globvars localvars routines) @ [Label(label_name2)]
+    else ins @ [LabelInstruction(4, label_true)] @ (compile_stmt s2 globvars localvars routines break continue 0) @ [LabelInstruction(3,label_stop)] @ [Label(label_true)] @ (compile_stmt s1 globvars localvars routines break continue 0) @ [Label(label_stop)]
   )
   | While (e, s) -> (
     let label_cond = new_label () in
     let label_start = new_label () in
+    let label_stop = new_label () in
     let (t, ins) = compile_assignable_expr e globvars localvars in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
-    else (LabelInstruction(3, label_cond)) :: Label(label_start) :: (compile_stmt s globvars localvars routines) @ [Label(label_cond)] @ ins @ [LabelInstruction(4, label_start)]
+    else (LabelInstruction(3, label_cond)) :: Label(label_start) :: (compile_stmt s globvars localvars routines (Some label_stop) (Some label_cond) 0) @ [Label(label_cond)] @ ins @ (LabelInstruction(4, label_start) :: [Label(label_stop)])
   )
   | For (dec, con, modi, s) -> (
     let label_cond = new_label () in
     let label_start = new_label () in
+    let label_modi = new_label () in
+    let label_stop = new_label () in
     let (dec_ins, new_localvars) = compile_declaration dec globvars localvars in
     let (con_t, con_ins) = compile_assignable_expr con globvars new_localvars in
-    let modi_ins = compile_unassignable_expr modi globvars new_localvars routines in
+    let modi_ins = compile_unassignable_expr modi globvars new_localvars routines None None cleanup in
     if con_t != T_Bool then compile_error "Conditional requires 'bool'"
-    else dec_ins @ (LabelInstruction(3, label_cond) :: Label(label_start) :: compile_stmt s globvars new_localvars routines) @ modi_ins @ [Label(label_cond)] @ con_ins @ (LabelInstruction(4, label_start) :: [Instruction(30)])
+    else dec_ins @ (LabelInstruction(3, label_cond) :: Label(label_start) :: compile_stmt s globvars new_localvars routines (Some label_stop) (Some label_modi) 0) @ (Label(label_modi) :: modi_ins) @ [Label(label_cond)] @ con_ins @ (LabelInstruction(4, label_start) :: Label(label_stop) :: [Instruction(30)])
   )
   | Block (sod_list) -> (
-    (compile_sod_list sod_list globvars localvars routines) @ [IntInstruction(31, (count_decl sod_list))]
+    let block_ins = compile_sod_list sod_list globvars localvars routines break continue cleanup in 
+    if cleanup = 0 then block_ins else block_ins @ [IntInstruction(31, (count_decl sod_list))]
   )
-  | Expression (expr) -> compile_unassignable_expr expr globvars localvars routines
+  | Expression (expr) -> compile_unassignable_expr expr globvars localvars routines break continue cleanup
 
 let rec evaluate_globvar used_vars expr globvars = 
   match expr with
@@ -394,7 +410,7 @@ let compile topdecs =
     | [] -> acc
     | h::t -> match h with
       | Routine (accmod, n, params, stmt) -> 
-        aux t ((routine_head accmod n params)::(compile_stmt stmt globvars params routines) @ [Instruction(1)] @ acc)
+        aux t ((routine_head accmod n params)::(compile_stmt stmt globvars params routines None None 0) @ [Instruction(1)] @ acc)
       | _ -> aux t acc
   in
   match topdecs with

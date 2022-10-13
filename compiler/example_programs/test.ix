@@ -1,38 +1,72 @@
 locked int funny := 69;
 
-external main(int funny_count) {
-
-    until(funny_count = 0) {
-        if (funny_count < 0) {
-            print -funny;
-            funny_count := funny_count + 1;
-        }
-        else {
-            print funny;
-            funny_count := funny_count - 1;
-        }
-    }
-
-    for ( var i := 0 ; i < 22 ; i := i + 1 ) {
-        var temp := i;
-        fib(temp);   
-    }
+external main() {
+    fbrea(10, 5);
+    print 0;
+    fcont(10, 5);
+    print 0;
+    wbrea(10, 5);
+    print 0;
+    wcont(10, 5);
+    print 0;
+    ubrea(10, 5);
+    print 0;
+    ucont(10, 5);
 }
 
-internal add(locked int a, locked int b, int res) {
-    res := a + b;
-}
 
-internal sub(locked int a, locked int b, int res) {
-    res := a - b;
-}
-
-external funny_time(int c) {
-    while(!(c = 0)) {
-        print funny;
-        c := c - 1;
+internal fbrea(locked int ls, locked int b) {
+    for(int i := 0; i < ls; i := i+1) {
+        if (i = b) break;
+        print funny+i;
     }
 }
+
+internal fcont(locked int ls, locked int c) {
+    for(int i := 0; i < ls; i := i+1) {
+        if (i = c) continue;
+        print funny+i;
+    }
+}
+
+
+internal wbrea(locked int ls, locked int b) {
+    var i := 0;
+    while(i < ls) {
+        i := i + 1;
+        if (i = b) break;
+        print funny+i;
+    }
+}
+
+internal wcont(locked int ls, locked int c) {
+    var i := 0;
+    while(i < ls) {
+        i := i + 1;
+        if (i = c) continue;
+        print funny+i;
+    }
+}
+
+
+internal ubrea(locked int ls, locked int b) {
+    var i := 0;
+    until(i = ls) {
+        i := i + 1;
+        if (i = b) break;
+        print funny+i;
+    }
+}
+
+internal ucont(locked int ls, locked int c) {
+    var i := 0;
+    until(i = ls) {
+        i := i + 1;
+        if (i = c) continue;
+        print funny+i;
+    }
+}
+
 
 external fib(int c) {
     int res;
