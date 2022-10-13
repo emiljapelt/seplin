@@ -1,6 +1,7 @@
 %{
   open Absyn
   open ProgramRep
+  open Exceptions
 %}
 %token <int> CSTINT
 %token INT
