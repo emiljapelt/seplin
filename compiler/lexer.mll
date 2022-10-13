@@ -12,6 +12,8 @@
                           "if", IF;
                           "else", ELSE;
                           "while", WHILE;
+                          "until", UNTIL;
+                          "for", FOR;
                           "stop", STOP;
                           "halt", HALT;
                           "print", PRINT]

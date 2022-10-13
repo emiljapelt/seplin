@@ -33,6 +33,8 @@ type token =
   | IF
   | ELSE
   | WHILE
+  | UNTIL
+  | FOR
   | LOCKED
   | TRANSFER
   | VAR

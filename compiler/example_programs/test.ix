@@ -1,16 +1,22 @@
 locked int funny := 69;
 
-external main(bool do_funny) {
+external main(int funny_count) {
 
-    var test := 5 * (2 - 1);
-    print test;
-    print (5 <= 5);
-    print (4 > 5);
-    print (4 >= 5);
-    print (true != false);
-    print (3 != 2);
-    if (!do_funny) halt;$
-    print funny;
+    until(funny_count = 0) {
+        if (funny_count < 0) {
+            print -funny;
+            funny_count := funny_count + 1;
+        }
+        else {
+            print funny;
+            funny_count := funny_count - 1;
+        }
+    }
+
+    for ( var i := 0 ; i < 22 ; i := i + 1 ) {
+        var temp := i;
+        fib(temp);   
+    }
 }
 
 internal add(locked int a, locked int b, int res) {

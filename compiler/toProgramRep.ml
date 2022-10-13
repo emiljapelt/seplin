@@ -30,13 +30,13 @@ let count_decl stmt_dec_list =
   let rec aux sdl c =
     match sdl with
     | [] -> c
-    | h::t -> (
-      match h with
-      | Declaration _ -> aux t (c+1)
+    | (Declaration dec)::t -> (
+      match dec with
+      | TypeDeclaration _ -> aux t (c+1)
       | AssignDeclaration _ -> aux t (c+1)
       | VarDeclaration _ -> aux t (c+1)
-      | _ -> aux t c
     )
+    | _::t -> aux t (c)
   in
   aux stmt_dec_list 0
 
@@ -272,32 +272,39 @@ let compile_unassignable_expr expr globvars localvars routines =
     | T_Int -> ins @ [Instruction(33)]
   )
 
+let rec compile_declaration dec globvars localvars =
+  match dec with
+  | TypeDeclaration (l, ty, n) -> (
+    if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
+    else match ty with
+    | T_Int -> (Instruction(14) :: Instruction(7) :: IntInstruction(6, 0) :: [Instruction(16)], (l,ty,n)::localvars)
+    | T_Bool -> (Instruction(13) :: Instruction(7) :: BoolInstruction(5, false) :: [Instruction(15)], (l,ty,n)::localvars)
+  )
+  | AssignDeclaration (l, ty, n, expr) -> (
+    if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
+    else let (expr_ty, ins) = compile_assignable_expr expr globvars localvars in
+    match ty with
+    | T_Int when expr_ty = T_Int -> (Instruction(14) :: [Instruction(7)] @ ins @ [Instruction(16)], (l,ty,n)::localvars)
+    | T_Bool when expr_ty = T_Bool -> (Instruction(13) :: [Instruction(7)] @ ins @ [Instruction(15)], (l,ty,n)::localvars)
+    | _ -> compile_error ("Type mismatch on declaration: expected " ^ (type_string ty) ^ ", got " ^ (type_string expr_ty)) 
+  )
+  | VarDeclaration (l, n, expr) -> (
+    if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
+    else let (ty, ins) = compile_assignable_expr expr globvars localvars in
+    match ty with
+    | T_Int -> (Instruction(14) :: [Instruction(7)] @ ins @ [Instruction(16)], (l,ty,n)::localvars)
+    | T_Bool -> (Instruction(13) :: [Instruction(7)] @ ins @ [Instruction(15)], (l,ty,n)::localvars)
+  )
+
 let rec compile_sod_list sod_list globvars localvars routines =
   match sod_list with
   | [] -> []
   | h::t -> (
     match h with
     | Statement s -> compile_stmt s globvars localvars routines @ compile_sod_list t globvars localvars routines
-    | Declaration (l, ty, n) -> (
-      if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
-      else match ty with
-      | T_Int -> Instruction(14) :: Instruction(7) :: IntInstruction(6, 0) :: [Instruction(16)] @ compile_sod_list t globvars ((l,ty,n)::localvars) routines
-      | T_Bool -> Instruction(13) :: Instruction(7) :: BoolInstruction(5, false) :: [Instruction(15)] @ compile_sod_list t globvars ((l,ty,n)::localvars) routines
-    )
-    | AssignDeclaration (l, ty, n, expr) -> (
-      if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
-      else let (expr_ty, ins) = compile_assignable_expr expr globvars localvars in
-      match ty with
-      | T_Int when expr_ty = T_Int -> Instruction(14) :: [Instruction(7)] @ ins @ [Instruction(16)] @ compile_sod_list t globvars ((l,ty,n)::localvars) routines
-      | T_Bool when expr_ty = T_Bool -> Instruction(13) :: [Instruction(7)] @ ins @ [Instruction(15)] @ compile_sod_list t globvars ((l,ty,n)::localvars) routines
-      | _ -> compile_error ("Type mismatch on declaration: expected " ^ (type_string ty) ^ ", got " ^ (type_string expr_ty)) 
-    )
-    | VarDeclaration (l, n, expr) -> (
-      if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
-      else let (ty, ins) = compile_assignable_expr expr globvars localvars in
-      match ty with
-      | T_Int -> Instruction(14) :: [Instruction(7)] @ ins @ [Instruction(16)] @ compile_sod_list t globvars ((l,ty,n)::localvars) routines
-      | T_Bool -> Instruction(13) :: [Instruction(7)] @ ins @ [Instruction(15)] @ compile_sod_list t globvars ((l,ty,n)::localvars) routines
+    | Declaration dec -> (
+      let (dec_ins, new_localvars) = compile_declaration dec globvars localvars in
+      dec_ins @ compile_sod_list t globvars new_localvars routines
     )
   )
 
@@ -316,6 +323,15 @@ and compile_stmt stmt globvars localvars routines =
     let (t, ins) = compile_assignable_expr e globvars localvars in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
     else (LabelInstruction(3, label_cond)) :: Label(label_start) :: (compile_stmt s globvars localvars routines) @ [Label(label_cond)] @ ins @ [LabelInstruction(4, label_start)]
+  )
+  | For (dec, con, modi, s) -> (
+    let label_cond = new_label () in
+    let label_start = new_label () in
+    let (dec_ins, new_localvars) = compile_declaration dec globvars localvars in
+    let (con_t, con_ins) = compile_assignable_expr con globvars new_localvars in
+    let modi_ins = compile_unassignable_expr modi globvars new_localvars routines in
+    if con_t != T_Bool then compile_error "Conditional requires 'bool'"
+    else dec_ins @ (LabelInstruction(3, label_cond) :: Label(label_start) :: compile_stmt s globvars new_localvars routines) @ modi_ins @ [Label(label_cond)] @ con_ins @ (LabelInstruction(4, label_start) :: [Instruction(30)])
   )
   | Block (sod_list) -> (
     (compile_sod_list sod_list globvars localvars routines) @ [IntInstruction(31, (count_decl sod_list))]

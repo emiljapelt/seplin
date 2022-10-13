@@ -3,14 +3,18 @@ open ProgramRep
 type statement =
     | If of assignable_expression * statement * statement
     | While of assignable_expression * statement
+    | For of declaration * assignable_expression * unassignable_expression * statement
     | Block of statement_or_declaration list
     | Expression of unassignable_expression
 
-and statement_or_declaration =
-    | Statement of statement
-    | Declaration of bool * typ * string
+and declaration =
+    | TypeDeclaration of bool * typ * string
     | AssignDeclaration of bool * typ * string * assignable_expression
     | VarDeclaration of bool * string * assignable_expression
+
+and statement_or_declaration =
+    | Statement of statement
+    | Declaration of declaration
 
 (* Might not be necessary *)
 and expression =

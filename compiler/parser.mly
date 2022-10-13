@@ -16,7 +16,7 @@
 %token AND OR NOT
 %token COMMA SEMI EOF
 %token IF ELSE
-%token WHILE
+%token WHILE UNTIL FOR
 %token LOCKED TRANSFER VAR
 %token PRINT
 
@@ -102,8 +102,12 @@ stmtOrDecSeq:
 
 stmtOrDec:
     stmt                                                     { Statement $1 }
-  | typ NAME SEMI                                            { Declaration (false, $1, $2) }
-  | LOCKED typ NAME SEMI                                     { Declaration (true, $2, $3) }
+  | dec                                                      { Declaration $1 }
+;
+
+dec:
+    typ NAME SEMI                                            { TypeDeclaration (false, $1, $2) }
+  | LOCKED typ NAME SEMI                                     { TypeDeclaration (true, $2, $3) }
   | typ NAME ASSIGNMENT assignable_expression SEMI           { AssignDeclaration (false, $1, $2, $4) }
   | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, $2, $3, $5) }
   | VAR NAME ASSIGNMENT assignable_expression SEMI           { VarDeclaration (false, $2, $4) }
@@ -116,6 +120,8 @@ stmt:
   | IF LPAR assignable_expression RPAR stmt ELSE stmt        { If ($3, $5, $7) }
   | IF LPAR assignable_expression RPAR stmt                  { If ($3, $5, Block []) }
   | WHILE LPAR assignable_expression RPAR stmt               { While ($3, $5) }
+  | UNTIL LPAR assignable_expression RPAR stmt               { While (Unary_op("!", $3), $5) }
+  | FOR LPAR dec assignable_expression SEMI unassignable_expression RPAR stmt    { For ($3, $4, $6, $8) }
 ;
 
 params:
