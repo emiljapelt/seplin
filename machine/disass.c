@@ -140,7 +140,7 @@ void dissas(byte* p, word file_len) {
                 printf("%i: FETCH_ADDR\n", i);
                 break;
             case FREE_VAR:
-                printf("%i: FREE_ADDR\n", i);
+                printf("%i: FREE_VAR\n", i);
                 break;
             case FREE_VARS:
                 printf("%i: FREE_VARS %lld\n", i, *((word*)(p+i+1)));

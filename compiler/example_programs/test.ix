@@ -29,6 +29,21 @@ internal fcont(locked int ls, locked int c) {
     }
 }
 
+external test2() {
+    test(4,1);
+}
+
+external test(locked int ls, locked int when) {
+    var i := 0;
+    print ls;
+    print when;
+    while( i < ls ) {
+        var x := 1;
+        i := i + x;
+        if (i = when) break;
+        print i;
+    }
+}
 
 internal wbrea(locked int ls, locked int b) {
     var i := 0;

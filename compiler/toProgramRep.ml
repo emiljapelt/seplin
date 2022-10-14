@@ -229,7 +229,7 @@ let compile_arguments params exprs globvars localvars =
       )
     | _ -> compile_error "Insufficient arguments in call"
   in
-  aux params exprs []
+  aux (List.rev params) (List.rev exprs) []
 
 
 let compile_unassignable_expr expr globvars localvars routines break continue cleanup =
@@ -327,7 +327,7 @@ and compile_stmt stmt globvars localvars routines break continue cleanup =
     let label_stop = new_label () in
     let (t, ins) = compile_assignable_expr e globvars localvars in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
-    else ins @ [LabelInstruction(4, label_true)] @ (compile_stmt s2 globvars localvars routines break continue 0) @ [LabelInstruction(3,label_stop)] @ [Label(label_true)] @ (compile_stmt s1 globvars localvars routines break continue 0) @ [Label(label_stop)]
+    else ins @ [LabelInstruction(4, label_true)] @ (compile_stmt s2 globvars localvars routines break continue cleanup) @ [LabelInstruction(3,label_stop)] @ [Label(label_true)] @ (compile_stmt s1 globvars localvars routines break continue cleanup) @ [Label(label_stop)]
   )
   | While (e, s) -> (
     let label_cond = new_label () in
@@ -349,8 +349,9 @@ and compile_stmt stmt globvars localvars routines break continue cleanup =
     else dec_ins @ (LabelInstruction(3, label_cond) :: Label(label_start) :: compile_stmt s globvars new_localvars routines (Some label_stop) (Some label_modi) 0) @ (Label(label_modi) :: modi_ins) @ [Label(label_cond)] @ con_ins @ (LabelInstruction(4, label_start) :: Label(label_stop) :: [Instruction(30)])
   )
   | Block (sod_list) -> (
+    let decs = count_decl sod_list in
     let block_ins = compile_sod_list sod_list globvars localvars routines break continue cleanup in 
-    if cleanup = 0 then block_ins else block_ins @ [IntInstruction(31, (count_decl sod_list))]
+    if decs = 0 then block_ins else block_ins @ [IntInstruction(31, (count_decl sod_list))]
   )
   | Expression (expr) -> compile_unassignable_expr expr globvars localvars routines break continue cleanup
 
@@ -410,7 +411,7 @@ let compile topdecs =
     | [] -> acc
     | h::t -> match h with
       | Routine (accmod, n, params, stmt) -> 
-        aux t ((routine_head accmod n params)::(compile_stmt stmt globvars params routines None None 0) @ [Instruction(1)] @ acc)
+        aux t ((routine_head accmod n params)::(compile_stmt stmt globvars (List.rev params) routines None None 0) @ [Instruction(1)] @ acc)
       | _ -> aux t acc
   in
   match topdecs with
