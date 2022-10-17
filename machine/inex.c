@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "ISA.h"
 #include "types.h"
@@ -497,10 +498,18 @@ int main(int argc, char** argv) {
                 i++;
             }
 
-            if (debug) 
+            clock_t ticks;
+            if (debug) {
                 printf("Running %s @ instruction #%lld...\n\n", argv[3], entry_addr);
+                ticks = clock();
+            }
 
-            return run(progresser, entry_addr, stack, glob_var_count, argument_count, debug);
+            int return_code = run(progresser, entry_addr, stack, glob_var_count, argument_count, debug);
+
+            if (debug) 
+                printf("Total execution time: %fs\n", (((double)(clock() - ticks))/CLOCKS_PER_SEC));
+                
+            return return_code;
         }
         default:
             break;
