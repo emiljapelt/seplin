@@ -2,4 +2,5 @@
   - Make sure type related instructions (INT_ADD, BOOL_EQ etc.) all start with their type (DECLARE_INT should be INT_DECLARE for example).
   - Make sure to use follow_trail, for all address related instructions
 - Do some testing of the assembly compiler
-- Look into error messages: https://stackoverflow.com/questions/1933101/ocamlyacc-parse-error-what-token
+- Refactor ProgramRep to represent each instruction, instead of general forms of instructions (Should make working on the compiler easier)
+- Implement tail recursive calls
