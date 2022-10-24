@@ -28,6 +28,7 @@ type token =
   | OR
   | NOT
   | COMMA
+  | DOT
   | SEMI
   | EOF
   | IF

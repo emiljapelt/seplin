@@ -1,6 +1,11 @@
 locked int funny := 69;
 
 external main() {
+
+    int r;
+    addmul2(10,5,r);
+    print r;
+
     fbrea(10, 5);
     print 0;
     fcont(10, 5);
@@ -96,3 +101,17 @@ internal 'fib(int a, int b, int c) {
     b := temp + b;
     'fib(a, b, c-1);
 }
+
+
+
+internal add(locked int x, locked int y, int r) {
+    r := x + y;
+}
+
+internal mul(locked int x, locked int y, int r) {
+    r := x * y;
+}
+
+internal addmul2(locked int x, locked int y, int r)
+    .add(x,y,r)
+    .mul(r,2,r)

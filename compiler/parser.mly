@@ -14,7 +14,7 @@
 %token STOP HALT
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
 %token AND OR NOT
-%token COMMA SEMI EOF
+%token COMMA DOT SEMI EOF
 %token IF ELSE
 %token WHILE UNTIL FOR
 %token BREAK CONTINUE
@@ -47,6 +47,8 @@ topdec:
   | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI     { GlobalAssign (true, $2, $3, $5)    }
   | INTERNAL NAME LPAR params RPAR block           { Routine (Internal, $2, $4, $6) }
   | EXTERNAL NAME LPAR params RPAR block           { Routine (External, $2, $4, $6) }
+  | INTERNAL NAME LPAR params RPAR chain           { Routine (Internal, $2, $4, Block $6) }
+  | EXTERNAL NAME LPAR params RPAR chain           { Routine (External, $2, $4, Block $6) }
 ;
 
 typ:
@@ -56,6 +58,11 @@ typ:
 
 block:
   LBRACE stmtOrDecSeq RBRACE    { Block $2 }
+;
+
+chain:
+    DOT NAME LPAR arguments RPAR { [Statement (Expression (Call($2, $4)))] }
+  | DOT NAME LPAR arguments RPAR chain { (Statement (Expression (Call ($2, $4)))) :: $6 }
 ;
 
 assignable_expression:

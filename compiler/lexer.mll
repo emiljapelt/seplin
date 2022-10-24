@@ -53,6 +53,7 @@ rule lex = parse
     |   '['           { LBRAKE }
     |   ']'           { RBRAKE }
     |   ','           { COMMA }
+    |   '.'           { DOT }
     |   ';'           { SEMI }
     |   _             { syntax_error "Unknown token" line_num }
     |   eof           { EOF }
