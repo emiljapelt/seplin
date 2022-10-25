@@ -1,6 +1,8 @@
-- Rework the ISA
-  - Make sure type related instructions (INT_ADD, BOOL_EQ etc.) all start with their type (DECLARE_INT should be INT_DECLARE for example).
-  - Make sure to use follow_trail, for all address related instructions
-- Do some testing of the assembly compiler
 - Refactor ProgramRep to represent each instruction, instead of general forms of instructions (Should make working on the compiler easier)
 - Implement tail recursive calls
+- Only have 1 version of arguments on call
+  - current : [s, a1, ..., an, n, _] -> [s, a1, ..., an, n, ret, obp, a1, ..., an, _]
+  - desired : [s, a1, ..., an, n, _] -> [s, ret, obp, a1, ..., an, _]
+  - might be doable by moveing each of the n arguments 2 places up on the stack, and the placing the return address and old base pointer.
+- Implement custom heap allocator and garabage collector (First step towards references)
+  - Remember to change how is_on_stack() works, now that we actually know the exact heap range.
