@@ -10,7 +10,7 @@
 #include "file_analysis.h"
 #include "commands.h"
 
-#define STACKSIZE 8000
+#define STACKSIZE 80000
 #define HEAPSIZE 1000
 
 
@@ -126,280 +126,319 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
         if (debug) print_stack(stack, bp, sp);
         if (debug) printf("instruction #%llu: 0x%x %s\n", ip, i, instruction_to_string(i));
 
-        if (i == HALT) {
-            if (debug) printf("Halting...\n");
-            return 0;
-        }
-        else if (i == STOP) {
-            if (bp == move(ADDR, glob_var_count)) {
+        switch (i)
+        {
+            case HALT: {
                 if (debug) printf("Halting...\n");
                 return 0;
             }
+            case STOP: {
+                if (bp == move(ADDR, glob_var_count)) {
+                    if (debug) printf("Halting...\n");
+                    return 0;
+                }
 
-            uword i = sp - move(ADDR, 1);
-            while (i >= bp) {
-                try_free(*((word**)(stack+i)), stack, sp);
-                i -= move(ADDR, 1);
-            }
+                uword i = sp - move(ADDR, 1);
+                while (i >= bp) {
+                    try_free(*((word**)(stack+i)), stack, sp);
+                    i -= move(ADDR, 1);
+                }
 
-            uword old_bp = *(word*)(stack + bp + move(ADDR, -1));
-            uword next_ip = *(word*)(stack + bp + move(ADDR, -2));;
-            sp = bp - move(ADDR, 3);
-            word arg_count = *((word*)(stack + sp));
-            sp -= move(ADDR, arg_count);
-            bp = old_bp;
-            ip = next_ip;
-        }
-        else if (i == CALL) {
-            word arg_count = *(word*)(stack + sp + move(INT, -1));
-            uword arg_start = sp - move(ADDR, arg_count+1);
-            *(word*)(stack + sp) = ip+9;
-            *(word*)(stack + sp + move(ADDR, 1)) = (word)bp;
-            for(int i = 0; i < arg_count; i++) {
-                word* arg = *(word**)(stack + arg_start + move(ADDR, i));
-                *(word*)(stack + sp + move(ADDR, 2+i)) = (word)(arg);
+                uword old_bp = *(word*)(stack + bp + move(ADDR, -1));
+                uword next_ip = *(word*)(stack + bp + move(ADDR, -2));;
+                sp = bp - move(ADDR, 2);
+
+                bp = old_bp;
+                ip = next_ip;
+                break;
             }
-            bp = sp + move(ADDR, 2);
-            sp += move(ADDR, 2+arg_count);
-            ip = *(word*)(p+ip+1);
-        }
-        else if (i == GOTO) {
-            word target = *(word*)(p + ip + 1);
-            ip = target;
-        }
-        else if (i == IF_TRUE) {
-            if (*(byte*)(stack + sp + move(BOOL, -1))) {
+            case CALL: {
+                word arg_count = *(word*)(stack + sp + move(INT, -1));
+                sp += move(INT, 1);
+
+                for(int i = 0; i < arg_count; i++) {
+                    word* arg = *(word**)(stack + sp + move(ADDR, -3-i));
+                    *(word*)(stack + sp + move(ADDR, -1-i)) = (word)(arg);
+                }
+
+                *(word*)((stack + sp) - move(ADDR, arg_count+2)) = ip+9;
+                *(word*)((stack + sp) - move(ADDR, arg_count+1)) = (word)bp;
+
+                bp = sp - move(ADDR, arg_count);
+                ip = *(word*)(p+ip+1);
+                break;
+            }
+            case GOTO: {
+                word target = *(word*)(p + ip + 1);
+                ip = target;
+                break;
+            }
+            case IF_TRUE: {
+                if (*(byte*)(stack + sp + move(BOOL, -1))) {
+                    sp -= move(BOOL, 1);
+                    ip = *(word*)(p + ip + 1);
+                }
+                else {
+                    sp -= move(BOOL, 1);
+                    ip += 1 + move(ADDR, 1);
+                }
+                break;
+            }
+            case PLACE_INT: {
+                word value = *(word*)(p + ip + 1);
+                *(word*)(stack + sp) = value;
+                sp += move(INT, 1);
+                ip += move(INT, 1) + 1;
+                break;
+            }
+            case INT_ADD: {
+                word value = (*(word*)(stack + sp + move(INT, -1))) + (*(word*)(stack + sp + move(INT, -2)));
+                *(word*)(stack + sp + move(INT, -2)) = value;
+                sp -= move(INT, 1);
+                ip++;
+                break;
+            }
+            case INT_MUL: {
+                word value = (*(word*)(stack + sp + move(INT, -1))) * (*(word*)(stack + sp + move(INT, -2)));
+                *(word*)(stack + sp + move(INT, -2)) = value;
+                sp -= move(INT, 1);
+                ip++;
+                break;
+            }
+            case INT_SUB: {
+                word value = (*(word*)(stack + sp + move(INT, -1))) - (*(word*)(stack + sp + move(INT, -2)));
+                *(word*)(stack + sp + move(INT, -2)) = value;
+                sp -= move(INT, 1);
+                ip++;
+                break;
+            }
+            case INT_EQ: {
+                byte eq = (*(word*)(stack + sp + move(INT, -1))) == (*(word*)(stack + sp + move(INT, -2)));
+                sp -= move(INT, 2);
+                *(byte*)(stack + sp) = eq; 
+                sp += move(BOOL, 1);
+                ip++;
+                break;
+            }
+            case INT_LT: {
+                byte lt = (*(word*)(stack + sp + move(INT, -1))) < (*(word*)(stack + sp + move(INT, -2)));
+                sp -= move(INT, 2);
+                *(byte*)(stack + sp) = lt; 
+                sp += move(BOOL, 1);
+                ip++;
+                break;
+            }
+            case CLONE_FULL: {
+                word value = *(word*)(stack + sp + move(INT, -1));
+                *(word*)(stack + sp) = value;
+                sp += move(INT, 1);
+                ip++;
+                break;
+            }
+            case CLONE_HALF: {
+                printf("CLONE_HALF not implemented!");
+                return -1;
+            }
+            case CLONE_SHORT: {
+                printf("CLONE_SHORT not implemented!");
+                return -1;
+            }
+            case CLONE_BYTE: {
+                byte value = *(byte*)(stack + sp + move(BOOL, -1));
+                *(byte*)(stack + sp) = value;
+                sp += move(BOOL, 1);
+                ip++;
+                break;
+            }
+            case FETCH_INT: {
+                word* target = *(word**)(stack + sp + move(INT, -1));
+                follow_trail(&target, stack, sp);
+                if (type(target) != INT) { printf("Failure: Type mismatch\n"); return -1; }
+
+                *(word*)(stack + sp + move(INT, -1)) = *((word*)payload(target));
+                ip++;
+                break;
+            }
+            case DECLARE_INT: {
+                byte* alloc = malloc(9);
+                *alloc = INT;
+                *(word*)(stack + sp) = (word)((word*)alloc);
+                sp += move(ADDR, 1);
+                ip++;
+                break;
+            }
+            case ASSIGN_INT: {
+                word* target = *(word**)(stack + sp + move(ADDR, -1) + move(INT, -1));
+                follow_trail(&target, stack, sp);
+                if (type(target) != INT) { printf("Failure: Type mismatch!\n"); return -1; }
+                word* pl = (word*)payload(target); 
+
+                word value = *(word*)(stack + sp + move(INT, -1));
+                *pl = value;
+                sp -= move(ADDR, 1) + move (INT, 1);
+                ip++;
+                break;
+            }
+            case PLACE_BOOL: {
+                word value = *(byte*)(p + ip + 1);
+                *(byte*)(stack + sp) = value;
+                sp += move(BOOL, 1);
+                ip += move(BOOL, 1) + 1;
+                break;
+            }
+            case DECLARE_BOOL: {
+                byte* alloc = malloc(2);
+                *alloc = BOOL;
+                *(word*)(stack + sp) = (word)((word*)alloc);
+                sp += move(ADDR, 1);
+                ip++;
+                break;
+            }
+            case FETCH_BOOL: {
+                word* target = *(word**)(stack + sp + move(ADDR, -1));
+                follow_trail(&target, stack, sp);
+                if (type(target) != BOOL) { printf("Failure: Type mismatch\n"); return -1; }
+
+                *(byte*)(stack + sp + move(ADDR, -1)) = *((byte*)payload(target));
+                sp -= move(BOOL, 7);
+                ip++;
+                break;
+            }
+            case ASSIGN_BOOL: {
+                word* target = *(word**)(stack + sp + move(ADDR, -1) + move(BOOL, -1));
+                follow_trail(&target, stack, sp);
+                if (type(target) != BOOL) { printf("Failure: Type mismatch!\n"); return -1; }
+                byte* pl = (byte*)payload(target); 
+
+                byte value = *(byte*)(stack + sp + move(BOOL, -1));
+                *pl = value;
+                sp -= move(ADDR, 1) + move (BOOL, 1);
+                ip++;
+                break;
+            }
+            case BOOL_EQ: {
+                byte eq = !!(*(stack + sp + move(BOOL, -1))) == !!(*(stack + sp + move(BOOL, -2)));
+                *(byte*)(stack + sp + move(BOOL, -2)) = eq;
                 sp -= move(BOOL, 1);
-                ip = *(word*)(p + ip + 1);
+                ip++;
+                break;
             }
-            else {
+            case BOOL_NOT: {
+                *(byte*)(stack + sp + move(BOOL, -1)) = !(*(stack + sp + move(BOOL, -1)));
+                ip++;
+                break;
+            }
+            case BOOL_AND: {
+                byte res = (*(stack + sp + move(BOOL, -1))) && (*(stack + sp + move(BOOL, -2)));
+                *(byte*)(stack + sp + move(BOOL, -2)) = res;
                 sp -= move(BOOL, 1);
-                ip += 1 + move(ADDR, 1);
+                ip++;
+                break;
             }
-        }
-        else if (i == PLACE_INT) {
-            word value = *(word*)(p + ip + 1);
-            *(word*)(stack + sp) = value;
-            sp += move(INT, 1);
-            ip += move(INT, 1) + 1;
-        }
-        else if (i == INT_ADD) {
-            word value = (*(word*)(stack + sp + move(INT, -1))) + (*(word*)(stack + sp + move(INT, -2)));
-            *(word*)(stack + sp + move(INT, -2)) = value;
-            sp -= move(INT, 1);
-            ip++;
-        }
-        else if (i == INT_MUL) {
-            word value = (*(word*)(stack + sp + move(INT, -1))) * (*(word*)(stack + sp + move(INT, -2)));
-            *(word*)(stack + sp + move(INT, -2)) = value;
-            sp -= move(INT, 1);
-            ip++;
-        }
-        else if (i == INT_SUB) {
-            word value = (*(word*)(stack + sp + move(INT, -1))) - (*(word*)(stack + sp + move(INT, -2)));
-            *(word*)(stack + sp + move(INT, -2)) = value;
-            sp -= move(INT, 1);
-            ip++;
-        }
-        else if (i == INT_EQ) {
-            byte eq = (*(word*)(stack + sp + move(INT, -1))) == (*(word*)(stack + sp + move(INT, -2)));
-            sp -= move(INT, 2);
-            *(byte*)(stack + sp) = eq; 
-            sp += move(BOOL, 1);
-            ip++;
-        }
-        else if (i == INT_LT) {
-            byte lt = (*(word*)(stack + sp + move(INT, -1))) < (*(word*)(stack + sp + move(INT, -2)));
-            sp -= move(INT, 2);
-            *(byte*)(stack + sp) = lt; 
-            sp += move(BOOL, 1);
-            ip++;
-        }
-        else if (i == CLONE_FULL) {
-            word value = *(word*)(stack + sp + move(INT, -1));
-            *(word*)(stack + sp) = value;
-            sp += move(INT, 1);
-            ip++;
-        }
-        else if (i == CLONE_HALF) {
-            printf("CLONE_HALF not implemented!");
-            return -1;
-        }
-        else if (i == CLONE_SHORT) {
-            printf("CLONE_SHORT not implemented!");
-            return -1;
-        }
-        else if (i == CLONE_BYTE) {
-            byte value = *(byte*)(stack + sp + move(BOOL, -1));
-            *(byte*)(stack + sp) = value;
-            sp += move(BOOL, 1);
-            ip++;
-        }
-        else if (i == FETCH_INT) {
-            word* target = *(word**)(stack + sp + move(INT, -1));
-            follow_trail(&target, stack, sp);
-            if (type(target) != INT) { printf("Failure: Type mismatch\n"); return -1; }
-
-            *(word*)(stack + sp + move(INT, -1)) = *((word*)payload(target));
-            ip++;
-        }
-        else if (i == DECLARE_INT) {
-            byte* alloc = malloc(9);
-            *alloc = INT;
-            *(word*)(stack + sp) = (word)((word*)alloc);
-            sp += move(ADDR, 1);
-            ip++;
-        }
-        else if (i == ASSIGN_INT) {
-            word* target = *(word**)(stack + sp + move(ADDR, -1) + move(INT, -1));
-            follow_trail(&target, stack, sp);
-            if (type(target) != INT) { printf("Failure: Type mismatch!\n"); return -1; }
-            word* pl = (word*)payload(target); 
-
-            word value = *(word*)(stack + sp + move(INT, -1));
-            *pl = value;
-            sp -= move(ADDR, 1) + move (INT, 1);
-            ip++;
-        }
-        else if (i == PLACE_BOOL) {
-            word value = *(byte*)(p + ip + 1);
-            *(byte*)(stack + sp) = value;
-            sp += move(BOOL, 1);
-            ip += move(BOOL, 1) + 1;
-        }
-        else if (i == DECLARE_BOOL) {
-            byte* alloc = malloc(2);
-            *alloc = BOOL;
-            *(word*)(stack + sp) = (word)((word*)alloc);
-            sp += move(ADDR, 1);
-            ip++;
-        }
-        else if (i == FETCH_BOOL) {
-            word* target = *(word**)(stack + sp + move(ADDR, -1));
-            follow_trail(&target, stack, sp);
-            if (type(target) != BOOL) { printf("Failure: Type mismatch\n"); return -1; }
-
-            *(byte*)(stack + sp + move(ADDR, -1)) = *((byte*)payload(target));
-            sp -= move(BOOL, 7);
-            ip++;
-        }
-        else if (i == ASSIGN_BOOL) {
-            word* target = *(word**)(stack + sp + move(ADDR, -1) + move(BOOL, -1));
-            follow_trail(&target, stack, sp);
-            if (type(target) != BOOL) { printf("Failure: Type mismatch!\n"); return -1; }
-            byte* pl = (byte*)payload(target); 
-
-            byte value = *(byte*)(stack + sp + move(BOOL, -1));
-            *pl = value;
-            sp -= move(ADDR, 1) + move (BOOL, 1);
-            ip++;
-        }
-        else if (i == BOOL_EQ) {
-            byte eq = !!(*(stack + sp + move(BOOL, -1))) == !!(*(stack + sp + move(BOOL, -2)));
-            *(byte*)(stack + sp + move(BOOL, -2)) = eq;
-            sp -= move(BOOL, 1);
-            ip++;
-        }
-        else if (i == BOOL_NOT) {
-            *(byte*)(stack + sp + move(BOOL, -1)) = !(*(stack + sp + move(BOOL, -1)));
-            ip++;
-        }
-        else if (i == BOOL_AND) {
-            byte res = (*(stack + sp + move(BOOL, -1))) && (*(stack + sp + move(BOOL, -2)));
-            *(byte*)(stack + sp + move(BOOL, -2)) = res;
-            sp -= move(BOOL, 1);
-            ip++;
-        }
-        else if (i == BOOL_OR) {
-            byte res = (*(stack + sp + move(BOOL, -1))) || (*(stack + sp + move(BOOL, -2)));
-            *(byte*)(stack + sp + move(BOOL, -2)) = res;
-            sp -= move(BOOL, 1);
-            ip++;
-        }
-        else if (i == GETBP) {
-            *(word*)(stack + sp) = (word)bp;
-            sp += move(INT, 1);
-            ip++;
-        }
-        else if (i == GETSP) {
-            *(word*)(stack + sp) = (word)sp;
-            sp += move(INT, 1);
-            ip++;
-        }
-        else if (i == MODSP) {
-            word amount = *(word*)(p+ip+1);
-            sp += amount;
-            ip += move(INT, 1) + 1;
-        }
-        else if (i == FETCH_ADDR) { // REMOVE THIS, NOT NEEDED
-            word* target = *(word**)(stack + sp + move(ADDR, -1));
-            follow_trail(&target, stack, sp);
-            *(word*)(stack + sp + move(ADDR, -1)) = (word)target;
-            ip++;
-        }
-        else if (i == FREE_VAR) {
-            word* target = *(word**)(stack + sp + move(ADDR, -1));
-            try_free(target, stack, sp);
-            sp -= move(ADDR, 1);
-            ip++;
-        }
-        else if (i == FREE_VARS) {
-            word count = *(word*)(p+ip+1);
-            while (count > 0) {
+            case BOOL_OR: {
+                byte res = (*(stack + sp + move(BOOL, -1))) || (*(stack + sp + move(BOOL, -2)));
+                *(byte*)(stack + sp + move(BOOL, -2)) = res;
+                sp -= move(BOOL, 1);
+                ip++;
+                break;
+            }
+            case GETBP: {
+                *(word*)(stack + sp) = (word)bp;
+                sp += move(INT, 1);
+                ip++;
+                break;
+            }
+            case GETSP: {
+                *(word*)(stack + sp) = (word)sp;
+                sp += move(INT, 1);
+                ip++;
+                break;
+            }
+            case MODSP: {
+                word amount = *(word*)(p+ip+1);
+                sp += amount;
+                ip += move(INT, 1) + 1;
+                break;
+            }
+            case FETCH_ADDR: { // REMOVE THIS, NOT NEEDED
+                word* target = *(word**)(stack + sp + move(ADDR, -1));
+                follow_trail(&target, stack, sp);
+                *(word*)(stack + sp + move(ADDR, -1)) = (word)target;
+                ip++;
+                break;
+            }
+            case FREE_VAR: {
                 word* target = *(word**)(stack + sp + move(ADDR, -1));
                 try_free(target, stack, sp);
                 sp -= move(ADDR, 1);
-                count--;
+                ip++;
+                break;
             }
-            ip += move(INT, 1) + 1;
-        }
-        else if (i == PRINT_VAR) {
-            word* target = *(word**)(stack + sp + move(ADDR, -1));
-            follow_trail(&target, stack, sp);
-            print_var(target);
-            sp -= move(ADDR, 1);
-            ip++;
-        }
-        else if (i == PRINT_INT) {
-            word value = *(word*)(stack + sp + move(INT, -1));
-            printf("%lld\n", value);
-            sp -= move(INT, 1);
-            ip++;
-        }
-        else if (i == PRINT_BOOL) {
-            word value = *(byte*)(stack + sp + move(BOOL, -1));
-            if (value) printf("true\n");
-            else printf("false\n");
-            sp -= move(BOOL, 1);
-            ip++;
-        }
-        else if (i == STACK_FETCH) {
-            word offset = *(word*)(p + ip + 1);
-            word* value = *(word**)(stack + move(ADDR, offset));
-            if (!is_on_stack(value, stack, sp)) value = (word*)(stack + move(ADDR, offset));
-            *(word*)(stack + sp) = (word)value;
-            sp += move(ADDR, 1);
-            ip += move(INT, 1) + 1;
-        }
-        else if (i == BP_FETCH) {
-            word offset = *(word*)(p + ip + 1);
-            word* value = *(word**)(stack + bp + move(ADDR, offset));
-            if (!is_on_stack(value, stack, sp)) value = (word*)(stack + bp + move(ADDR, offset));
-            *(word*)(stack + sp) = (word)value;
-            sp += move(ADDR, 1);
-            ip += move(INT, 1) + 1;
-        }
-        else if (i == STACK_TRANSFER) {
-            word offset = *(word*)(p + ip + 1);
-            word target = *(word*)(stack + bp + offset);
-            *(word*)(stack + bp + offset) = 0;
-            *(word*)(stack + sp) = target;
-            sp += move(ADDR, 1);
-            ip += move(INT, 1) + 1;
-        }
-        else {
-            printf("Failure: Unknown instruction: %x\n", p[ip]);
-            return -1;
+            case FREE_VARS: {
+                word count = *(word*)(p+ip+1);
+                while (count > 0) {
+                    word* target = *(word**)(stack + sp + move(ADDR, -1));
+                    try_free(target, stack, sp);
+                    sp -= move(ADDR, 1);
+                    count--;
+                }
+                ip += move(INT, 1) + 1;
+                break;
+            }
+            case PRINT_VAR: {
+                word* target = *(word**)(stack + sp + move(ADDR, -1));
+                follow_trail(&target, stack, sp);
+                print_var(target);
+                sp -= move(ADDR, 1);
+                ip++;
+                break;
+            }
+            case PRINT_INT: {
+                word value = *(word*)(stack + sp + move(INT, -1));
+                printf("%lld\n", value);
+                sp -= move(INT, 1);
+                ip++;
+                break;
+            }
+            case PRINT_BOOL: {
+                word value = *(byte*)(stack + sp + move(BOOL, -1));
+                if (value) printf("true\n");
+                else printf("false\n");
+                sp -= move(BOOL, 1);
+                ip++;
+                break;
+            }
+            case STACK_FETCH: {
+                word offset = *(word*)(p + ip + 1);
+                word* value = *(word**)(stack + move(ADDR, offset));
+                if (!is_on_stack(value, stack, sp)) value = (word*)(stack + move(ADDR, offset));
+                *(word*)(stack + sp) = (word)value;
+                sp += move(ADDR, 1);
+                ip += move(INT, 1) + 1;
+                break;
+            }
+            case BP_FETCH: {
+                word offset = *(word*)(p + ip + 1);
+                word* value = *(word**)(stack + bp + move(ADDR, offset));
+                if (!is_on_stack(value, stack, sp)) value = (word*)(stack + bp + move(ADDR, offset));
+                *(word*)(stack + sp) = (word)value;
+                sp += move(ADDR, 1);
+                ip += move(INT, 1) + 1;
+                break;
+            }
+            case STACK_TRANSFER: {
+                word offset = *(word*)(p + ip + 1);
+                word target = *(word*)(stack + bp + offset);
+                *(word*)(stack + bp + offset) = 0;
+                *(word*)(stack + sp) = target;
+                sp += move(ADDR, 1);
+                ip += move(INT, 1) + 1;
+                break;
+            }
+            default: {
+                printf("Failure: Unknown instruction: %x\n", p[ip]);
+                return -1;
+            }
         }
 
         if (debug) { print_stack(stack, bp, sp); printf("\n\n"); }
