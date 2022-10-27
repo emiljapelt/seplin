@@ -112,29 +112,30 @@ void try_free(word* addr, byte* stack, uword sp) {
     free(addr);
 }
 
-int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argument_count, byte debug) {
+int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argument_count, byte trace, byte time) {
     uword ip = entry_point;
     uword sp = move(ADDR, glob_var_count+argument_count);
     uword bp = move(ADDR, glob_var_count);
 
+    if (trace) { print_stack(stack, bp, sp); printf("\n"); }
+
     while(true) {
         byte i = p[ip];
 
-        if (sp < bp) { printf("stack underflow!"); return -1; }
-        if (sp > STACKSIZE) { printf("stack overflow!"); return -1; }
+        if (sp < bp) { printf("Failure: stack underflow!"); return -1; }
+        if (sp > STACKSIZE) { printf("Failure: stack overflow!"); return -1; }
 
-        if (debug) print_stack(stack, bp, sp);
-        if (debug) printf("instruction #%llu: 0x%x %s\n", ip, i, instruction_to_string(i));
+        if (trace) printf("instruction #%llu: 0x%x %s\n", ip, i, instruction_to_string(i));
 
         switch (i)
         {
             case HALT: {
-                if (debug) printf("Halting...\n");
+                if (trace) printf("Halting...\n");
                 return 0;
             }
             case STOP: {
                 if (bp == move(ADDR, glob_var_count)) {
-                    if (debug) printf("Halting...\n");
+                    if (trace) printf("Halting...\n");
                     return 0;
                 }
 
@@ -425,7 +426,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
             }
         }
 
-        if (debug) { print_stack(stack, bp, sp); printf("\n\n"); }
+        if (trace) { print_stack(stack, bp, sp); printf("\n"); }
     }
 }
 
@@ -437,8 +438,6 @@ int main(int argc, char** argv) {
     load_file(argv[2], &file, &file_len);
     if (file == NULL) { printf("Failure: No such file: %s\n", argv[2]); return -1;} 
 
-    byte debug = false;
-
     switch (command_index(command)) {
         case I:
             print_entry_points(file);
@@ -446,22 +445,38 @@ int main(int argc, char** argv) {
         case DISASS:
             dissas(file, file_len);
             return 0;
-        case DEBUG:
-            debug = true;
         case RUN: {
-            if (argc < 4) { printf("Failure: Too few arguments were given.\n"); return -1; }
 
+            byte trace = false;
+            byte time = false;
+            int flags = 0;
+            for(int i = 3; i < argc; i++) {
+                switch (flag_index(argv[i])) {
+                    case TRACE:
+                        trace = true;
+                        flags++;
+                        break;
+                    case TIME:
+                        time = true;
+                        flags++;
+                        break;
+                    case UNKNOWN_FLAG:
+                        flags++;
+                        break;
+                    default: break;
+                }
+            }
 
             //Find the requested entry point
-            word* entry_point_info = find_entry_point(file, argv[3]);
-            if (entry_point_info == 0) { printf("Failure: No such entry point: %s\n", argv[3]); return -1; }
+            word* entry_point_info = find_entry_point(file, argv[3+flags]);
+            if (entry_point_info == 0) { printf("Failure: No such entry point: %s\n", argv[3+flags]); return -1; }
 
 
             // Gather entry point information
             word entry_addr = entry_point_info[0];
             char* argument_info = (char*)(entry_point_info+1);
             char argument_count = argument_info[0];
-            if (argument_count+4 != argc) { printf("Failure: Argument mismatch.\n"); return -1; }
+            if (argument_count+4 != argc-flags) { printf("Failure: Argument mismatch.\n"); return -1; }
 
             byte stack[STACKSIZE];
 
@@ -501,15 +516,15 @@ int main(int argc, char** argv) {
             while (i < argument_count) {
                 switch (argument_info[i+1]) {
                     case BOOL: ;
-                        byte bool_v = parse_bool(argv[4+i]);
-                        if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", argv[4+i]); return -1; }
+                        byte bool_v = parse_bool(argv[4+flags+i]);
+                        if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", argv[4+flags+i]); return -1; }
                         byte* bool_alloc = allocate(BOOL);
                         *(bool_alloc+1) = bool_v;
                         *(word*)(stack + move(ADDR, glob_var_count) + move(ADDR, i)) = (word)bool_alloc;
                         break;
                     case INT: ;
-                        word int_v = parse_int(argv[4+i]);
-                        if (int_v == 0 && !(strcmp(argv[4+i], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", argv[4+i]); return -1; }
+                        word int_v = parse_int(argv[4+flags+i]);
+                        if (int_v == 0 && !(strcmp(argv[4+flags+i], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", argv[4+flags+i]); return -1; }
                         byte* int_alloc = allocate(INT);
                         *((word*)(int_alloc+1)) = int_v;
                         *(word*)(stack + move(ADDR, glob_var_count) + move(ADDR, i)) = (word)int_alloc;
@@ -522,14 +537,13 @@ int main(int argc, char** argv) {
             }
 
             clock_t ticks;
-            if (debug) {
-                printf("Running %s @ instruction #%lld...\n\n", argv[3], entry_addr);
-                ticks = clock();
-            }
+            if (time) ticks = clock();
+            if (trace) 
+                printf("Running %s @ instruction #%lld...\n\n", argv[3+flags], entry_addr);
 
-            int return_code = run(progresser, entry_addr, stack, glob_var_count, argument_count, debug);
+            int return_code = run(progresser, entry_addr, stack, glob_var_count, argument_count, trace, time);
 
-            if (debug) 
+            if (time) 
                 printf("Total execution time: %fs\n", (((double)(clock() - ticks))/CLOCKS_PER_SEC));
                 
             return return_code;

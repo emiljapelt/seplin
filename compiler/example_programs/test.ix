@@ -19,6 +19,14 @@ external main() {
     ucont(10, 5);
 }
 
+external calls(int amount) {
+    until (amount < 0) 'calls(amount);
+}
+
+internal 'calls(int a) {
+    a := a - 1;
+}
+
 
 internal fbrea(locked int ls, locked int b) {
     for(int i := 0; i < ls; i := i+1) {
