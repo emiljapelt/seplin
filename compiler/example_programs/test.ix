@@ -20,11 +20,13 @@ external main() {
 }
 
 external calls(int amount) {
-    until (amount < 0) 'calls(amount);
+    until (amount < 0) decrement(amount);
 }
 
-internal 'calls(int a) {
-    a -:= 1;
+internal decrement(int a).subtractFrom(a, 1)
+
+internal subtractFrom(int a, locked int b) {
+    a -:= b;
 }
 
 
