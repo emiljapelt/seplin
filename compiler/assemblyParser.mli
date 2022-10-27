@@ -39,7 +39,6 @@ type token =
   | GETBP
   | MODSP
   | CLONE_FRAME
-  | FETCH_ADDR
   | FREE_VAR
   | FREE_VARS
   | PRINT_VAR
@@ -47,7 +46,6 @@ type token =
   | PRINT_BOOL
   | STACK_FETCH
   | BP_FETCH
-  | STACK_TRANSFER
   | EOF
 
 val main :

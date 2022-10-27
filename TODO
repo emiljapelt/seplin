@@ -1,3 +1,2 @@
-- Refactor ProgramRep to represent each instruction, instead of general forms of instructions (Should make working on the compiler easier)
 - Implement custom heap allocator and garabage collector (First step towards references)
   - Remember to change how is_on_stack() works, now that we actually know the exact heap range.

@@ -42,7 +42,6 @@
                             "GETSP",          GETSP;
                             "GETBP",          GETBP;
                             "MODSP",          MODSP;
-                            "FETCH_ADDR",     FETCH_ADDR;
                             "FREE_VAR",       FREE_VAR;
                             "FREE_VARS",      FREE_VARS;
                             "PRINT_VAR",      PRINT_VAR;
@@ -50,7 +49,6 @@
                             "PRINT_BOOL",     PRINT_BOOL;
                             "STACK_FETCH",    STACK_FETCH;
                             "BP_FETCH",       BP_FETCH;
-                            "STACK_TRANSFER", STACK_TRANSFER;
                         ]
 
     let line_num = ref 1

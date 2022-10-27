@@ -360,13 +360,6 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 ip += move(INT, 1) + 1;
                 break;
             }
-            case FETCH_ADDR: { // REMOVE THIS, NOT NEEDED
-                word* target = *(word**)(stack + sp + move(ADDR, -1));
-                follow_trail(&target, stack, sp);
-                *(word*)(stack + sp + move(ADDR, -1)) = (word)target;
-                ip++;
-                break;
-            }
             case FREE_VAR: {
                 word* target = *(word**)(stack + sp + move(ADDR, -1));
                 try_free(target, stack, sp);
@@ -422,15 +415,6 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 word* value = *(word**)(stack + bp + move(ADDR, offset));
                 if (!is_on_stack(value, stack, sp)) value = (word*)(stack + bp + move(ADDR, offset));
                 *(word*)(stack + sp) = (word)value;
-                sp += move(ADDR, 1);
-                ip += move(INT, 1) + 1;
-                break;
-            }
-            case STACK_TRANSFER: {
-                word offset = *(word*)(p + ip + 1);
-                word target = *(word*)(stack + bp + offset);
-                *(word*)(stack + bp + offset) = 0;
-                *(word*)(stack + sp) = target;
                 sp += move(ADDR, 1);
                 ip += move(INT, 1) + 1;
                 break;

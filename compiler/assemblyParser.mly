@@ -41,7 +41,6 @@
 %token GETBP
 %token MODSP
 %token CLONE_FRAME
-%token FETCH_ADDR
 %token FREE_VAR
 %token FREE_VARS
 %token PRINT_VAR
@@ -49,7 +48,6 @@
 %token PRINT_BOOL
 %token STACK_FETCH
 %token BP_FETCH
-%token STACK_TRANSFER
 %token EOF
 
 %start main
@@ -109,15 +107,13 @@ program:
     | GETSP program { Instruction(26) :: $2 }
     | GETBP program { Instruction(27) :: $2 }
     | MODSP CST_INT program { IntInstruction(28, $2) :: $3 }
-    | FETCH_ADDR program { Instruction(29) :: $2 }
-    | FREE_VAR program { Instruction(30) :: $2 }
-    | FREE_VARS CST_INT program { IntInstruction(31, $2) :: $3 }
-    | PRINT_VAR program { Instruction(32) :: $2 }
-    | PRINT_INT program { Instruction(33) :: $2 }
-    | PRINT_BOOL program { Instruction(34) :: $2 }
-    | STACK_FETCH CST_INT program { IntInstruction(35, $2) :: $3 }
-    | BP_FETCH CST_INT program { IntInstruction(36, $2) :: $3 }
-    | STACK_TRANSFER CST_INT program { IntInstruction(37, $2) :: $3}
+    | FREE_VAR program { Instruction(29) :: $2 }
+    | FREE_VARS CST_INT program { IntInstruction(30, $2) :: $3 }
+    | PRINT_VAR program { Instruction(31) :: $2 }
+    | PRINT_INT program { Instruction(32) :: $2 }
+    | PRINT_BOOL program { Instruction(33) :: $2 }
+    | STACK_FETCH CST_INT program { IntInstruction(34, $2) :: $3 }
+    | BP_FETCH CST_INT program { IntInstruction(35, $2) :: $3 }
 ;
 
 type_list:

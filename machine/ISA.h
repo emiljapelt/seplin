@@ -116,32 +116,24 @@ int string_to_instruction(char* str);
 // Modify the stack pointer by 'x'
 // [s,_ => s,_]
 
-#define FETCH_ADDR 0x1d
-// Fetch a variable heap address from 's_addr' on the stack
-// [s,s_addr,_ => s,v_addr,_]
-
-#define FREE_VAR 0x1e
+#define FREE_VAR 0x1d
 // Free the allocation referenced at the stack address 's_addr'
 // [s,s_addr,_ => s,_]
 
-#define FREE_VARS 0x1f
+#define FREE_VARS 0x1e
 
-#define PRINT_VAR 0x20
+#define PRINT_VAR 0x1f
 // Print a variable
 // [s,addr,_ => s,_]
 
-#define PRINT_INT 0x21
+#define PRINT_INT 0x20
 // Print an int of the stack
 // [s,i,_ => s,_]
 
-#define PRINT_BOOL 0x22
+#define PRINT_BOOL 0x21
 // Print an int of the stack
 // [s,b,_ => s,_]
 
-#define STACK_FETCH 0x23
+#define STACK_FETCH 0x22
 
-#define BP_FETCH 0x24
-
-#define STACK_TRANSFER 0x25
-// Pull an address 'a', to the top of the stack. Replacing the original 0.
-// [s,...,a,...,offset,_ => s,...,0,...,a,_] 
+#define BP_FETCH 0x23

@@ -136,9 +136,6 @@ void dissas(byte* p, word file_len) {
                 printf("%i: MODSP %lld\n", i, *((word*)(p+i+1)));
                 i+=8;
                 break;
-            case FETCH_ADDR:
-                printf("%i: FETCH_ADDR\n", i);
-                break;
             case FREE_VAR:
                 printf("%i: FREE_VAR\n", i);
                 break;
@@ -161,10 +158,6 @@ void dissas(byte* p, word file_len) {
                 break;
             case BP_FETCH:
                 printf("%i: BP_FETCH %lld\n", i, *((word*)(p+i+1)));
-                i+=8;
-                break;
-            case STACK_TRANSFER:
-                printf("%i: STACK_TRANSFER %lld\n", i, *((word*)(p+i+1)));
                 i+=8;
                 break;
             default: return;
