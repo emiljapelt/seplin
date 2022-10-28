@@ -234,28 +234,7 @@ let compile_arguments params exprs globvars localvars =
 
 let compile_unassignable_expr expr globvars localvars routines break continue cleanup =
   match expr with
-  | Assign (name, aexpr) -> (
-    let (ty, ins) = compile_assignable_expr aexpr globvars localvars in
-    let get = match lookup_localvar name localvars with
-    | Some(cl,tl,ll) -> (
-        if ll then compile_error ("Cannot assign to locked variable: " ^ name)
-        else if tl != ty then compile_error ("Type mismatch on assignment: expected " ^ (type_string tl) ^ ", got " ^ (type_string ty)) 
-        else BPFetch(cl)
-      )
-    | None -> (
-      match lookup_globvar name globvars with
-      | Some(cg,tg,lg) -> (
-        if lg then compile_error ("Cannot assign to locked variable: " ^ name) 
-        else if tg != ty then compile_error ("Type mismatch on assignment: expected " ^ (type_string tg) ^ ", got " ^ (type_string ty))  
-        else StackFetch(cg)
-      )
-      | None -> compile_error ("No such variable: " ^ name)
-    )
-    in match ty with
-    | T_Bool -> get :: ins @ [AssignBool]
-    | T_Int -> get :: ins @ [AssignInt]
-  )
-  | OpAssign (op, name, aexpr) -> (
+  | Assign (op, name, aexpr) -> (
     let (ty, ins) = compile_assignable_expr aexpr globvars localvars in
     let get = match lookup_localvar name localvars with
     | Some(cl,tl,ll) -> (
@@ -273,6 +252,8 @@ let compile_unassignable_expr expr globvars localvars routines break continue cl
       | None -> compile_error ("No such variable: " ^ name)
     )
     in match (op, ty) with
+    | ("", T_Int) -> get :: ins @ [AssignInt]
+    | ("", T_Bool) -> get :: ins @ [AssignBool]
     | ("+", T_Int) -> get :: CloneFull :: FetchInt :: (ins @ (IntAdd :: [AssignInt]))
     | ("-", T_Int) -> (get :: ins) @ (get :: FetchInt :: IntSub :: [AssignInt])
     | ("*", T_Int) -> get :: CloneFull :: FetchInt :: (ins @ (IntMul :: [AssignInt]))

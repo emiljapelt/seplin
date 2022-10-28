@@ -651,7 +651,7 @@ let yyact = [|
     let _3 = (Parsing.peek_val __caml_parser_env 0 : 'assignable_expression) in
     Obj.repr(
 # 89 "parser.mly"
-                                                ( Assign (_1, _3) )
+                                                ( Assign ("", _1, _3) )
 # 656 "parser.ml"
                : 'unassignable_expression))
 ; (fun __caml_parser_env ->
@@ -659,7 +659,7 @@ let yyact = [|
     let _4 = (Parsing.peek_val __caml_parser_env 0 : 'assignable_expression) in
     Obj.repr(
 # 90 "parser.mly"
-                                                ( OpAssign ("+", _1, _4) )
+                                                ( Assign ("+", _1, _4) )
 # 664 "parser.ml"
                : 'unassignable_expression))
 ; (fun __caml_parser_env ->
@@ -667,7 +667,7 @@ let yyact = [|
     let _4 = (Parsing.peek_val __caml_parser_env 0 : 'assignable_expression) in
     Obj.repr(
 # 91 "parser.mly"
-                                                ( OpAssign ("-", _1, _4) )
+                                                ( Assign ("-", _1, _4) )
 # 672 "parser.ml"
                : 'unassignable_expression))
 ; (fun __caml_parser_env ->
@@ -675,7 +675,7 @@ let yyact = [|
     let _4 = (Parsing.peek_val __caml_parser_env 0 : 'assignable_expression) in
     Obj.repr(
 # 92 "parser.mly"
-                                                ( OpAssign ("*", _1, _4) )
+                                                ( Assign ("*", _1, _4) )
 # 680 "parser.ml"
                : 'unassignable_expression))
 ; (fun __caml_parser_env ->
@@ -683,7 +683,7 @@ let yyact = [|
     let _4 = (Parsing.peek_val __caml_parser_env 0 : 'assignable_expression) in
     Obj.repr(
 # 93 "parser.mly"
-                                                ( OpAssign ("!", _1, _4) )
+                                                ( Assign ("!", _1, _4) )
 # 688 "parser.ml"
                : 'unassignable_expression))
 ; (fun __caml_parser_env ->

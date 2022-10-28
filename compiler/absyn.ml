@@ -22,8 +22,7 @@ and expression =
     | Unassignable_expression of unassignable_expression
 
 and unassignable_expression =
-    | Assign of string * assignable_expression
-    | OpAssign of string * string * assignable_expression
+    | Assign of string * string * assignable_expression
     | Call of string * assignable_expression list
     | Stop
     | Halt

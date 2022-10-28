@@ -86,11 +86,11 @@ assignable_expression:
 ;
 
 unassignable_expression:
-    NAME ASSIGNMENT assignable_expression       { Assign ($1, $3) }
-  | NAME PLUS ASSIGNMENT assignable_expression  { OpAssign ("+", $1, $4) }
-  | NAME MINUS ASSIGNMENT assignable_expression { OpAssign ("-", $1, $4) }
-  | NAME TIMES ASSIGNMENT assignable_expression { OpAssign ("*", $1, $4) }
-  | NAME NOT ASSIGNMENT assignable_expression   { OpAssign ("!", $1, $4) }
+    NAME ASSIGNMENT assignable_expression       { Assign ("", $1, $3) }
+  | NAME PLUS ASSIGNMENT assignable_expression  { Assign ("+", $1, $4) }
+  | NAME MINUS ASSIGNMENT assignable_expression { Assign ("-", $1, $4) }
+  | NAME TIMES ASSIGNMENT assignable_expression { Assign ("*", $1, $4) }
+  | NAME NOT ASSIGNMENT assignable_expression   { Assign ("!", $1, $4) }
   | NAME LPAR arguments RPAR                    { Call ($1, $3) }
   | STOP                                        { Stop }
   | HALT                                        { Halt }
