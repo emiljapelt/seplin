@@ -23,12 +23,13 @@ external calls(int amount) {
     until (amount < 0) decrement(amount);
 }
 
-internal decrement(int a).subtractFrom(a, 1)
-
-internal subtractFrom(int a, locked int b) {
-    a -:= b;
+internal decrement(int a) {
+    a -:= 1;
 }
 
+external down(int from) {
+    until (from < 0) from -:= 1;
+}
 
 internal fbrea(locked int ls, locked int b) {
     for(int i := 0; i < ls; i := i+1) {

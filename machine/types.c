@@ -12,15 +12,6 @@ char* type_name(char index) {
     }
 }
 
-byte type_size(char index) {
-    switch (index) {
-        case ADDR: return 8;
-        case BOOL: return 1;
-        case INT: return 8;
-        default: return 0;
-    }
-}
-
 word parse_int(char* str) {
     return atoi(str);
 }
@@ -33,12 +24,4 @@ byte parse_bool(char* str) {
         return 0;
     }
     else return -1;
-}
-
-byte type(word* addr) {
-    return *((byte*)addr);
-}
-
-byte* payload(word* addr) {
-    return ((byte*)addr)+1;
 }
