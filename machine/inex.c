@@ -119,8 +119,8 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
     while(true) {
         byte i = p[ip];
 
-        if (sp < bp) { printf("Failure: stack underflow!"); return -1; }
-        if (sp > STACKSIZE) { printf("Failure: stack overflow!"); return -1; }
+        if (sp < bp) { printf("Failure: stack underflow!\n"); return -1; }
+        if (sp > STACKSIZE) { printf("Failure: stack overflow!\n"); return -1; }
 
         if (trace) printf("instruction #%llu: 0x%x %s\n", ip, i, instruction_to_string(i));
 
