@@ -1,2 +1,30 @@
-- Implement custom heap allocator and garabage collector (First step towards references)
-  - Remember to change how is_on_stack() works, now that we actually know the exact heap range.
+- structs and arrays
+  - Implement custom heap allocator, or create a wrapper for malloc that keeps track of the min/max allocated address
+    - Custom made
+      - on freelist: 8[header]8[next_hdr]8[prev_hdr]x[empty]8[footer]
+      - in use: 8[header]8[ref_count]x[payload]8[footer]
+    - Wrapped:
+      - in use: 8[ref_count]8[size:x]x[payload]
+    - ref_count is an unsigned integer, counting how many objects have a reference to this object.
+    - When doing a freeing pass over parameters, only the ones with a 0 in ref_count are freed.
+    - Remember to change how is_on_stack() works, now that we actually know the heap range.
+  - Do not handle types in the VM, just the sizes BYTE, SHORT, HALF, INT and a CUSTOM for varibale sizes
+    - Handle correct typing and checks in the compiler
+    - Implement some instruction to fetch some data at an offset, but not outside an allocation, to access struct/array fields. Maybe check this using the heap header (or size wrapper).
+  - Arrays are just CUSTOM allocations of some multiple.
+  - Structs are just CUSTOM allocations
+  - Idea for structs:
+    - Contains typed fields.
+    - Fields of non-simple types (arrays & bundles) are references and are null by default.
+    - Fields of simple types, are stored directly in the object memory, not as a reference.
+    - Definition:
+      struct person {
+        int age;
+        person nemisis;
+      }
+    - Construction:
+      var emil = new person;
+    - Access:
+      var emilAgeIn5 := emil[age] + 5
+      var emilNemisisAgeIn5 := emil[nemisis][age] + 5
+  
