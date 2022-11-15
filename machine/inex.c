@@ -59,24 +59,6 @@ void print_stack(byte* stack, uword bp, uword sp) {
     printf("_ ]\n");
 }
 
-byte* allocate(byte type) {
-    int size;
-    switch (type) {
-        case BOOL:
-            size = 2;
-            break;
-        case INT:
-            size = 9;
-            break;
-        default:
-            return NULL;
-    }
-    byte* alloc = (byte*)malloc(size);
-    byte header = type;
-    *alloc = header;
-    return alloc;
-}
-
 void print_var(word* target) {
     switch (TYPE(target)) {
         case BOOL:
@@ -92,21 +74,10 @@ void print_var(word* target) {
     }
 }
 
-char is_on_stack(word* addr, byte* stack, uword sp) {
-    if (stack <= (byte*)addr && (byte*)addr <= (stack + sp)) return true;
-    else return false;
-}
-
 void follow_trail(word** target, byte* stack, uword sp) {
     word* temp = *target;
-    while(is_on_stack(temp, stack, sp)) temp = (word*)*temp;
+    while(on_stack(temp, sp)) temp = (word*)*temp;
     *target = temp;
-}
-
-void try_free(word* addr, byte* stack, uword sp) {
-    if (addr == 0) return;
-    if (is_on_stack(addr, stack, sp)) return;
-    free(addr);
 }
 
 int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argument_count, byte trace, byte time) {
@@ -285,7 +256,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 break;
             }
             case DECLARE_BOOL: {
-                byte* alloc = malloc(2);
+                byte* alloc = allocate_type(BOOL);
                 *alloc = BOOL;
                 *(word*)(stack + sp) = (word)((word*)alloc);
                 sp += MOVE(ADDR, 1);
@@ -487,7 +458,7 @@ int main(int argc, char** argv) {
             int i = 0;
             while (i < glob_var_count) {
                 byte type = *glob_var_ptr;
-                byte* alloc = allocate(type);
+                byte* alloc = allocate_type(type);
                 glob_var_ptr += 1;
                 switch (type){
                     case BOOL:
@@ -515,14 +486,14 @@ int main(int argc, char** argv) {
                     case BOOL: ;
                         byte bool_v = parse_bool(argv[4+flags+i]);
                         if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", argv[4+flags+i]); return -1; }
-                        byte* bool_alloc = allocate(BOOL);
+                        byte* bool_alloc = allocate_type(BOOL);
                         *(bool_alloc+1) = bool_v;
                         *(word*)(stack + MOVE(ADDR, glob_var_count) + MOVE(ADDR, i)) = (word)bool_alloc;
                         break;
                     case INT: ;
                         word int_v = parse_int(argv[4+flags+i]);
                         if (int_v == 0 && !(strcmp(argv[4+flags+i], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", argv[4+flags+i]); return -1; }
-                        byte* int_alloc = allocate(INT);
+                        byte* int_alloc = allocate_type(INT);
                         *((word*)(int_alloc+1)) = int_v;
                         *(word*)(stack + MOVE(ADDR, glob_var_count) + MOVE(ADDR, i)) = (word)int_alloc;
                         break;

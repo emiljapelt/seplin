@@ -1,30 +1,44 @@
 - structs and arrays
-  - Implement custom heap allocator, or create a wrapper for malloc that keeps track of the min/max allocated address
-    - Custom made
-      - on freelist: 8[header]8[next_hdr]8[prev_hdr]x[empty]8[footer]
-      - in use: 8[header]8[ref_count]x[payload]8[footer]
-    - Wrapped:
-      - in use: 8[ref_count]8[size:x]x[payload]
+  - Create a wrapper for malloc that keeps track of the min/max allocated address
+      - in use: 4[ref_count]4[size:x]x[payload]
     - ref_count is an unsigned integer, counting how many objects have a reference to this object.
+    - An instruction is needed for reference increment/decrement
     - When doing a freeing pass over parameters, only the ones with a 0 in ref_count are freed.
     - Remember to change how is_on_stack() works, now that we actually know the heap range.
   - Do not handle types in the VM, just the sizes BYTE, SHORT, HALF, INT and a CUSTOM for varibale sizes
     - Handle correct typing and checks in the compiler
-    - Implement some instruction to fetch some data at an offset, but not outside an allocation, to access struct/array fields. Maybe check this using the heap header (or size wrapper).
+    - Generic DECLARE instruction
+    - Generic ASSIGN instruction
+    - Generic FETCH instruction
+    - FETCH and ASSIGN instructions needs an alternative working at an offset, but not outside an allocation, to access struct/array fields. Check this using the size header.
+      - FETCH_FULL(addr)
+      - OFFSET_FETCH_FULL(addr, offset)
+      - ASSIGN_FULL(addr, val)
+      - OFFSET_ASSIGN_FULL(addr, offset, val)
   - Arrays are just CUSTOM allocations of some multiple.
+    - DECLARE_CUSTOM(size*element_size)
   - Structs are just CUSTOM allocations
+    - DECLARE_CUSTOM(size)
   - Idea for structs:
     - Contains typed fields.
     - Fields of non-simple types (arrays & bundles) are references and are null by default.
     - Fields of simple types, are stored directly in the object memory, not as a reference.
     - Definition:
-      struct person {
-        int age;
-        person nemisis;
+      struct adult {
+        int age := 18;
+        bool dead := false;
+        adult nemisis;
       }
     - Construction:
-      var emil = new person;
+      var emil = new person;                                 ~= PLACE_INT(8), DECLARE_CUSTOM, CLONE_FULL, PLACE_INT(0), PLACE_INT(18), OFFSET_ASSIGN_FULL, CLONE_FULL, PLACE_INT(8), PLACE_BOOL(false), OFFSET_ASSIGN_BYTE
     - Access:
-      var emilAgeIn5 := emil[age] + 5
-      var emilNemisisAgeIn5 := emil[nemisis][age] + 5
+      var emilAgeIn5 := emil[age] + 5                        ~= #FETCH emil#, PLACE_INT(0), OFFSET_FETCH_FULL
+      var emilNemisisAgeIn5 := emil[nemisis][age] + 5        ~= #FETCH emil#, PLACE_INT(9), OFFSET_FETCH_FULL, PLACE_INT(0), OFFSET_FETCH_FULL
+  - Idea for arrays:
+    - Construction:
+      var numbers := new int[5];                             ~= PLACE_INT(8), PLACE_INT(5), INT_MUL, DECLARE_CUSTOM
+    - Assign:
+      numbers[2] := 3;                                       ~= #FETCH numbers#, PLACE_INT(8), PLACE_INT(2), INT_MUL, PLACE_INT(3), OFFSET_ASSIGN_FULL
+    - Access:
+      var third := numbers[2];                               ~= #FETCH numbers#, PLACE_INT(8), PLACE_INT(2), INT_MUL, OFFSET_FETCH_FULL
   
