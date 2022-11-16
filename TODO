@@ -1,18 +1,17 @@
 - structs and arrays
   - Create a wrapper for malloc that keeps track of the min/max allocated address
       - in use: 8[header]x[payload]
-      - MSB of header is 1 for data structures (structs/arrays),
-      - The first 4 bytes (except MSB) is the number of fields, as an unsigned int (size of the allocation in 8 bytes).
-      - The last 4 bytes is the number of heap objects referencing the object, as an unsiged int.
+      - LSB of header is 1 for data structures (structs/arrays).
+      - The LSB 4 bytes (except LSB) is the number of fields, as an unsigned int (size of the allocation in 8 bytes).
+      - The MSB 4 bytes is the number of heap objects referencing the object, as an unsiged int.
     - When doing a freeing pass over parameters, each parameters reference count is decremented, and any if it becomes 0, the object is freed.
       - When freeing a structure, each of it non-null fields gets it reference counter decremented, and if it becomes 0 that fields refereced object gets freed recursivly.
-    - Remember to change how is_on_stack() works, now that we actually know the heap range.
-  - All references are direct heap refereces, i.e. follow_path will not be needed. (on_stack() and on_heap(), might no longer be needed)
+  - All references are direct heap refereces, i.e. follow_path will not be needed.
   - Do not handle types in the VM, just the sizes BYTE, SHORT, HALF, INT and a CUSTOM for varibale sizes
     - Handle correct typing and checks in the compiler
-    - Generic DECLARE instruction
-    - Generic ASSIGN instruction
-    - Generic FETCH instruction
+    - Generic DECLARE instructions
+    - Generic ASSIGN instructions
+    - Generic FETCH instructions
     - FETCH and ASSIGN instructions needs an alternative working at an offset, but not outside an allocation, to access struct/array fields. Check this using the size header.
       - FETCH_FULL(addr)
       - OFFSET_FETCH(addr, offset)

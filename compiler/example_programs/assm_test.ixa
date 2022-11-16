@@ -1,0 +1,40 @@
+#PROGRAM
+    #ENTRY main
+        PLACE_INT 2
+        DECLARE_STRUCT
+
+        CLONE_FULL
+        PLACE_INT 0
+        DECLARE_FULL
+        CLONE_FULL
+        PLACE_INT 1
+        ASSIGN_FULL
+        FIELD_ASSIGN
+
+        CLONE_FULL
+        PLACE_INT 1
+        DECLARE_FULL
+        CLONE_FULL
+        PLACE_INT 2
+        ASSIGN_FULL
+        FIELD_ASSIGN
+
+        CLONE_FULL
+        PLACE_INT 0
+        FIELD_FETCH
+        PLACE_INT 1
+        CALL print
+
+        CLONE_FULL
+        PLACE_INT 1
+        FIELD_FETCH
+        PLACE_INT 1
+        CALL print
+
+        STOP
+    #LABEL print 
+        BP_FETCH 0
+        FETCH_FULL
+        PRINT_INT
+        STOP
+#

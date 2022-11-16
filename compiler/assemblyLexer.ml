@@ -14,47 +14,56 @@
     let instruction_table = Hashtbl.create 53
     let () = List.iter (fun (kwd, tok) -> Hashtbl.add instruction_table kwd tok)
                         [ 
-                            "HALT",           HALT;
-                            "STOP",           STOP;
-                            "CALL",           CALL;
-                            "GOTO",           GOTO;
-                            "IF_TRUE",        IF_TRUE;
-                            "PLACE_BOOL",     PLACE_BOOL;
-                            "PLACE_INT",      PLACE_INT;
-                            "CLONE_FULL",     CLONE_FULL;
-                            "CLONE_HALF",     CLONE_HALF;
-                            "CLONE_SHORT",    CLONE_SHORT;
-                            "CLONE_BYTE",     CLONE_BYTE;
-                            "FETCH_BOOL",     FETCH_BOOL;
-                            "FETCH_INT",      FETCH_INT;
-                            "DECLARE_BOOL",   DECLARE_BOOL;
-                            "DECLARE_INT",    DECLARE_INT;
-                            "ASSIGN_BOOL",    ASSIGN_BOOL;
-                            "ASSIGN_INT",     ASSIGN_INT;
-                            "INT_ADD",        INT_ADD;
-                            "INT_MUL",        INT_MUL;
-                            "INT_SUB",        INT_SUB;
-                            "INT_EQ",         INT_EQ;
-                            "INT_LT",         INT_LT;
-                            "BOOL_EQ",        BOOL_EQ;
-                            "BOOL_NOT",       BOOL_NOT;
-                            "BOOL_AND",       BOOL_AND;
-                            "BOOL_OR",        BOOL_OR;
-                            "GETSP",          GETSP;
-                            "GETBP",          GETBP;
-                            "MODSP",          MODSP;
-                            "FREE_VAR",       FREE_VAR;
-                            "FREE_VARS",      FREE_VARS;
-                            "PRINT_VAR",      PRINT_VAR;
-                            "PRINT_INT",      PRINT_INT;
-                            "PRINT_BOOL",     PRINT_BOOL;
-                            "STACK_FETCH",    STACK_FETCH;
-                            "BP_FETCH",       BP_FETCH;
+                            "HALT",             HALT;
+                            "STOP",             STOP;
+                            "CALL",             CALL;
+                            "GOTO",             GOTO;
+                            "IF_TRUE",          IF_TRUE;
+                            "PLACE_BOOL",       PLACE_BOOL;
+                            "PLACE_INT",        PLACE_INT;
+                            "CLONE_FULL",       CLONE_FULL;
+                            "CLONE_HALF",       CLONE_HALF;
+                            "CLONE_SHORT",      CLONE_SHORT;
+                            "CLONE_BYTE",       CLONE_BYTE;
+                            "FETCH_FULL",       FETCH_FULL;
+                            "FETCH_HALF",       FETCH_HALF;
+                            "FETCH_SHORT",      FETCH_SHORT;
+                            "FETCH_BYTE",       FETCH_BYTE;
+                            "FIELD_FETCH",      FIELD_FETCH;
+                            "DECLARE_FULL",     DECLARE_FULL;
+                            "DECLARE_HALF",     DECLARE_HALF;
+                            "DECLARE_SHORT",    DECLARE_SHORT;
+                            "DECLARE_BYTE",     DECLARE_BYTE;
+                            "DECLARE_STRUCT",   DECLARE_STRUCT;
+                            "ASSIGN_FULL",      ASSIGN_FULL;
+                            "ASSIGN_HALF",      ASSIGN_HALF;
+                            "ASSIGN_SHORT",     ASSIGN_SHORT;
+                            "ASSIGN_BYTE",      ASSIGN_BYTE;
+                            "FIELD_ASSIGN",     FIELD_ASSIGN;
+                            "INT_ADD",          INT_ADD;
+                            "INT_MUL",          INT_MUL;
+                            "INT_SUB",          INT_SUB;
+                            "INT_EQ",           INT_EQ;
+                            "INT_LT",           INT_LT;
+                            "BOOL_EQ",          BOOL_EQ;
+                            "BOOL_NOT",         BOOL_NOT;
+                            "BOOL_AND",         BOOL_AND;
+                            "BOOL_OR",          BOOL_OR;
+                            "GETSP",            GETSP;
+                            "GETBP",            GETBP;
+                            "MODSP",            MODSP;
+                            "FREE_VAR",         FREE_VAR;
+                            "FREE_VARS",        FREE_VARS;
+                            "PRINT_VAR",        PRINT_VAR;
+                            "PRINT_INT",        PRINT_INT;
+                            "PRINT_BOOL",       PRINT_BOOL;
+                            "STACK_FETCH",      STACK_FETCH;
+                            "BP_FETCH",         BP_FETCH;
                         ]
 
     let line_num = ref 1
 
-# 58 "assemblyLexer.ml"
+# 67 "assemblyLexer.ml"
 let __ocaml_lex_tables = {
   Lexing.lex_base =
    "\000\000\244\255\245\255\075\000\160\000\235\000\054\001\129\001\
@@ -518,88 +527,88 @@ let rec lex lexbuf =
 and __ocaml_lex_lex_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 57 "assemblyLexer.mll"
+# 66 "assemblyLexer.mll"
                                                 ( lex lexbuf )
-# 524 "assemblyLexer.ml"
+# 533 "assemblyLexer.ml"
 
   | 1 ->
-# 58 "assemblyLexer.mll"
+# 67 "assemblyLexer.mll"
                                                 ( incr line_num; lex lexbuf )
-# 529 "assemblyLexer.ml"
+# 538 "assemblyLexer.ml"
 
   | 2 ->
 let
-# 59 "assemblyLexer.mll"
+# 68 "assemblyLexer.mll"
                             lxm
-# 535 "assemblyLexer.ml"
+# 544 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 59 "assemblyLexer.mll"
+# 68 "assemblyLexer.mll"
                                                 ( CST_INT (int_of_string lxm) )
-# 539 "assemblyLexer.ml"
+# 548 "assemblyLexer.ml"
 
   | 3 ->
-# 60 "assemblyLexer.mll"
+# 69 "assemblyLexer.mll"
                                                 ( CST_BOOL true )
-# 544 "assemblyLexer.ml"
+# 553 "assemblyLexer.ml"
 
   | 4 ->
-# 61 "assemblyLexer.mll"
+# 70 "assemblyLexer.mll"
                                                 ( CST_BOOL false )
-# 549 "assemblyLexer.ml"
+# 558 "assemblyLexer.ml"
 
   | 5 ->
-# 62 "assemblyLexer.mll"
+# 71 "assemblyLexer.mll"
                                                 ( INT )
-# 554 "assemblyLexer.ml"
+# 563 "assemblyLexer.ml"
 
   | 6 ->
-# 63 "assemblyLexer.mll"
+# 72 "assemblyLexer.mll"
                                                 ( BOOL )
-# 559 "assemblyLexer.ml"
+# 568 "assemblyLexer.ml"
 
   | 7 ->
 let
-# 64 "assemblyLexer.mll"
+# 73 "assemblyLexer.mll"
                              id
-# 565 "assemblyLexer.ml"
+# 574 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 65 "assemblyLexer.mll"
+# 74 "assemblyLexer.mll"
                 ( try
                     Hashtbl.find meta_table id
                   with Not_found -> syntax_error ("Unknown meta symbol \'" ^ id ^ "\'") line_num)
-# 571 "assemblyLexer.ml"
+# 580 "assemblyLexer.ml"
 
   | 8 ->
 let
-# 68 "assemblyLexer.mll"
+# 77 "assemblyLexer.mll"
                                       id
-# 577 "assemblyLexer.ml"
+# 586 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 69 "assemblyLexer.mll"
+# 78 "assemblyLexer.mll"
                 ( try
                     Hashtbl.find instruction_table id
                   with Not_found -> syntax_error ("Unknown instruction \'" ^ id ^ "\'") line_num )
-# 583 "assemblyLexer.ml"
+# 592 "assemblyLexer.ml"
 
   | 9 ->
 let
-# 72 "assemblyLexer.mll"
+# 81 "assemblyLexer.mll"
                                                                   name
-# 589 "assemblyLexer.ml"
+# 598 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 72 "assemblyLexer.mll"
+# 81 "assemblyLexer.mll"
                                                                          ( NAME name )
-# 593 "assemblyLexer.ml"
+# 602 "assemblyLexer.ml"
 
   | 10 ->
-# 73 "assemblyLexer.mll"
+# 82 "assemblyLexer.mll"
                         ( syntax_error "Unknown token" line_num)
-# 598 "assemblyLexer.ml"
+# 607 "assemblyLexer.ml"
 
   | 11 ->
-# 74 "assemblyLexer.mll"
+# 83 "assemblyLexer.mll"
                         ( EOF )
-# 603 "assemblyLexer.ml"
+# 612 "assemblyLexer.ml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf;
       __ocaml_lex_lex_rec lexbuf __ocaml_lex_state

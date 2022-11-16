@@ -41,99 +41,91 @@ int string_to_instruction(char* str);
 // Create and place a clone of some size (8,4,2,1), at the top of the stack, onto the stack
 // [s,v,_ => s,v,v,_]
 
-#define FETCH_BOOL 0x0b
-// Load boolean value to the stack, from 'addr' on the heap.
-// [s,addr,_ => s,b,_]
+#define FETCH_FULL 0x0b
+#define FETCH_HALF 0x0c
+#define FETCH_SHORT 0x0d
+#define FETCH_BYTE 0x0e
+#define FIELD_FETCH 0x0f
 
-#define FETCH_INT 0x0c
-// Load integer value to the stack, from 'addr' on the heap. (follow references until the heap is reached)
-// [s,addr,_ => s,i,_]
+#define DECLARE_FULL 0x10
+#define DECLARE_HALF 0x11
+#define DECLARE_SHORT 0x12
+#define DECLARE_BYTE 0x13
+#define DECLARE_STRUCT 0x14
 
-#define DECLARE_BOOL 0x0d
-// Allocate a boolean value on the heap, placing the resulting address on the stack. 
-// The address is marked as having been created in this stackframe.
-// [s,_ => s,addr,_]
+#define ASSIGN_FULL 0x15
+#define ASSIGN_HALF 0x16
+#define ASSIGN_SHORT 0x17
+#define ASSIGN_BYTE 0x18
+#define FIELD_ASSIGN 0x19
 
-#define DECLARE_INT 0x0e
-// Allocate an integer value on the heap, placing the resulting address on the stack. 
-// The address is marked as having been created in this stackframe.
-// [s,_ => s,addr,_]
-
-#define ASSIGN_BOOL 0x0f
-// Assign the boolean value 'b' to the heap address 'addr'.
-// [s,addr,b,_ => s,_]
-
-#define ASSIGN_INT 0x10
-// Assign the boolean value 'i' to the heap address 'addr'.
-// [s,addr,i,_ => s,_]
-
-#define INT_ADD 0x11
+#define INT_ADD 0x1a
 // Add the integer values 'x' and 'y', removing them from the stack, and placing the result on the stack.
 // [s,x,y,_ => s,(x+y),_]
 
-#define INT_MUL 0x12
+#define INT_MUL 0x1b
 // Multiply the integer values 'x' and 'y', removing them from the stack, and placing the result on the stack.
 // [s,x,y,_ => s,(x*y),_]
 
 
-#define INT_SUB 0x13
+#define INT_SUB 0x1c
 // Subtract the integer values 'x' and 'y', removing them from the stack, and placing the result on the stack.
 // [s,x,y,_ => s,(x-y),_]
 
-#define INT_EQ 0x14
+#define INT_EQ 0x1d
 // Checks if the integer values 'x' and 'y' are equal, removing them from the stack, and placing the resulting boolean on the stack.
 // [s,x,y,_ => s,(x=y),_]
 
-#define INT_LT 0x15
+#define INT_LT 0x1e
 // Checks if the integer values 'x' is smaller than 'y', removing them from the stack, and placing the resulting boolean on the stack.
 // [s,x,y,_ => s,(x'<'y),_]
 
-#define BOOL_EQ 0x16
+#define BOOL_EQ 0x1f
 // Checks if the boolean values 'x' and 'y' are equal, removing them from the stack, and placing the resulting boolean on the stack.
 // [s,x,y,_ => s,(x=y),_]
 
-#define BOOL_NOT 0x17
+#define BOOL_NOT 0x20
 // Negates the boolean value 'x', removing it from the stack, and placing the resulting boolean on the stack.
 // [s,b,_ => s,(!b),_]
 
-#define BOOL_AND 0x18
+#define BOOL_AND 0x21
 // Remove the boolean values 'x' and 'y' from the stack, placing 'true' on the stack, if 'x' and 'y' are both 'true', otherwise placing 'false' on the stack.
 // [s,x,y,_ => s,(x&y),_]
 
-#define BOOL_OR 0x19
+#define BOOL_OR 0x22
 // Remove the boolean values 'x' and 'y' from the stack, placing 'true' on the stack, if 'x' and/or 'y' are 'true', otherwise placing 'false' on the stack.
 // [s,x,y,_ => s,(x|y),_]
 
-#define GETSP 0x1a
+#define GETSP 0x23
 // Place the stack pointer on the stack
 // [s,_ => s,sp,_]
 
-#define GETBP 0x1b
+#define GETBP 0x24
 // Place the stack base pointer on the stack
 // [s,_ => s,bp,_]
 
-#define MODSP 0x1c
+#define MODSP 0x25
 // Modify the stack pointer by 'x'
 // [s,_ => s,_]
 
-#define FREE_VAR 0x1d
+#define FREE_VAR 0x26
 // Free the allocation referenced at the stack address 's_addr'
 // [s,s_addr,_ => s,_]
 
-#define FREE_VARS 0x1e
+#define FREE_VARS 0x27
 
-#define PRINT_VAR 0x1f
+#define PRINT_VAR 0x28
 // Print a variable
 // [s,addr,_ => s,_]
 
-#define PRINT_INT 0x20
+#define PRINT_INT 0x29
 // Print an int of the stack
 // [s,i,_ => s,_]
 
-#define PRINT_BOOL 0x21
+#define PRINT_BOOL 0x2a
 // Print an int of the stack
 // [s,b,_ => s,_]
 
-#define STACK_FETCH 0x22
+#define STACK_FETCH 0x2b
 
-#define BP_FETCH 0x23
+#define BP_FETCH 0x2c

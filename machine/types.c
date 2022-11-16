@@ -13,10 +13,6 @@ char* type_name(char index) {
     }
 }
 
-byte* allocate_type(byte type) {
-    return allocate(TYPE_SIZE(type));
-}
-
 word parse_int(char* str) {
     return atoi(str);
 }

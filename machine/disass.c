@@ -81,23 +81,51 @@ void dissas(byte* p, word file_len) {
             case CLONE_BYTE:
                 printf("%i: CLONE_BYTE\n", i);
                 break;
-            case FETCH_BOOL:
-                printf("%i: FETCH_BOOL\n", i);
+            case FETCH_FULL:
+                printf("%i: FETCH_FULL\n", i);
                 break;
-            case FETCH_INT:
-                printf("%i: FETCH_INT\n", i);
+            case FETCH_HALF:
+                printf("%i: FETCH_HALF\n", i);
                 break;
-            case DECLARE_BOOL:
-                printf("%i: DECLARE_BOOL\n", i);
+            case FETCH_SHORT:
+                printf("%i: FETCH_SHORT\n", i);
                 break;
-            case DECLARE_INT:
-                printf("%i: DECLARE_INT\n", i);
+            case FETCH_BYTE:
+                printf("%i: FETCH_BYTE\n", i);
                 break;
-            case ASSIGN_BOOL:
-                printf("%i: ASSIGN_BOOL\n", i);
+            case FIELD_FETCH:
+                printf("%i: FIELD_FETCH\n", i);
                 break;
-            case ASSIGN_INT:
-                printf("%i: ASSIGN_INT\n", i);
+            case DECLARE_FULL:
+                printf("%i: DECLARE_FULL\n", i);
+                break;
+            case DECLARE_HALF:
+                printf("%i: DECLARE_HALF\n", i);
+                break;
+            case DECLARE_SHORT:
+                printf("%i: DECLARE_SHORT\n", i);
+                break;
+            case DECLARE_BYTE:
+                printf("%i: DECLARE_BYTE\n", i);
+                break;
+            case DECLARE_STRUCT:
+                printf("%i: DECLARE_STRUCT %lld\n", i, *((word*)(p+i+1)));
+                i+=8;
+                break;
+            case ASSIGN_FULL:
+                printf("%i: ASSIGN_FULL\n", i);
+                break;
+            case ASSIGN_HALF:
+                printf("%i: ASSIGN_HALF\n", i);
+                break;
+            case ASSIGN_SHORT:
+                printf("%i: ASSIGN_SHORT\n", i);
+                break;
+            case ASSIGN_BYTE:
+                printf("%i: ASSIGN_BYTE\n", i);
+                break;
+            case FIELD_ASSIGN:
+                printf("%i: FIELD_ASSIGN\n", i);
                 break;
             case INT_ADD:
                 printf("%i: INT_ADD\n", i);

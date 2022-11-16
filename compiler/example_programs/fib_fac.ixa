@@ -1,85 +1,87 @@
 #PROGRAM
     #ENTRY fib INT
-        DECLARE_INT
+        DECLARE_FULL
         CLONE_FULL
         PLACE_INT 0
-        ASSIGN_INT
+        ASSIGN_FULL
 
-        DECLARE_INT
+        DECLARE_FULL
         CLONE_FULL
         PLACE_INT 1
-        ASSIGN_INT
+        ASSIGN_FULL
 
-        DECLARE_INT
+        DECLARE_FULL
         CLONE_FULL
         PLACE_INT 0
-        ASSIGN_INT
+        ASSIGN_FULL
 
         #LABEL fib_aux
         PLACE_INT 2
         BP_FETCH 0
-        FETCH_INT
+        FETCH_FULL
         INT_LT
         IF_TRUE fib_out
 
         BP_FETCH 3
         BP_FETCH 1
-        FETCH_INT
-        ASSIGN_INT
+        FETCH_FULL
+        ASSIGN_FULL
 
         BP_FETCH 1
         BP_FETCH 2
-        FETCH_INT
-        ASSIGN_INT
+        FETCH_FULL
+        ASSIGN_FULL
 
         BP_FETCH 2
         CLONE_FULL
-        FETCH_INT
+        FETCH_FULL
         BP_FETCH 3
-        FETCH_INT
+        FETCH_FULL
         INT_ADD
-        ASSIGN_INT
+        ASSIGN_FULL
 
         BP_FETCH 0
         CLONE_FULL
-        FETCH_INT
+        FETCH_FULL
         PLACE_INT -1
         INT_ADD
-        ASSIGN_INT
+        ASSIGN_FULL
         GOTO fib_aux
 
         #LABEL fib_out
         BP_FETCH 1
-        PRINT_VAR
+        FETCH_FULL
+        PRINT_INT
         HALT
 
     #ENTRY fac INT
-        DECLARE_INT
+        DECLARE_FULL
         CLONE_FULL
         PLACE_INT 1
-        ASSIGN_INT
+        ASSIGN_FULL
         #LABEL fac_aux
         BP_FETCH 1
         CLONE_FULL
-        FETCH_INT
+        FETCH_FULL
         BP_FETCH 0
-        FETCH_INT
+        FETCH_FULL
         INT_MUL
-        ASSIGN_INT
+        ASSIGN_FULL
         PLACE_INT 2
         BP_FETCH 0
-        FETCH_INT
+        FETCH_FULL
         INT_LT
         IF_TRUE fac_out
         BP_FETCH 0
         CLONE_FULL
-        FETCH_INT
+        FETCH_FULL
         PLACE_INT -1
         INT_ADD
-        ASSIGN_INT
+        ASSIGN_FULL
         GOTO fac_aux
         #LABEL fac_out
         BP_FETCH 1
-        PRINT_VAR
+        FETCH_FULL
+        PRINT_INT
         HALT
 #

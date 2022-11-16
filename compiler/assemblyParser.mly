@@ -22,12 +22,21 @@
 %token CLONE_HALF
 %token CLONE_SHORT
 %token CLONE_BYTE
-%token FETCH_BOOL
-%token FETCH_INT
-%token DECLARE_BOOL
-%token DECLARE_INT
-%token ASSIGN_BOOL
-%token ASSIGN_INT
+%token FETCH_FULL
+%token FETCH_HALF
+%token FETCH_SHORT
+%token FETCH_BYTE
+%token FIELD_FETCH
+%token DECLARE_FULL
+%token DECLARE_HALF
+%token DECLARE_SHORT
+%token DECLARE_BYTE
+%token DECLARE_STRUCT
+%token ASSIGN_FULL
+%token ASSIGN_HALF
+%token ASSIGN_SHORT
+%token ASSIGN_BYTE
+%token FIELD_ASSIGN
 %token INT_ADD
 %token INT_MUL
 %token INT_SUB
@@ -40,7 +49,6 @@
 %token GETSP
 %token GETBP
 %token MODSP
-%token CLONE_FRAME
 %token FREE_VAR
 %token FREE_VARS
 %token PRINT_VAR
@@ -78,42 +86,51 @@ program:
         {[]}
     | ENTRY_POINT NAME type_list program { (EntryPoint ($2, $3)) :: $4 }
     | LABEL NAME program { (Label $2) :: $3}
-    | HALT program { (Instruction(0)) :: $2 }
-    | STOP program { (Instruction(1)) :: $2 }
-    | CALL NAME program { (LabelInstruction(2, $2)) :: $3 }
-    | GOTO NAME program { (LabelInstruction(3, $2)) :: $3 }
-    | IF_TRUE NAME program { (LabelInstruction(4, $2)) :: $3 }
+    | HALT program { Instruction(0) :: $2 }
+    | STOP program { Instruction(1) :: $2 }
+    | CALL NAME program { LabelInstruction(2, $2) :: $3 }
+    | GOTO NAME program { LabelInstruction(3, $2) :: $3 }
+    | IF_TRUE NAME program { LabelInstruction(4, $2) :: $3 }
     | PLACE_BOOL CST_BOOL program { BoolInstruction(5, $2) :: $3 }
     | PLACE_INT CST_INT program { IntInstruction(6, $2) :: $3 }
     | CLONE_FULL program { Instruction(7) :: $2 }
     | CLONE_HALF program { Instruction(8) :: $2 }
     | CLONE_SHORT program { Instruction(9) :: $2 }
     | CLONE_BYTE program { Instruction(10) :: $2 }
-    | FETCH_BOOL program { Instruction(11) :: $2 }
-    | FETCH_INT program { Instruction(12) :: $2 }
-    | DECLARE_BOOL program { Instruction(13) :: $2 }
-    | DECLARE_INT program { Instruction(14) :: $2 }
-    | ASSIGN_BOOL program { Instruction(15) :: $2 }
-    | ASSIGN_INT program { Instruction(16) :: $2 }
-    | INT_ADD program { Instruction(17) :: $2 }
-    | INT_MUL program {Instruction(18) :: $2 }
-    | INT_SUB program { Instruction(19) :: $2 }
-    | INT_EQ program { Instruction(20) :: $2 }
-    | INT_LT program { Instruction(21) :: $2 }
-    | BOOL_EQ program { Instruction(22) :: $2 }
-    | BOOL_NOT program { Instruction(23) :: $2 }
-    | BOOL_AND program { Instruction(24) :: $2 }
-    | BOOL_OR program { Instruction(25) :: $2 }
-    | GETSP program { Instruction(26) :: $2 }
-    | GETBP program { Instruction(27) :: $2 }
-    | MODSP CST_INT program { IntInstruction(28, $2) :: $3 }
-    | FREE_VAR program { Instruction(29) :: $2 }
-    | FREE_VARS CST_INT program { IntInstruction(30, $2) :: $3 }
-    | PRINT_VAR program { Instruction(31) :: $2 }
-    | PRINT_INT program { Instruction(32) :: $2 }
-    | PRINT_BOOL program { Instruction(33) :: $2 }
-    | STACK_FETCH CST_INT program { IntInstruction(34, $2) :: $3 }
-    | BP_FETCH CST_INT program { IntInstruction(35, $2) :: $3 }
+    | FETCH_FULL program { Instruction(11) :: $2 }
+    | FETCH_HALF program { Instruction(12) :: $2 }
+    | FETCH_SHORT program { Instruction(13) :: $2 }
+    | FETCH_BYTE program { Instruction(14) :: $2 }
+    | FIELD_FETCH program { Instruction(15) :: $2 }
+    | DECLARE_FULL program { Instruction(16) :: $2 }
+    | DECLARE_HALF program { Instruction(17) :: $2 }
+    | DECLARE_SHORT program { Instruction(18) :: $2 }
+    | DECLARE_BYTE program { Instruction(19) :: $2 }
+    | DECLARE_STRUCT program { Instruction(20) :: $2 }
+    | ASSIGN_FULL program { Instruction(21) :: $2 }
+    | ASSIGN_HALF program { Instruction(22) :: $2 }
+    | ASSIGN_SHORT program { Instruction(23) :: $2 }
+    | ASSIGN_BYTE program { Instruction(24) :: $2 }
+    | FIELD_ASSIGN program { Instruction(25) :: $2 }
+    | INT_ADD program { Instruction(26) :: $2 }
+    | INT_MUL program { Instruction(27) :: $2 }
+    | INT_SUB program { Instruction(28) :: $2 }
+    | INT_EQ program { Instruction(29) :: $2 }
+    | INT_LT program { Instruction(30) :: $2 }
+    | BOOL_EQ program { Instruction(31) :: $2 }
+    | BOOL_NOT program { Instruction(32) :: $2 }
+    | BOOL_AND program { Instruction(33) :: $2 }
+    | BOOL_OR program { Instruction(34) :: $2 }
+    | GETSP program { Instruction(35) :: $2 }
+    | GETBP program { Instruction(36) :: $2 }
+    | MODSP CST_INT program { IntInstruction(37, $2) :: $3 }
+    | FREE_VAR program { Instruction(38) :: $2 }
+    | FREE_VARS CST_INT program { IntInstruction(39, $2) :: $3 }
+    | PRINT_VAR program { Instruction(40) :: $2 }
+    | PRINT_INT program { Instruction(41) :: $2 }
+    | PRINT_BOOL program { Instruction(42) :: $2 }
+    | STACK_FETCH CST_INT program { IntInstruction(43, $2) :: $3 }
+    | BP_FETCH CST_INT program { IntInstruction(44, $2) :: $3 }
 ;
 
 type_list:
