@@ -16,7 +16,9 @@ and program_part =
 and typ =
   | T_Int
   | T_Bool
-
+  | T_Array of typ
+  | T_Struct of string
+  | T_Null
 
 type concrete_program_part =
   | CEntryPoint of string * typ list

@@ -26,6 +26,14 @@ let lookup_localvar (name: string) localvars =
   in
   aux localvars ((List.length localvars) - 1)
 
+let lookup_struct (name: string) structs =
+  let rec aux li = 
+    match li with
+    | [] -> None
+    | (n,ps)::t -> if n = name then Some(ps) else aux t
+  in
+  aux structs
+
 let count_decl stmt_dec_list =
   let rec aux sdl c =
     match sdl with
@@ -83,7 +91,7 @@ let fetch_var_index (name: string) globvars localvars =
     | Some (gc,_,_) -> StackFetch(gc)
     | None -> compile_error ("No such variable " ^ name)
 
-let fetch_var_val (name: string) globvars localvars = 
+let fetch_var (name: string) globvars localvars = 
   let t = match lookup_localvar name localvars with
     | Some (_,lt,_) -> lt
     | None -> 
@@ -91,9 +99,16 @@ let fetch_var_val (name: string) globvars localvars =
       | Some (_,gt,_) -> gt
       | None -> compile_error ("No such variable " ^ name)
   in
-  match t with
-  | T_Int -> (t, (fetch_var_index name globvars localvars) :: [FetchInt])
-  | T_Bool -> (t, (fetch_var_index name globvars localvars) :: [FetchBool])
+  (t, (fetch_var_index name globvars localvars))
+
+
+let struct_field field params =
+  let rec aux ps c =
+    match ps with
+    | [] -> compile_error ("No such field, " ^ field)
+    | (_,ty,n)::t -> if n = name then (ty,c) else aux t (c+1)
+  in
+  aux params 0
 
 let var_locked (name: string) globvars localvars = 
   match lookup_localvar name localvars with
@@ -118,6 +133,10 @@ let routine_exists (name: string) routines =
   | Some _ -> true
   | None -> false
 
+let struct_exists (name: string) structs =
+  match lookup_struct name structs with
+  | Some _ -> true
+  | None -> false
 
 let default_value t =
   match t with
@@ -144,7 +163,7 @@ let get_globvars (tds : topdecs) =
   in match tds with 
   | Topdecs l -> aux l [] 0
 
-(*    list of: string * access_mod * (typ * string) list * statement    *)
+(*    list of: string * access_mod * (bool * typ * string) list * statement    *)
 let get_routines (tds : topdecs) =
   let rec aux topdecs acc =
     match topdecs with
@@ -160,7 +179,124 @@ let get_routines (tds : topdecs) =
   in match tds with
   | Topdecs l -> aux l []
 
+(*    list of: string * (bool, typ * string) list   *)
+let get_structs (tds : topdecs) =
+  let rec aux topdecs acc =
+    match topdecs with
+    | [] -> acc
+    | h::t -> (
+      match h with
+      | Struct (name, params) -> (
+        if struct_exists name acc then compile_error ("Duplicate struct name: " ^ name)
+        else aux t ((name, params)::acc)
+        )
+      | _ -> aux t acc
+    )
+  in match tds with
+  | Topdecs l -> aux l []
 
+let rec compile_assignable_expr expr globvars localvars structs =
+  match expr with
+  | Reference ref_expr -> compile_reference ref_expr globvars localvars structs
+  | Value val_expr -> compile_value val_expr globvars localvars structs
+  | NewArray (arr_ty, size_expr) -> (
+    let (s_ty, size_inst) = compile_value size_inst globvars localvars structs in
+    match s_ty with
+    | T_Int -> (T_Array arr_ty, size_inst @ [DeclareStruct])
+    | _ -> compile_error ("Init array with non-int size")
+  )
+  | NewStruct (name, args) -> (
+    let rec aux ags prs c acc =
+      match (ags, prs) with
+      | ([], []) -> acc
+      | (ha::ta, (l,pty,_)::tp) -> (
+        let (ha_ty, ha_inst) = compile_assignable_expr ha globvars localvars structs in
+        if pty != ha_ty then compile_error ("Struct argument type mismatch")
+        else match ha with
+        | Value _ -> (
+          
+        ???
+
+        )
+        | _ -> aux ta tp (c+1) (::acc)
+      )
+      | (_,_) -> compile_error ("Struct argument count mismatch")
+    (T_Struct name, )
+  )
+
+and compile_reference ref_expr globvars localvars structs =
+  match ref_expr with
+  | VarRef name -> fetch_var name globvars localvars
+  | StructRef (ref, field) -> (
+    let (ref_ty, inst) = compile_reference ref globvars localvars structs in
+    match ref_ty with
+    | T_Struct n -> (
+      let (field_ty, idx) = struct_field field (lookup_struct name structs) in
+      (field_ty, (inst) @ [PlaceInt((idx)*8); IntAdd;])
+    )
+    | _ -> compile_error ("Struct field lookup type failure")
+  )
+  | ArrayRef (name, index) -> (
+    let (ref_ty, inst) = compile_reference ref globvars localvars structs in
+    match ref_ty with
+    | T_Array (sub_ty) -> (sub_ty, inst @ [PlaceInt(index*8); IntAdd;])
+    | _ -> compile_error ("Array lookup type failure")
+  )
+  | Null -> (T_Null, [PlaceInt(0)])
+
+and compile_value val_expr globvars localvars structs =
+  match val_expr with
+  | Bool b -> (T_Bool, [PlaceBool(b)])
+  | Int i -> (T_Int, [PlaceInt(i)])
+  | Lookup ref -> (
+    let (ref_ty, inst) = compile_reference ref globvars localvars structs in
+    match ref_ty with
+    | T_Int -> (T_Int, inst @ [FetchFull])
+    | T_Bool -> (T_Bool, inst @ [FetchByte])
+    | T_Array ty -> (T_Array ty, inst @ [FetchFull])
+    | T_Struct n -> (T_Struct n, inst @ [FetchFull])
+    | T_Null -> compile_error ("Null pointer dereferencing")
+  )
+  | Binary_op (op, e1, e2) -> (
+      let (t1, ins1) = compile_assignable_expr e1 globvars localvars in
+      let (t2, ins2) = compile_assignable_expr e2 globvars localvars in
+      match (op, t1, t2, e1, e2) with
+      | ("&", T_Bool, T_Bool, Bool true, _) ->  (T_Bool, ins2)
+      | ("&", T_Bool, T_Bool, _, Bool true) ->  (T_Bool, ins1)
+      | ("&", T_Bool, T_Bool, Bool false, _) ->  (T_Bool, [PlaceBool(false)])
+      | ("&", T_Bool, T_Bool, _, Bool false) ->  (T_Bool, [PlaceBool(false)])
+      | ("&", T_Bool, T_Bool, _, _) ->  (T_Bool, ins1 @ ins2 @ [BoolAnd])
+      | ("|", T_Bool, T_Bool, Bool true, _) -> (T_Bool, [PlaceBool(true)])
+      | ("|", T_Bool, T_Bool, _, Bool true) -> (T_Bool, [PlaceBool(true)])
+      | ("|", T_Bool, T_Bool, Bool false, _) -> (T_Bool, ins2)
+      | ("|", T_Bool, T_Bool, _, Bool false) -> (T_Bool, ins1)
+      | ("|", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolOr])
+      | ("=", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolEq])
+      | ("!=", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolEq] @ [BoolNot])
+      | ("=", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntEq])
+      | ("!=", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntEq] @ [BoolNot])
+      | ("<=", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntLt] @ [BoolNot]) 
+      | ("<", T_Int, T_Int, _, _) -> (T_Bool, ins2 @ ins1 @ [IntLt])
+      | (">=", T_Int, T_Int, _, _) -> (T_Bool, ins2 @ ins1 @ [IntLt] @ [BoolNot])
+      | (">", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntLt])
+      | ("+", T_Int, T_Int, Int 0, _) -> (T_Int, ins2)
+      | ("+", T_Int, T_Int, _, Int 0) -> (T_Int, ins1)
+      | ("+", T_Int, T_Int, _, _) -> (T_Int, ins1 @ ins2 @ [IntAdd])
+      | ("-", T_Int, T_Int, _, Int 0) -> (T_Int, ins1)
+      | ("-", T_Int, T_Int, _, _) -> (T_Int, ins2 @ ins1 @ [IntSub])
+      | ("*", T_Int, T_Int, Int 0, _) -> (T_Int, [PlaceInt(0)])
+      | ("*", T_Int, T_Int, _, Int 0) -> (T_Int, [PlaceInt(0)])
+      | ("*", T_Int, T_Int, Int 1, _) -> (T_Int, ins2)
+      | ("*", T_Int, T_Int, _, Int 1) -> (T_Int, ins1)
+      | ("*", T_Int, T_Int, _, _) -> (T_Int, ins1 @ ins2 @ [IntMul])
+      | _ -> compile_error "Unknown binary operator, or type mismatch"
+    )
+  | Unary_op (op, e) -> (
+    let (t, ins) = compile_assignable_expr e globvars localvars in
+    match (op, t) with
+    | ("!", T_Bool) -> (T_Bool, ins @ [BoolNot])
+    | _ -> compile_error "Unknown unary operator, or type mismatch"
+  )
 
 let rec compile_assignable_expr expr globvars localvars =
   match expr with
@@ -411,6 +547,7 @@ let compile_globvars lst =
 let compile topdecs =
   let globvars = get_globvars topdecs in
   let routines = get_routines topdecs in
+  let structs = get_structs topdecs in
   let rec aux tds acc =
     match tds with
     | [] -> acc

@@ -7,6 +7,8 @@
                           "bool", BOOL;
                           "internal", INTERNAL;
                           "external", EXTERNAL;
+                          "struct", STRUCT;
+                          "null", NULL;
                           "locked", LOCKED;
                           "var", VAR;
                           "if", IF;
@@ -43,7 +45,8 @@ rule lex = parse
     |   ">="          { GTEQ }
     |   ">"           { GT }
     |   '&'           { AND }
-    |   '|'           { OR }
+    |   '$'           { VALUE }
+    |   '|'           { PIPE }
     |   '!'           { NOT }
     |   ":="          { ASSIGNMENT }
     |   '('           { LPAR }
