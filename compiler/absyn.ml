@@ -16,13 +16,9 @@ and statement_or_declaration =
     | Statement of statement
     | Declaration of declaration
 
-(* Might not be necessary *)
-and expression =
-    | Assignable_expression of assignable_expression
-    | Unassignable_expression of unassignable_expression
-
+(* Add assignmet-types, reassignments, field-assignments *)
 and unassignable_expression =
-    | Assign of string * string * assignable_expression
+    | Assign of reference * string * assignable_expression
     | Call of string * assignable_expression list
     | Stop
     | Halt
@@ -31,16 +27,26 @@ and unassignable_expression =
     | Print of assignable_expression
 
 and assignable_expression =
+    | Reference of reference
+    | Value of value
+
+and reference =
+    | Lookup of string
+    | StructLookup of string * string
+    | ArrayLookup of srting * int
+
+and value =
     | Binary_op of string * assignable_expression * assignable_expression
     | Unary_op of string * assignable_expression
+    | ArraySize of string
     | Bool of bool
     | Int of int
-    | Lookup of string
 
 and top_declaration =
     | Routine of access_mod * string * (bool * typ * string) list * statement
     | Global of bool * typ * string
     | GlobalAssign of bool * typ * string * assignable_expression
+    | Struct of string * declaration list
 
 and access_mod =
     | Internal
