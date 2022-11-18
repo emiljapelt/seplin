@@ -231,7 +231,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 if (!IS_STRUCT(target)) { printf("Failure: Field fetch from non-struct data\n"); return -1; } 
                 if (ALLOC_SIZE(target) <= offset) { printf("Failure: Field fetch out of struct bounds\n"); return -1; } 
 
-                *(word**)(stack + sp + MOVE(FULL, -2)) = *(target + offset);
+                *(word**)(stack + sp + MOVE(FULL, -2)) = target + offset;
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
@@ -304,6 +304,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 break;
             }
             case FIELD_ASSIGN: {
+                // TAKE ANOTHER LOOK AT THIS ONE!!!
                 uword** target = *(uword***)(stack + sp + MOVE(FULL, -3));
                 uword offset = *(uword*)(stack + sp + MOVE(FULL, -2));
                 word* value = *(word**)(stack + sp + MOVE(FULL, -1));
@@ -388,18 +389,18 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 ip++;
                 break;
             }
-            case GETSP: {
-                *(word*)(stack + sp) = (word)sp;
-                sp += MOVE(FULL, 1);
-                ip++;
-                break;
-            }
-            case MODSP: {
-                word amount = *(word*)(p+ip+1);
-                sp += amount;
-                ip += MOVE(FULL, 1) + 1;
-                break;
-            }
+            // case GETSP: {
+            //     *(word*)(stack + sp) = (word)sp;
+            //     sp += MOVE(FULL, 1);
+            //     ip++;
+            //     break;
+            // }
+            // case MODSP: {
+            //     word amount = *(word*)(p+ip+1);
+            //     sp += amount;
+            //     ip += MOVE(FULL, 1) + 1;
+            //     break;
+            // }
             case FREE_VAR: {
                 word* target = *(word**)(stack + sp + MOVE(FULL, -1));
                 try_free(target);
@@ -442,7 +443,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
             }
             case STACK_FETCH: {
                 word offset = *(word*)(p + ip + 1);
-                word* value = *(word**)(stack + MOVE(FULL, offset));
+                word* value = (word*)(stack + MOVE(FULL, offset));
                 *(word*)(stack + sp) = (word)value;
                 sp += MOVE(FULL, 1);
                 ip += MOVE(FULL, 1) + 1;
@@ -450,7 +451,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
             }
             case BP_FETCH: {
                 word offset = *(word*)(p + ip + 1);
-                word* value = *(word**)(stack + bp + MOVE(FULL, offset));
+                word* value = (word*)(stack + bp + MOVE(FULL, offset));
                 *(word*)(stack + sp) = (word)value;
                 sp += MOVE(FULL, 1);
                 ip += MOVE(FULL, 1) + 1;

@@ -8,4 +8,4 @@ ocamllex assemblyLexer.mll
 ocamlc -c assemblyLexer.ml
 ocamlc -c assemblyWriter.ml
 
-ocamlc str.cma programRep.cmo exceptions.cmo assemblyParser.cmo assemblyLexer.cmo assemblyWriter.cmo absyn.cmo lexer.cmo parser.cmo toProgramRep.cmo compiler.ml -o inexc.exe
+ocamlc str.cma programRep.cmo exceptions.cmo assemblyParser.cmo assemblyLexer.cmo assemblyWriter.cmo compiler.ml -o inexc.exe
