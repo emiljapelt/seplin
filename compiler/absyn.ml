@@ -28,7 +28,7 @@ and unassignable_expression =
 and assignable_expression =
     | Reference of reference
     | Value of value
-    | NewArray of typ * value
+    | NewArray of typ * assignable_expression
     | NewStruct of string * assignable_expression list
 
 and reference =
