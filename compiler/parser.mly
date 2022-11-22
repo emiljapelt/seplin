@@ -13,19 +13,19 @@
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
 %token STOP HALT
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
-%token AND PIPE NOT VALUE
+%token LOGIC_AND LOGIC_OR PIPE NOT VALUE
 %token COMMA DOT SEMI EOF
 %token IF ELSE
 %token WHILE UNTIL FOR
 %token BREAK CONTINUE
-%token LOCKED STRUCT VAR NULL
+%token LOCKED STRUCT VAR NULL NEW
 %token PRINT
 
 %left ELSE
 %left EQ NEQ
 %left GT LT GTEQ LTEQ
-%left PLUS MINUS OR
-%left TIMES AND
+%left PLUS MINUS LOGIC_OR
+%left TIMES LOGIC_AND
 %nonassoc NOT
 
 %start main
@@ -41,7 +41,7 @@ topdecs:
 ;
 
 topdec:
-  | typ NAME SEMI                                             { Global (false, $1, $2) }
+    typ NAME SEMI                                             { Global (false, $1, $2) }
   | LOCKED typ NAME SEMI                                      { Global (true, $2, $3) }
   | typ NAME ASSIGNMENT assignable_expression SEMI            { GlobalAssign (false, $1, $2, $4)   }
   | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI     { GlobalAssign (true, $2, $3, $5)    }
@@ -49,7 +49,7 @@ topdec:
   | EXTERNAL NAME LPAR params RPAR block           { Routine (External, $2, $4, $6) }
   | INTERNAL NAME LPAR params RPAR chain           { Routine (Internal, $2, $4, Block $6) }
   | EXTERNAL NAME LPAR params RPAR chain           { Routine (External, $2, $4, Block $6) }
-  | STRUCT NAME LPAR params RPAR SEMI          { Struct ($2, $4) }
+  | STRUCT NAME LBRAKE params RBRAKE SEMI          { Struct ($2, $4) }
 ;
 
 typ:
@@ -69,25 +69,25 @@ chain:
 ;
 
 assignable_expression:
-  | reference                         { Reference $1 }
-  | value                             { Value $1 }
-  | type LBRAKE value RBRAKE          { NewArray ($1, $3) }
-  | NAME LPAR arguments RPAR          { NewStruct ($2) }
-  | LPAR assignable_expression RPAR   { $2 }
+    reference                                     { Reference $1 }
+  | value                                         { Value $1 }
+  | NEW typ LBRAKE assignable_expression RBRAKE   { NewArray ($2, $4) }
+  | NEW NAME LBRAKE arguments RBRAKE              { NewStruct ($2, $4) }
+  | LPAR assignable_expression RPAR               { $2 }
 ;
 
 reference:
-  | NAME                        { VarRef $1 }
-  | NAME LBRAKE NAME RBRAKE     { StructRef ($1, $3) }
-  | NAME LBRAKE value RBRAKE    { ArrayRef ($1, $3) }
-  | NULL                        { Null }
+   NAME                                               { VarRef $1 }
+  | reference LBRAKE NAME RBRAKE                      { StructRef ($1, $3) }
+  | reference LBRAKE assignable_expression RBRAKE     { ArrayRef ($1, $3) }
+  | NULL                                              { Null }
 ;
 
 value:
-  CSTBOOL     { Bool $1 }
+    CSTBOOL   { Bool $1 }
   | CSTINT    { Int $1 }
-  | assignable_expression AND assignable_expression       { Binary_op ("&", $1, $3) }
-  | assignable_expression OR assignable_expression        { Binary_op ("|", $1, $3) }
+  | assignable_expression LOGIC_AND assignable_expression       { Binary_op ("&&", $1, $3) }
+  | assignable_expression LOGIC_OR assignable_expression        { Binary_op ("||", $1, $3) }
   | assignable_expression EQ assignable_expression        { Binary_op ("=", $1, $3) }
   | assignable_expression NEQ assignable_expression       { Binary_op ("!=", $1, $3) }
   | assignable_expression LTEQ assignable_expression      { Binary_op ("<=", $1, $3) }
@@ -97,14 +97,14 @@ value:
   | assignable_expression PLUS assignable_expression      { Binary_op ("+", $1, $3) }
   | assignable_expression TIMES assignable_expression     { Binary_op ("*", $1, $3) }
   | assignable_expression MINUS assignable_expression     { Binary_op ("-", $1, $3) }
-  | MINUS assignable_expression                           { Binary_op ("-", Int 0, $2) }
+  | MINUS assignable_expression                           { Binary_op ("-", Value (Int 0), $2) }
   | NOT assignable_expression                             { Unary_op ("!", $2) }
   | PIPE reference PIPE                                   { ArraySize $2 }
   | VALUE reference                                       { Lookup $2 }
 ;
 
 unassignable_expression:
-    reference ASSIGNMENT assignable_expression       { Assign ("", $1, $3) }
+    STOP reference ASSIGNMENT assignable_expression       { Assign ("", $2, $4) }
   | reference PLUS ASSIGNMENT assignable_expression  { Assign ("+", $1, $4) }
   | reference MINUS ASSIGNMENT assignable_expression { Assign ("-", $1, $4) }
   | reference TIMES ASSIGNMENT assignable_expression { Assign ("*", $1, $4) }
@@ -152,7 +152,7 @@ stmt:
   | IF LPAR assignable_expression RPAR stmt ELSE stmt        { If ($3, $5, $7) }
   | IF LPAR assignable_expression RPAR stmt                  { If ($3, $5, Block []) }
   | WHILE LPAR assignable_expression RPAR stmt               { While ($3, $5) }
-  | UNTIL LPAR assignable_expression RPAR stmt               { While (Unary_op("!", $3), $5) }
+  | UNTIL LPAR assignable_expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec assignable_expression SEMI unassignable_expression RPAR stmt    { For ($3, $4, $6, $8) }
 ;
 
@@ -167,6 +167,6 @@ params1:
 ;
 
 param:
-  | LOCKED typ NAME            { (true, $2, $3) }
+    LOCKED typ NAME            { (true, $2, $3) }
   | typ NAME                   { (false, $1, $2) }
 ;

@@ -17,3 +17,10 @@ ocamlc -c lexer.ml
 ocamlc -c toProgramRep.ml
 
 ocamlc str.cma programRep.cmo exceptions.cmo assemblyParser.cmo assemblyLexer.cmo assemblyWriter.cmo absyn.cmo lexer.cmo parser.cmo toProgramRep.cmo compiler.ml -o inexc.exe
+
+
+
+
+
+
+./inexc.exe ./example_programs/struct_test.ix ../machine/struct_test.ixc

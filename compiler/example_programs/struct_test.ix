@@ -1,0 +1,34 @@
+locked int funny := 69;
+
+struct tuple [int fst, int snd];
+struct person [int age, tuple favoriteNumbers];
+
+external str() {
+    var x := new tuple[4,5];
+    print x[fst];
+    print x[snd];
+}
+
+external arr() {
+    var x := new int[2];
+    int a := 4;
+    int b := 5;
+    stop x[0] := a;
+    stop x[1] := b;
+    print x[0];
+    print x[1];
+    print |x|;
+}
+
+external pers() {
+    var emil := new person[23, new tuple[8, 16]];
+    
+    print_person(emil);
+    print emil[favoriteNumbers][fst];
+}
+
+internal print_person(locked person p) {
+    print p[age];
+    print p[favoriteNumbers][fst];
+    print p[favoriteNumbers][snd];
+}

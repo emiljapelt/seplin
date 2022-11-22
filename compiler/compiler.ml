@@ -1,5 +1,5 @@
 open AssemblyWriter
-(* open ToProgramRep *)
+open ToProgramRep
 open Str
 open Exceptions
 
@@ -27,7 +27,7 @@ let compileAssembly () =
   )
   | Compile_error msg -> Printf.printf "%s\n" msg
 
-(* let compile () =
+let compile () =
   let file = open_in input in
   let content = really_input_string (file) (in_channel_length file) in
   let () = close_in_noerr file in
@@ -43,9 +43,9 @@ let compileAssembly () =
     | n when n = List.length lines -> printer (n-1) ; printer (n-2)
     | _ ->  printer (l-1) ; printer l ; printer (l+1) 
   )
-  | Compile_error msg -> Printf.printf "%s\n" msg *)
+  | Compile_error msg -> Printf.printf "%s\n" msg
 
 let () = 
   if Str.string_match (regexp {|.+\.ixa$|}) input 0 then compileAssembly ()
-  (* else if Str.string_match (regexp {|.+\.ix$|}) input 0 then compile () *)
+  else if Str.string_match (regexp {|.+\.ix$|}) input 0 then compile ()
   else Printf.printf "File type not supported"

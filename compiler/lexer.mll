@@ -8,6 +8,7 @@
                           "internal", INTERNAL;
                           "external", EXTERNAL;
                           "struct", STRUCT;
+                          "new", NEW;
                           "null", NULL;
                           "locked", LOCKED;
                           "var", VAR;
@@ -44,7 +45,8 @@ rule lex = parse
     |   "<"           { LT }
     |   ">="          { GTEQ }
     |   ">"           { GT }
-    |   '&'           { AND }
+    |   "&&"          { LOGIC_AND }
+    |   "||"          { LOGIC_OR }
     |   '$'           { VALUE }
     |   '|'           { PIPE }
     |   '!'           { NOT }

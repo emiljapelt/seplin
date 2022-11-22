@@ -41,3 +41,9 @@
     - Access:
       var third := numbers[2];                               ~= #FETCH numbers#, PLACE_INT(2), OFFSET_FETCH, FETCH_FULL
   
+
+
+
+- ToFix
+  - SIZE_OF finding the wrong size
+  - Assignments to arrays/structs only parse with something infront, like a STOP token

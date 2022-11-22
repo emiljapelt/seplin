@@ -48,10 +48,22 @@ let count_decl stmt_dec_list =
   in
   aux stmt_dec_list 0
 
-let type_string t =
+let rec type_string t =
   match t with
-  | T_Bool -> "'bool'"
-  | T_Int -> "'int'"
+  | T_Bool -> "bool"
+  | T_Int -> "int"
+  | T_Array arr_ty -> (type_string arr_ty)^"[]"
+  | T_Struct n -> n
+  | T_Null -> "null"
+
+let rec type_equal t1 t2 =
+  match (t1, t2) with
+  | (T_Int, T_Int) -> true
+  | (T_Bool, T_Bool) -> true
+  | (T_Array at1, T_Array at2) -> type_equal at1 at2
+  | (T_Struct n1, T_Struct n2) when n1 = n2 -> true
+  | (T_Null, T_Null) -> true
+  | _ -> false
 
 let routine_head accmod name params =
   match accmod with
@@ -106,7 +118,7 @@ let struct_field field params =
   let rec aux ps c =
     match ps with
     | [] -> compile_error ("No such field, " ^ field)
-    | (l,ty,n)::t -> if n = name then (l,ty,c) else aux t (c+1)
+    | (l,ty,n)::t -> if n = field then (l,ty,c) else aux t (c+1)
   in
   aux params 0
 
@@ -140,8 +152,9 @@ let struct_exists (name: string) structs =
 
 let default_value t =
   match t with
-  | T_Int -> Int 0
-  | T_Bool -> Bool false
+  | T_Int -> Value (Int 0)
+  | T_Bool -> Value (Bool false)
+  | _ -> compile_error "Struct/Array missing default value"
 
 (*    list of: string * int * bool * typ * assignable_expression    *)
 let get_globvars (tds : topdecs) = 
@@ -201,7 +214,7 @@ let rec compile_assignable_expr expr globvars localvars structs =
   match expr with
   | Reference ref_expr -> compile_reference ref_expr globvars localvars structs
   | Value val_expr -> (
-    let (val_ty, inst) = compile_value val_expr globvars localvars structs
+    let (val_ty, inst) = compile_value val_expr globvars localvars structs in
     (false, val_ty, inst)
   )
   | NewArray (arr_ty, size_expr) -> (
@@ -216,40 +229,48 @@ let rec compile_assignable_expr expr globvars localvars structs =
       | ([], []) -> acc
       | (ha::ta, (field_lock,field_ty,_)::tf) -> (
         let (ha_lock, ha_ty, ha_inst) = compile_assignable_expr ha globvars localvars structs in
-        if field_ty != ha_ty then compile_error ("Struct argument type mismatch")
-        else if ha_lock && !field_lock then compile_error "Cannot give a locked variable as a parameter that is not locked"
+        if not (type_equal field_ty ha_ty) then compile_error ("Struct argument type mismatch")
+        else if ha_lock && (not field_lock) then compile_error "Cannot give a locked variable as a parameter that is not locked"
         else match ha with
         | Value _ -> (
           match ha_ty with
-          | T_Int -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: DeclareInt :: CloneFull :: ha_inst) @ (AssignInt :: FieldAssign :: acc))
+          | T_Int -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: DeclareFull :: CloneFull :: ha_inst) @ (AssignFull :: FieldAssign :: acc))
           | T_Bool -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: DeclareByte :: CloneFull :: ha_inst) @ (AssignByte :: FieldAssign :: acc))
           | _ -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: ha_inst) @ (FieldAssign :: acc))
         )
         | _ -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: ha_inst) @ (FieldAssign :: acc))
       )
       | (_,_) -> compile_error ("Struct argument count mismatch")
-    (false, T_Struct name,  :: DeclareStruct :: (aux args (lookup_struct name structs) 0 []) )
+    in
+    match lookup_struct name structs with
+    | Some params -> (false, T_Struct name, PlaceInt(List.length params) :: DeclareStruct :: (aux args params 0 []) )
+    | None -> compile_error ("No such struct: " ^ name)
   )
 
 and compile_reference ref_expr globvars localvars structs =
   match ref_expr with
   | VarRef name -> (
-    let (var_ty, inst) = fetch_var name globvars localvars
-    (var_locked name globvars localvars, var_ty, inst)
+    let (var_ty, inst) = fetch_var name globvars localvars in
+    (var_locked name globvars localvars, var_ty, [inst])
   )
-  | StructRef (ref, field) -> (
-    let (ref_lock, ref_ty, inst) = compile_reference ref globvars localvars structs in
+  | StructRef (refer, field) -> (
+    let (ref_lock, ref_ty, inst) = compile_reference refer globvars localvars structs in
     match ref_ty with
-    | T_Struct n -> (
-      let (field_lock, field_ty, index) = struct_field field (lookup_struct name structs) in
-      (ref_lock || field_lock, field_ty, (inst) @ [PlaceInt(index); FieldFetch;])
+    | T_Struct name -> (
+      match lookup_struct name structs with
+      | Some params -> (
+        let (field_lock, field_ty, index) = struct_field field params in
+        (ref_lock || field_lock, field_ty, (inst) @ [FetchFull; PlaceInt(index); FieldFetch;])
+      )
+      | None -> compile_error ("No such struct: " ^ name)
     )
     | _ -> compile_error ("Struct field lookup type failure")
   )
-  | ArrayRef (name, index) -> (
-    let (ref_lock, ref_ty, inst) = compile_reference ref globvars localvars structs in
-    match ref_ty with
-    | T_Array (sub_ty) -> (ref_lock, sub_ty, inst @ [PlaceInt(index); FieldFetch;])
+  | ArrayRef (refer, index) -> (
+    let (ref_lock, ref_ty, inst) = compile_reference refer globvars localvars structs in
+    let (idx_ty, index_inst) = compile_assignable_expr_as_value index globvars localvars structs in
+    match (ref_ty, idx_ty) with
+    | (T_Array (sub_ty), T_Int) -> (ref_lock, sub_ty, inst @ (FetchFull :: index_inst) @ [FieldFetch;])
     | _ -> compile_error ("Array lookup type failure")
   )
   | Null -> (false, T_Null, [PlaceInt(0)])
@@ -259,19 +280,29 @@ and compile_assignable_expr_as_value aexpr globvars localvars structs =
   | Reference r -> (
     let (_, ref_ty, inst) = compile_reference r globvars localvars structs in
     match ref_ty with
-    | T_Int -> (ref_ty, inst @ [FetchFull])
-    | T_Bool -> (ref_ty, inst @ [FetchByte])
-    | _ -> compile_error ("Could not compile as value")
+    | T_Int -> (ref_ty, inst @ [FetchFull;FetchFull;])
+    | T_Bool -> (ref_ty, inst @ [FetchFull;FetchByte;])
+    | T_Array _ -> (ref_ty, inst @ [FetchFull;])
+    | T_Struct _ -> (ref_ty, inst @ [FetchFull;])
+    | T_Null -> (ref_ty, inst)
   )
-  | Value v -> compile_value v globvars localvars structs
-  | _ -> compile_error ("Could not compile as value")
+  | _ -> (
+    let (expr_lock, expr_ty, inst) = compile_assignable_expr aexpr globvars localvars structs in
+    (expr_ty, inst)
+  )
 
 and compile_value val_expr globvars localvars structs =
   match val_expr with
   | Bool b -> (T_Bool, [PlaceBool(b)])
   | Int i -> (T_Int, [PlaceInt(i)])
-  | Lookup ref -> (
-    let (_, ref_ty, inst) = compile_reference ref globvars localvars structs in
+  | ArraySize refer -> (
+    let (_, ref_ty, inst) = compile_reference refer globvars localvars structs in
+    match ref_ty with
+    | T_Array _ -> (T_Int, inst @ [FetchFull; SizeOf;])
+    | _ -> compile_error "Array size only makes sense for arrays"
+  )
+  | Lookup refer -> (
+    let (_, ref_ty, inst) = compile_reference refer globvars localvars structs in
     match ref_ty with
     | T_Int -> (T_Int, inst @ [FetchFull])
     | T_Bool -> (T_Bool, inst @ [FetchByte])
@@ -280,19 +311,19 @@ and compile_value val_expr globvars localvars structs =
     | T_Null -> compile_error ("Direct null pointer dereferencing")
   )
   | Binary_op (op, e1, e2) -> (
-      let (t1, ins1) = compile_assignable_expr_as_value e1 globvars localvars in
-      let (t2, ins2) = compile_assignable_expr_as_value e2 globvars localvars in
+      let (t1, ins1) = compile_assignable_expr_as_value e1 globvars localvars structs in
+      let (t2, ins2) = compile_assignable_expr_as_value e2 globvars localvars structs in
       match (op, t1, t2, e1, e2) with
-      | ("&", T_Bool, T_Bool, Bool true, _) ->  (T_Bool, ins2)
-      | ("&", T_Bool, T_Bool, _, Bool true) ->  (T_Bool, ins1)
-      | ("&", T_Bool, T_Bool, Bool false, _) ->  (T_Bool, [PlaceBool(false)])
-      | ("&", T_Bool, T_Bool, _, Bool false) ->  (T_Bool, [PlaceBool(false)])
-      | ("&", T_Bool, T_Bool, _, _) ->  (T_Bool, ins1 @ ins2 @ [BoolAnd])
-      | ("|", T_Bool, T_Bool, Bool true, _) -> (T_Bool, [PlaceBool(true)])
-      | ("|", T_Bool, T_Bool, _, Bool true) -> (T_Bool, [PlaceBool(true)])
-      | ("|", T_Bool, T_Bool, Bool false, _) -> (T_Bool, ins2)
-      | ("|", T_Bool, T_Bool, _, Bool false) -> (T_Bool, ins1)
-      | ("|", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolOr])
+      | ("&&", T_Bool, T_Bool, Value(Bool true), _) ->  (T_Bool, ins2)
+      | ("&&", T_Bool, T_Bool, _, Value(Bool true)) ->  (T_Bool, ins1)
+      | ("&&", T_Bool, T_Bool, Value(Bool false), _) ->  (T_Bool, [PlaceBool(false)])
+      | ("&&", T_Bool, T_Bool, _, Value(Bool false)) ->  (T_Bool, [PlaceBool(false)])
+      | ("&&", T_Bool, T_Bool, _, _) ->  (T_Bool, ins1 @ ins2 @ [BoolAnd])
+      | ("||", T_Bool, T_Bool, Value(Bool true), _) -> (T_Bool, [PlaceBool(true)])
+      | ("||", T_Bool, T_Bool, _, Value(Bool true)) -> (T_Bool, [PlaceBool(true)])
+      | ("||", T_Bool, T_Bool, Value(Bool false), _) -> (T_Bool, ins2)
+      | ("||", T_Bool, T_Bool, _, Value(Bool false)) -> (T_Bool, ins1)
+      | ("||", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolOr])
       | ("=", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolEq])
       | ("!=", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolEq] @ [BoolNot])
       | ("=", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntEq])
@@ -301,152 +332,142 @@ and compile_value val_expr globvars localvars structs =
       | ("<", T_Int, T_Int, _, _) -> (T_Bool, ins2 @ ins1 @ [IntLt])
       | (">=", T_Int, T_Int, _, _) -> (T_Bool, ins2 @ ins1 @ [IntLt] @ [BoolNot])
       | (">", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntLt])
-      | ("+", T_Int, T_Int, Int 0, _) -> (T_Int, ins2)
-      | ("+", T_Int, T_Int, _, Int 0) -> (T_Int, ins1)
+      | ("+", T_Int, T_Int, Value(Int 0), _) -> (T_Int, ins2)
+      | ("+", T_Int, T_Int, _, Value(Int 0)) -> (T_Int, ins1)
       | ("+", T_Int, T_Int, _, _) -> (T_Int, ins1 @ ins2 @ [IntAdd])
-      | ("-", T_Int, T_Int, _, Int 0) -> (T_Int, ins1)
+      | ("-", T_Int, T_Int, _, Value(Int 0)) -> (T_Int, ins1)
       | ("-", T_Int, T_Int, _, _) -> (T_Int, ins2 @ ins1 @ [IntSub])
-      | ("*", T_Int, T_Int, Int 0, _) -> (T_Int, [PlaceInt(0)])
-      | ("*", T_Int, T_Int, _, Int 0) -> (T_Int, [PlaceInt(0)])
-      | ("*", T_Int, T_Int, Int 1, _) -> (T_Int, ins2)
-      | ("*", T_Int, T_Int, _, Int 1) -> (T_Int, ins1)
+      | ("*", T_Int, T_Int, Value(Int 0), _) -> (T_Int, [PlaceInt(0)])
+      | ("*", T_Int, T_Int, _, Value(Int 0)) -> (T_Int, [PlaceInt(0)])
+      | ("*", T_Int, T_Int, Value(Int 1), _) -> (T_Int, ins2)
+      | ("*", T_Int, T_Int, _, Value(Int 1)) -> (T_Int, ins1)
       | ("*", T_Int, T_Int, _, _) -> (T_Int, ins1 @ ins2 @ [IntMul])
       | _ -> compile_error "Unknown binary operator, or type mismatch"
     )
   | Unary_op (op, e) -> (
-    let (t, ins) = compile_assignable_expr_as_value e globvars localvars in
+    let (t, ins) = compile_assignable_expr_as_value e globvars localvars structs in
     match (op, t) with
     | ("!", T_Bool) -> (T_Bool, ins @ [BoolNot])
     | _ -> compile_error "Unknown unary operator, or type mismatch"
   )
 
-(* let rec compile_assignable_expr expr globvars localvars =
-  match expr with
-  | Bool b -> (T_Bool, [PlaceBool(b)])
-  | Int i -> (T_Int, [PlaceInt(i)])
-  | Lookup n -> fetch_var_val n globvars localvars
-  | Binary_op (op, e1, e2) -> (
-      let (t1, ins1) = compile_assignable_expr e1 globvars localvars in
-      let (t2, ins2) = compile_assignable_expr e2 globvars localvars in
-      match (op, t1, t2, e1, e2) with
-      | ("&", T_Bool, T_Bool, Bool true, _) ->  (T_Bool, ins2)
-      | ("&", T_Bool, T_Bool, _, Bool true) ->  (T_Bool, ins1)
-      | ("&", T_Bool, T_Bool, Bool false, _) ->  (T_Bool, [PlaceBool(false)])
-      | ("&", T_Bool, T_Bool, _, Bool false) ->  (T_Bool, [PlaceBool(false)])
-      | ("&", T_Bool, T_Bool, _, _) ->  (T_Bool, ins1 @ ins2 @ [BoolAnd])
-      | ("|", T_Bool, T_Bool, Bool true, _) -> (T_Bool, [PlaceBool(true)])
-      | ("|", T_Bool, T_Bool, _, Bool true) -> (T_Bool, [PlaceBool(true)])
-      | ("|", T_Bool, T_Bool, Bool false, _) -> (T_Bool, ins2)
-      | ("|", T_Bool, T_Bool, _, Bool false) -> (T_Bool, ins1)
-      | ("|", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolOr])
-      | ("=", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolEq])
-      | ("!=", T_Bool, T_Bool, _, _) -> (T_Bool, ins1 @ ins2 @ [BoolEq] @ [BoolNot])
-      | ("=", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntEq])
-      | ("!=", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntEq] @ [BoolNot])
-      | ("<=", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntLt] @ [BoolNot]) 
-      | ("<", T_Int, T_Int, _, _) -> (T_Bool, ins2 @ ins1 @ [IntLt])
-      | (">=", T_Int, T_Int, _, _) -> (T_Bool, ins2 @ ins1 @ [IntLt] @ [BoolNot])
-      | (">", T_Int, T_Int, _, _) -> (T_Bool, ins1 @ ins2 @ [IntLt])
-      | ("+", T_Int, T_Int, Int 0, _) -> (T_Int, ins2)
-      | ("+", T_Int, T_Int, _, Int 0) -> (T_Int, ins1)
-      | ("+", T_Int, T_Int, _, _) -> (T_Int, ins1 @ ins2 @ [IntAdd])
-      | ("-", T_Int, T_Int, _, Int 0) -> (T_Int, ins1)
-      | ("-", T_Int, T_Int, _, _) -> (T_Int, ins2 @ ins1 @ [IntSub])
-      | ("*", T_Int, T_Int, Int 0, _) -> (T_Int, [PlaceInt(0)])
-      | ("*", T_Int, T_Int, _, Int 0) -> (T_Int, [PlaceInt(0)])
-      | ("*", T_Int, T_Int, Int 1, _) -> (T_Int, ins2)
-      | ("*", T_Int, T_Int, _, Int 1) -> (T_Int, ins1)
-      | ("*", T_Int, T_Int, _, _) -> (T_Int, ins1 @ ins2 @ [IntMul])
-      | _ -> compile_error "Unknown binary operator, or type mismatch"
-    )
-  | Unary_op (op, e) -> (
-    let (t, ins) = compile_assignable_expr e globvars localvars in
-    match (op, t) with
-    | ("!", T_Bool) -> (T_Bool, ins @ [BoolNot])
-    | _ -> compile_error "Unknown unary operator, or type mismatch"
-  ) *)
-
-let compile_arguments params exprs globvars localvars =
+let compile_arguments params exprs globvars localvars structs =
   let rec aux ps es acc =
     match (ps, es) with
     | ([],[]) -> acc
     | ((plock, pty, pname)::pt,eh::et) -> (
-        let (expr_lock, expr_ty, inst) = compile_assignable_expr eh globvars localvars in
-        if pty != expr_ty then compile_error ("Type mismatch on assignment: expected " ^ (type_string pty) ^ ", got " ^ (type_string ety)) 
-        else if expr_lock && !plock then compile_error "Cannot give a locked variable as a parameter that is not locked"
+        let (expr_lock, expr_ty, inst) = compile_assignable_expr eh globvars localvars structs in
+        if not (type_equal pty expr_ty) then compile_error ("Type mismatch on assignment: expected " ^ (type_string pty) ^ ", got " ^ (type_string expr_ty)) 
+        else if expr_lock && (not plock) then compile_error "Cannot give a locked variable as a parameter that is not locked"
         else match eh with
         | Value _ -> (
           match expr_ty with
           | T_Int -> aux pt et (DeclareFull :: CloneFull :: inst @ (AssignFull ::acc))
           | T_Bool -> aux pt et (DeclareByte :: CloneFull :: inst @ (AssignByte ::acc))
-          | T_Array -> aux pt et (inst @ acc)
-          | T_Struct -> aux pt et (inst @ acc)
+          | T_Array _ -> aux pt et (inst @ acc)
+          | T_Struct _ -> aux pt et (inst @ acc)
           | T_Null -> aux pt et (inst @ acc)
         )
-        | _ -> aux pt et (inst @ acc)
-        (* | Lookup n -> (
-          match (plock, var_locked n globvars localvars) with
-          | (false, true) -> compile_error "Cannot give a locked variable as a parameter that is not locked"
-          | _ -> aux pt et ((fetch_var_index n globvars localvars) :: acc)
-        )
-        | _ -> (
-          match ety with
-          | T_Int -> aux pt et (DeclareInt :: CloneFull :: ins @ (AssignInt :: acc))
-          | T_Bool -> aux pt et (DeclareBool :: CloneFull :: ins @ (AssignBool :: acc))
-        ) *)
+        | _ -> aux pt et ((inst @ [FetchFull]) @ acc)
       )
     | _ -> compile_error "Insufficient arguments in call"
   in
   aux (List.rev params) (List.rev exprs) []
 
-
-let compile_unassignable_expr expr globvars localvars routines break continue cleanup =
-  match expr with
-  | Assign (op, target, aexpr) -> (
-    let (target_lock, target_ty, target_inst) = compile_reference target in
-    let (expr_lock, expr_ty, expr_inst) = compile_assignable_expr aexpr in
-    if target_lock || expr_lock then compile_error ("Cannot assign to locked reference")
-    else if target_ty != expr_ty then compile_error ("Type mismatch in assignment")
-    else match aexpr with
-    | Value _ -> (
-      match target_ty with
-      | T_Int -> (target_inst :: [FetchFull]) @ val_inst @ [AssignFull]
-      | T_Bool -> (target_inst :: [FetchFull]) @ val_inst @ [AssignByte]
-      | T_Array _ -> (target_inst :: [FetchFull]) @ val_inst @ [AssignFull]
-      | T_Struct _ -> (target_inst :: [FetchFull]) @ val_inst @ [AssignFull]
-      | T_Null -> (target_inst :: [FetchFull]) @ val_inst @ [AssignFull]
-    ) 
-    | _ -> target_inst @ expr_inst @ (FetchFull :: [AssignFull])
+let rec compile_assignment op target assign globvars localvars structs =
+  match (op, target, assign) with
+  | (_, Null, _) -> compile_error "Cannot assign to null"
+  | ("", VarRef name, Value v) -> (
+    let (refer_lock, refer_ty, refer_inst) = compile_reference target globvars localvars structs in
+    let (val_ty, val_inst) = compile_value v globvars localvars structs in
+    if refer_lock then compile_error "Cannot assign to locked variable"
+    else if refer_ty != val_ty then compile_error "Type mismatch in variable assignment"
+    else match val_ty with 
+    | T_Int -> (refer_inst @ [FetchFull]) @ (val_inst @ [AssignFull])
+    | T_Bool -> (refer_inst @ [FetchFull]) @ (val_inst @ [AssignByte])
+    | T_Array _ -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Struct _ -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Null -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
   )
-    (* let (ty, ins) = compile_assignable_expr aexpr globvars localvars in
-    let get = match lookup_localvar name localvars with
-    | Some(cl,tl,ll) -> (
-        if ll then compile_error ("Cannot assign to locked variable: " ^ name)
-        else if tl != ty then compile_error ("Type mismatch on assignment: expected " ^ (type_string tl) ^ ", got " ^ (type_string ty)) 
-        else BPFetch(cl)
+  | ("", VarRef name, _) -> (
+    let (refer_lock, refer_ty, refer_inst) = compile_reference target globvars localvars structs in
+    let (val_lock, val_ty, val_inst) = compile_assignable_expr assign globvars localvars structs in
+    if refer_lock || val_lock then compile_error "Cannot assign locked"
+    else if refer_ty != val_ty then compile_error "Type mismatch in variable assignment"
+    else match val_ty with 
+    | T_Int -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Bool -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Array _ -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Struct _ -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Null -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
+  )
+  | ("", StructRef(refer, field), Value v) -> (
+    let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
+    let (val_ty, val_inst) = compile_value v globvars localvars structs in
+    match refer_ty with
+    | T_Struct str_name -> ( match lookup_struct str_name structs with
+      | Some fields -> ( match struct_field field fields with
+        | (field_lock,field_ty,index) -> (
+          if field_lock || refer_lock then compile_error "Cannot assign to locked field"
+          else if field_ty != val_ty then compile_error "Type mismatch in field assignment"
+          else match val_ty with
+          | T_Int -> (refer_inst @ [PlaceInt(index); FieldFetch; FetchFull;]) @ (val_inst @ [AssignFull])
+          | T_Bool -> (refer_inst @ [PlaceInt(index); FieldFetch; FetchFull;]) @ (val_inst @ [AssignByte])
+          | T_Array _ -> (refer_inst @ [PlaceInt(index)]) @ (val_inst @ [FieldAssign])
+          | T_Struct _ -> (refer_inst @ [PlaceInt(index)]) @ (val_inst @ [FieldAssign])
+          | T_Null  -> (refer_inst @ [PlaceInt(index)]) @ (val_inst @ [FieldAssign])
+        )
       )
-    | None -> (
-      match lookup_globvar name globvars with
-      | Some(cg,tg,lg) -> (
-        if lg then compile_error ("Cannot assign to locked variable: " ^ name) 
-        else if tg != ty then compile_error ("Type mismatch on assignment: expected " ^ (type_string tg) ^ ", got " ^ (type_string ty))  
-        else StackFetch(cg)
-      )
-      | None -> compile_error ("No such variable: " ^ name)
+      | None -> compile_error ("Could not find struct: " ^ str_name)
     )
-    in match (op, ty) with
-    | ("", T_Int) -> get :: ins @ [AssignInt]
-    | ("", T_Bool) -> get :: ins @ [AssignBool]
-    | ("+", T_Int) -> get :: CloneFull :: FetchInt :: (ins @ (IntAdd :: [AssignInt]))
-    | ("-", T_Int) -> (get :: ins) @ (get :: FetchInt :: IntSub :: [AssignInt])
-    | ("*", T_Int) -> get :: CloneFull :: FetchInt :: (ins @ (IntMul :: [AssignInt]))
-    | ("!", T_Bool) -> get :: CloneFull :: FetchBool :: (ins @ (BoolNot :: [AssignBool]))
-    | _ -> compile_error "Unknown assignment operator, or type mismatch" *)
+    | _ -> compile_error "Struct assignment to non-struct" 
+  )
+  | ("", ArrayRef(refer, index), Value v) -> (
+    let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
+    let (val_ty, val_inst) = compile_value v globvars localvars structs in
+    let (index_ty, index_inst) = compile_assignable_expr_as_value index globvars localvars structs in
+    match refer_ty with
+    | T_Array arr_ty -> ( 
+      if refer_lock then compile_error "Cannot assign to locked array"
+      else if index_ty != T_Int then compile_error "Array index must be of type int"
+      else if arr_ty != val_ty then compile_error "Type mismatch in array field assignment"
+      else match val_ty with
+      | T_Int -> (refer_inst @ index_inst @ [FieldFetch; FetchFull;]) @ (val_inst @ [AssignFull])
+      | T_Bool -> (refer_inst @ index_inst @ [FieldFetch; FetchFull;]) @ (val_inst @ [AssignByte])
+      | T_Array _ -> (refer_inst @ index_inst) @ (val_inst @ [FieldAssign])
+      | T_Struct _ -> (refer_inst @ index_inst) @ (val_inst @ [FieldAssign])
+      | T_Null -> (refer_inst @ index_inst) @ (val_inst @ [FieldAssign])
+    )
+    | _ -> compile_error "Array assignment to non-array" 
+  )
+  | ("", ArrayRef(refer, index), _) -> (
+    let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
+    let (val_lock, val_ty, val_inst) = compile_assignable_expr assign globvars localvars structs in
+    let (index_ty, index_inst) = compile_assignable_expr_as_value index globvars localvars structs in
+    match refer_ty with
+    | T_Array arr_ty -> ( 
+      if refer_lock then compile_error "Cannot assign to locked array"
+      else if index_ty != T_Int then compile_error "Array index must be of type int"
+      else if arr_ty != val_ty then compile_error "Type mismatch in array field assignment"
+      else match val_ty with
+      | T_Int -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FetchFull; FieldAssign;])
+      | T_Bool -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FetchFull; FieldAssign;])
+      | T_Array _ -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FetchFull; FieldAssign;])
+      | T_Struct _ -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FetchFull; FieldAssign;])
+      | T_Null -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FetchFull; FieldAssign;])
+    )
+    | _ -> compile_error "Array assignment to non-array" 
+  )
+  | (_,_,_) -> compile_error "Unsupported assignment used"
+
+let compile_unassignable_expr expr globvars localvars structs routines break continue cleanup =
+  match expr with
+  | Assign (op, target, aexpr) -> compile_assignment op target aexpr globvars localvars structs
   | Call (n, aexprs) -> (
     match lookup_routine n routines with
     | None -> compile_error ("No such routine: " ^ n)
     | Some (ps) when (List.length ps) = (List.length aexprs) -> (
-      (compile_arguments ps aexprs globvars localvars) @ (PlaceInt(List.length ps) :: [Call(n)])
+      (compile_arguments ps aexprs globvars localvars structs) @ (PlaceInt(List.length ps) :: [Call(n)])
     )
     | Some (ps) -> compile_error (n ^ " requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
   )
@@ -462,126 +483,149 @@ let compile_unassignable_expr expr globvars localvars routines break continue cl
     match continue with
     | Some name when cleanup = 0 -> [GoTo(name)]
     | Some name -> FreeVars(cleanup) :: [GoTo(name)]
-    | None -> compile_error "No loosp to continue in"
+    | None -> compile_error "No loop to continue in"
   )
   | Print expr -> (
-    let (t, ins) = compile_assignable_expr expr globvars localvars in
-    match t with
-    | T_Bool -> ins @ [PrintBool]
-    | T_Int -> ins @ [PrintInt]
+    let (expr_ty, inst) = compile_assignable_expr_as_value expr globvars localvars structs in
+    match expr_ty with
+    | T_Bool -> inst @ [PrintBool]
+    | T_Int -> inst @ [PrintInt]
+    | _ -> [PlaceBool(false); PrintBool;] (* This is not as intended! *)
   )
 
-let rec compile_declaration dec globvars localvars =
+let rec compile_declaration dec globvars localvars structs =
   match dec with
   | TypeDeclaration (l, ty, n) -> (
     if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
     else match ty with
-    | T_Int -> (DeclareInt :: CloneFull :: PlaceInt(0) :: [AssignInt], (l,ty,n)::localvars)
-    | T_Bool -> (DeclareBool :: CloneFull :: PlaceBool(false) :: [AssignBool], (l,ty,n)::localvars)
+    | T_Int -> (DeclareFull :: CloneFull :: PlaceInt(0) :: [AssignFull], (l,ty,n)::localvars)
+    | T_Bool -> (DeclareByte :: CloneFull :: PlaceBool(false) :: [AssignByte], (l,ty,n)::localvars)
+    | T_Array _ -> ([PlaceInt(0)], (l,ty,n)::localvars)
+    | T_Struct _ -> ([PlaceInt(0)], (l,ty,n)::localvars)
+    | T_Null -> compile_error "Cannot declare the 'null' type"
   )
   | AssignDeclaration (l, ty, n, expr) -> (
     if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
-    else let (expr_ty, ins) = compile_assignable_expr expr globvars localvars in
-    match ty with
-    | T_Int when expr_ty = T_Int -> (DeclareInt :: [CloneFull] @ ins @ [AssignInt], (l,ty,n)::localvars)
-    | T_Bool when expr_ty = T_Bool -> (DeclareBool :: [CloneFull] @ ins @ [AssignBool], (l,ty,n)::localvars)
+    else let (expr_lock, expr_ty, ins) = compile_assignable_expr expr globvars localvars structs in
+    if expr_lock && (not l) then compile_error "Cannot "
+    else match ty with
+    | T_Int when expr_ty = T_Int -> (DeclareFull :: [CloneFull] @ ins @ [AssignFull], (l,ty,n)::localvars)
+    | T_Bool when expr_ty = T_Bool -> (DeclareByte :: [CloneFull] @ ins @ [AssignByte], (l,ty,n)::localvars)
+    | T_Array arr_ty when expr_ty = T_Array(arr_ty) -> (ins, (l,ty,n)::localvars)
+    | T_Struct str_ty when expr_ty = T_Struct(str_ty) -> (ins, (l,ty,n)::localvars)
     | _ -> compile_error ("Type mismatch on declaration: expected " ^ (type_string ty) ^ ", got " ^ (type_string expr_ty)) 
   )
   | VarDeclaration (l, n, expr) -> (
     if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
-    else let (ty, ins) = compile_assignable_expr expr globvars localvars in
-    match ty with
-    | T_Int -> (DeclareInt :: [CloneFull] @ ins @ [AssignInt], (l,ty,n)::localvars)
-    | T_Bool -> (DeclareBool :: [CloneFull] @ ins @ [AssignBool], (l,ty,n)::localvars)
+    else let (expr_lock, expr_ty, ins) = compile_assignable_expr expr globvars localvars structs in
+    match expr_ty with
+    | T_Int -> (DeclareFull :: [CloneFull] @ ins @ [AssignFull], (l,expr_ty,n)::localvars)
+    | T_Bool -> (DeclareByte :: [CloneFull] @ ins @ [AssignByte], (l,expr_ty,n)::localvars)
+    | T_Array _ -> (ins, (l,expr_ty,n)::localvars)
+    | T_Struct _ -> (ins, (l,expr_ty,n)::localvars)
+    | T_Null -> compile_error ("Cannot declare a variable of the null type")
   )
 
-let rec compile_sod_list sod_list globvars localvars routines break continue cleanup =
+let rec compile_sod_list sod_list globvars localvars structs routines break continue cleanup =
   match sod_list with
   | [] -> []
   | h::t -> (
     match h with
-    | Statement s -> compile_stmt s globvars localvars routines break continue cleanup @ compile_sod_list t globvars localvars routines break continue cleanup
+    | Statement s -> compile_stmt s globvars localvars structs routines break continue cleanup @ compile_sod_list t globvars localvars structs routines break continue cleanup
     | Declaration dec -> (
-      let (dec_ins, new_localvars) = compile_declaration dec globvars localvars in
-      dec_ins @ compile_sod_list t globvars new_localvars routines break continue (cleanup+1)
+      let (dec_ins, new_localvars) = compile_declaration dec globvars localvars structs in
+      dec_ins @ compile_sod_list t globvars new_localvars structs routines break continue (cleanup+1)
     )
   )
 
-and compile_stmt stmt globvars localvars routines break continue cleanup =
+and compile_stmt stmt globvars localvars structs routines break continue cleanup =
   match stmt with
   | If (e, s1, s2) -> (
     let label_true = new_label () in
     let label_stop = new_label () in
-    let (t, ins) = compile_assignable_expr e globvars localvars in
+    let (_, t, ins) = compile_assignable_expr e globvars localvars structs in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
-    else ins @ [IfTrue(label_true)] @ (compile_stmt s2 globvars localvars routines break continue cleanup) @ [GoTo(label_stop)] @ [CLabel(label_true)] @ (compile_stmt s1 globvars localvars routines break continue cleanup) @ [CLabel(label_stop)]
+    else ins @ [IfTrue(label_true)] @ (compile_stmt s2 globvars localvars structs routines break continue cleanup) @ [GoTo(label_stop)] @ [CLabel(label_true)] @ (compile_stmt s1 globvars localvars structs routines break continue cleanup) @ [CLabel(label_stop)]
   )
   | While (e, s) -> (
     let label_cond = new_label () in
     let label_start = new_label () in
     let label_stop = new_label () in
-    let (t, ins) = compile_assignable_expr e globvars localvars in
+    let (_, t, ins) = compile_assignable_expr e globvars localvars structs in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
-    else (GoTo(label_cond)) :: CLabel(label_start) :: (compile_stmt s globvars localvars routines (Some label_stop) (Some label_cond) 0) @ [CLabel(label_cond)] @ ins @ (IfTrue(label_start) :: [CLabel(label_stop)])
+    else (GoTo(label_cond)) :: CLabel(label_start) :: (compile_stmt s globvars localvars structs routines (Some label_stop) (Some label_cond) 0) @ [CLabel(label_cond)] @ ins @ (IfTrue(label_start) :: [CLabel(label_stop)])
   )
   | For (dec, con, modi, s) -> (
     let label_cond = new_label () in
     let label_start = new_label () in
     let label_modi = new_label () in
     let label_stop = new_label () in
-    let (dec_ins, new_localvars) = compile_declaration dec globvars localvars in
-    let (con_t, con_ins) = compile_assignable_expr con globvars new_localvars in
-    let modi_ins = compile_unassignable_expr modi globvars new_localvars routines None None cleanup in
+    let (dec_ins, new_localvars) = compile_declaration dec globvars localvars structs in
+    let (_, con_t, con_ins) = compile_assignable_expr con globvars new_localvars structs in
+    let modi_ins = compile_unassignable_expr modi globvars new_localvars structs routines None None cleanup in
     if con_t != T_Bool then compile_error "Conditional requires 'bool'"
-    else dec_ins @ (GoTo(label_cond) :: CLabel(label_start) :: compile_stmt s globvars new_localvars routines (Some label_stop) (Some label_modi) 0) @ (CLabel(label_modi) :: modi_ins) @ [CLabel(label_cond)] @ con_ins @ (IfTrue(label_start) :: CLabel(label_stop) :: [FreeVar])
+    else dec_ins @ (GoTo(label_cond) :: CLabel(label_start) :: compile_stmt s globvars new_localvars structs routines (Some label_stop) (Some label_modi) 0) @ (CLabel(label_modi) :: modi_ins) @ [CLabel(label_cond)] @ con_ins @ (IfTrue(label_start) :: CLabel(label_stop) :: [FreeVar])
   )
   | Block (sod_list) -> (
     let decs = count_decl sod_list in
-    let block_ins = compile_sod_list sod_list globvars localvars routines break continue cleanup in 
+    let block_ins = compile_sod_list sod_list globvars localvars structs routines break continue cleanup in 
     if decs = 0 then block_ins else block_ins @ [FreeVars(count_decl sod_list)]
   )
-  | Expression (expr) -> compile_unassignable_expr expr globvars localvars routines break continue cleanup
+  | Expression (expr) -> compile_unassignable_expr expr globvars localvars structs routines break continue cleanup
 
-let rec evaluate_globvar used_vars expr globvars = 
-  match expr with
-  | Bool b -> Bool b
-  | Int i -> Int i
-  | Lookup n -> (
-    if List.for_all (fun var -> n != var) used_vars then evaluate_globvar (n::used_vars) (fetch_globvar_expr n globvars) globvars
-    else compile_error "Cyclic referencing detected in global variables"
+let rec evaluate_globvar used_vars aexpr globvars structs = 
+  match aexpr with
+  | Reference r -> (
+    match r with
+    | VarRef n -> (
+      if List.for_all (fun var -> n != var) used_vars then evaluate_globvar (n::used_vars) (fetch_globvar_expr n globvars) globvars structs
+      else compile_error "Cyclic referencing detected in global variables"
     )
-  | Binary_op (op, e1, e2) -> (
-      let v1 = evaluate_globvar used_vars e1 globvars in
-      let v2 = evaluate_globvar used_vars e2 globvars in
-      match (op, v1, v2) with
-      | ("&", Bool b1, Bool b2) -> Bool (b1 && b2)
-      | ("|", Bool b1, Bool b2) -> Bool (b1 || b2)
-      | ("=", Bool b1, Bool b2) -> Bool (b1 = b2)
-      | ("!=", Bool b1, Bool b2) -> Bool (b1 != b2)
-      | ("=", Int i1, Int i2) -> Bool (i1 = i2)
-      | ("!=", Int i1, Int i2) -> Bool (i1 != i2)
-      | ("<=", Int i1, Int i2) -> Bool (i1 <= i2)
-      | ("<", Int i1, Int i2) -> Bool (i1 < i2)
-      | (">=", Int i1, Int i2) -> Bool (i1 >= i2)
-      | (">", Int i1, Int i2) -> Bool (i1 > i2)
-      | ("+", Int i1, Int i2) -> Int (i1 + i2)
-      | ("-", Int i1, Int i2) -> Int (i1 - i2)
-      | ("*", Int i1, Int i2) -> Int (i1 * i2)
-      | _ -> compile_error "Unknown binary operator, or type mismatch"
-    )
-  | Unary_op (op, e) -> (
-    let v = evaluate_globvar used_vars e globvars in
-    match (op, v) with
-    | ("!", Bool b) -> Bool (not b)
-    | _ -> compile_error "Unknown unary operator, or type mismatch"
+    | StructRef (refer, str) -> compile_error "Structs not supported for global variables"
+    | ArrayRef (refer, va) -> compile_error "Arrays not supported for global variables"
+    | Null -> compile_error "Structs not supported for global variables"
   )
+  | Value v -> (
+    match v with
+    | Bool b -> Bool b
+    | Int i -> Int i
+    | Lookup r -> evaluate_globvar used_vars (Reference(r)) globvars structs
+    | ArraySize r -> compile_error "ArraySize not implemented for global variables"
+    | Binary_op (op, e1, e2) -> (
+        let v1 = evaluate_globvar used_vars e1 globvars structs in
+        let v2 = evaluate_globvar used_vars e2 globvars structs in
+        match (op, v1, v2) with
+        | ("&&", Bool b1, Bool b2) -> Bool (b1 && b2)
+        | ("||", Bool b1, Bool b2) -> Bool (b1 || b2)
+        | ("=", Bool b1, Bool b2) -> Bool (b1 = b2)
+        | ("!=", Bool b1, Bool b2) -> Bool (b1 != b2)
+        | ("=", Int i1, Int i2) -> Bool (i1 = i2)
+        | ("!=", Int i1, Int i2) -> Bool (i1 != i2)
+        | ("<=", Int i1, Int i2) -> Bool (i1 <= i2)
+        | ("<", Int i1, Int i2) -> Bool (i1 < i2)
+        | (">=", Int i1, Int i2) -> Bool (i1 >= i2)
+        | (">", Int i1, Int i2) -> Bool (i1 > i2)
+        | ("+", Int i1, Int i2) -> Int (i1 + i2)
+        | ("-", Int i1, Int i2) -> Int (i1 - i2)
+        | ("*", Int i1, Int i2) -> Int (i1 * i2)
+        | _ -> compile_error "Unknown binary operator, or type mismatch"
+      )
+    | Unary_op (op, e) -> (
+      let v = evaluate_globvar used_vars e globvars structs in
+      match (op, v) with
+      | ("!", Bool b) -> Bool (not b)
+      | _ -> compile_error "Unknown unary operator, or type mismatch"
+    )
+  )
+  | NewArray (ty, size) -> compile_error "Arrays not supported for global variables"
+  | NewStruct (name, args) -> compile_error "Structs not supported for global variables"
 
-let compile_globvars lst =
+let compile_globvars lst structs =
   let rec aux l acc = 
     match l with
     | [] -> acc
     | (n,_,l,ty,expr)::t -> (
-      let v = evaluate_globvar [n] expr lst in
+      let v = evaluate_globvar [n] expr lst structs in
       match (ty, v) with
       | (T_Bool, Bool b) -> aux t ((G_Bool(b))::acc)
       | (T_Int, Int i) ->  aux t ((G_Int(i))::acc)
@@ -599,8 +643,8 @@ let compile topdecs =
     | [] -> acc
     | h::t -> match h with
       | Routine (accmod, n, params, stmt) -> 
-        aux t ((routine_head accmod n params)::(compile_stmt stmt globvars (List.rev params) routines None None 0) @ [CStop] @ acc)
+        aux t ((routine_head accmod n params)::(compile_stmt stmt globvars (List.rev params) structs routines None None 0) @ [CStop] @ acc)
       | _ -> aux t acc
   in
   match topdecs with
-  | Topdecs tds -> Program(compile_globvars globvars, ProgramRep.translate(aux tds []))
+  | Topdecs tds -> Program(compile_globvars globvars structs, ProgramRep.translate(aux tds []))

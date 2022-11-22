@@ -129,3 +129,5 @@ int string_to_instruction(char* str);
 #define STACK_FETCH 0x2b
 
 #define BP_FETCH 0x2c
+
+#define SIZE_OF 0x2d

@@ -24,9 +24,11 @@ type token =
   | GT
   | LTEQ
   | GTEQ
-  | AND
-  | OR
+  | LOGIC_AND
+  | LOGIC_OR
+  | PIPE
   | NOT
+  | VALUE
   | COMMA
   | DOT
   | SEMI
@@ -39,8 +41,10 @@ type token =
   | BREAK
   | CONTINUE
   | LOCKED
-  | TRANSFER
+  | STRUCT
   | VAR
+  | NULL
+  | NEW
   | PRINT
 
 val main :

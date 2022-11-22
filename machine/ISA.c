@@ -49,6 +49,7 @@ char* instruction_to_string(int inst) {
         case PRINT_BOOL: return "PRINT_BOOL";
         case STACK_FETCH: return "STACK_FETCH";
         case BP_FETCH: return "BP_FETCH";
+        case SIZE_OF: return "SIZE_OF";
         default: return "?";
     }
 }
@@ -99,5 +100,6 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "PRINT_BOOL") == 0) return PRINT_BOOL;
     if (strcmp(str, "STACK_FETCH") == 0) return STACK_FETCH;
     if (strcmp(str, "BP_FETCH") == 0) return BP_FETCH;
+    if (strcmp(str, "SIZE_OF") == 0) return SIZE_OF;
     return -1;
 }

@@ -9,14 +9,14 @@
 #define SIZE(t) (((t) == FULL) ? 8 : ((t) == HALF) ? 4 : ((t) == SHORT) ? 2 : 1)
 
 #define IS_STRUCT(addr) (((uword*)addr)[-1] & 1)
-#define ALLOC_SIZE(addr) ((((uword*)addr)[-1] << 32) >> 33)
+#define ALLOC_SIZE(addr) (((((uword*)addr)[-1]) << 32) >> 33)
 #define REF_COUNT(addr) (((uword*)addr)[-1] >> 32)
-#define INCR_REF_COUNT(addr) (((uint*)addr)[-1] = ((uint*)addr)[-1] + 1)
-#define DECR_REF_COUNT(addr) (((uint*)addr)[-1] = ((uint*)addr)[-1] - 1)
+#define INCR_REF_COUNT(addr) (((unsigned int*)addr)[-2] = ((unsigned int*)addr)[-2] + 1)
+#define DECR_REF_COUNT(addr) (((unsigned int*)addr)[-2] = ((unsigned int*)addr)[-2] - 1)
 
 void memory_init();
 byte* allocate_simple(byte type);
-byte* allocate_struct(uint fields);
+byte* allocate_struct(unsigned int fields);
 void try_free(word* addr);
 byte on_heap(byte* addr);
 byte on_stack(byte* addr, uword sp);

@@ -53,6 +53,9 @@ let rec write_entry_point f name addr ts =
       match h with
       | T_Int -> fprintf f "\x02" ; print_ts t
       | T_Bool -> fprintf f "\x01" ; print_ts t
+      | T_Array arr_ty -> fprintf f "\x03"; print_ts t
+      | T_Struct str_ty -> fprintf f "\x04"; print_ts t
+      | T_Null -> fprintf f "\x00"; print_ts t (* This should be an error *)
   in
   print_ts ts
 

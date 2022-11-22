@@ -23,42 +23,52 @@ and typ =
 type concrete_program_part =
   | CEntryPoint of string * typ list
   | CLabel of string
-  | CHalt 
-  | CStop 
+  | CHalt
+  | CStop
   | Call of string
   | GoTo of string
   | IfTrue of string
   | PlaceBool of bool
   | PlaceInt of int
-  | CloneFull 
-  | CloneHalf 
-  | CloneShort 
-  | CloneByte 
-  | FetchBool 
-  | FetchInt 
-  | DeclareBool 
-  | DeclareInt 
-  | AssignBool 
-  | AssignInt 
+  | CloneFull
+  | CloneHalf
+  | CloneShort
+  | CloneByte
+  | FetchFull
+  | FetchHalf
+  | FetchShort
+  | FetchByte
+  | FieldFetch
+  | DeclareFull
+  | DeclareHalf
+  | DeclareShort
+  | DeclareByte
+  | DeclareStruct
+  | AssignFull
+  | AssignHalf
+  | AssignShort
+  | AssignByte
+  | FieldAssign
   | IntAdd
-  | IntMul 
-  | IntSub 
+  | IntMul
+  | IntSub
   | IntEq
-  | IntLt 
-  | BoolEq 
-  | BoolNot 
-  | BoolAnd 
-  | BoolOr 
+  | IntLt
+  | BoolEq
+  | BoolNot
+  | BoolAnd
+  | BoolOr
   | GetSP
-  | GetBP 
+  | GetBP
   | ModSP of int
   | FreeVar
   | FreeVars of int
-  | PrintVar 
+  | PrintVar
   | PrintInt
-  | PrintBool 
+  | PrintBool
   | StackFetch of int
   | BPFetch of int
+  | SizeOf
 
 let translate concrete_list =
   let rec aux cl acc =
@@ -79,30 +89,40 @@ let translate concrete_list =
     | CloneHalf -> aux t (Instruction(8)::acc)
     | CloneShort -> aux t (Instruction(9)::acc)
     | CloneByte -> aux t (Instruction(10)::acc)
-    | FetchBool -> aux t (Instruction(11)::acc)
-    | FetchInt -> aux t (Instruction(12)::acc)
-    | DeclareBool -> aux t (Instruction(13)::acc)
-    | DeclareInt -> aux t (Instruction(14)::acc)
-    | AssignBool -> aux t (Instruction(15)::acc)
-    | AssignInt -> aux t (Instruction(16)::acc)
-    | IntAdd -> aux t (Instruction(17)::acc)
-    | IntMul -> aux t (Instruction(18)::acc)
-    | IntSub -> aux t (Instruction(19)::acc)
-    | IntEq -> aux t (Instruction(20)::acc)
-    | IntLt -> aux t (Instruction(21)::acc)
-    | BoolEq -> aux t (Instruction(22)::acc)
-    | BoolNot -> aux t (Instruction(23)::acc)
-    | BoolAnd -> aux t (Instruction(24)::acc)
-    | BoolOr -> aux t (Instruction(25)::acc)
-    | GetSP -> aux t (Instruction(26)::acc)
-    | GetBP -> aux t (Instruction(27)::acc)
-    | ModSP i -> aux t (IntInstruction(28, i)::acc)
-    | FreeVar -> aux t (Instruction(29)::acc)
-    | FreeVars i -> aux t (IntInstruction(30, i)::acc)
-    | PrintVar -> aux t (Instruction(31)::acc)
-    | PrintInt -> aux t (Instruction(32)::acc)
-    | PrintBool -> aux t (Instruction(33)::acc)
-    | StackFetch i -> aux t (IntInstruction(34, i)::acc)
-    | BPFetch i -> aux t (IntInstruction(35, i)::acc)
+    | FetchFull -> aux t (Instruction(11)::acc)
+    | FetchHalf -> aux t (Instruction(12)::acc)
+    | FetchShort -> aux t (Instruction(13)::acc)
+    | FetchByte -> aux t (Instruction(14)::acc)
+    | FieldFetch -> aux t (Instruction(15)::acc)
+    | DeclareFull -> aux t (Instruction(16)::acc)
+    | DeclareHalf -> aux t (Instruction(17)::acc)
+    | DeclareShort -> aux t (Instruction(18)::acc)
+    | DeclareByte -> aux t (Instruction(19)::acc)
+    | DeclareStruct -> aux t (Instruction(20)::acc)
+    | AssignFull -> aux t (Instruction(21)::acc)
+    | AssignHalf -> aux t (Instruction(22)::acc)
+    | AssignShort -> aux t (Instruction(23)::acc)
+    | AssignByte -> aux t (Instruction(24)::acc)
+    | FieldAssign -> aux t (Instruction(25)::acc)
+    | IntAdd -> aux t (Instruction(26)::acc)
+    | IntMul -> aux t (Instruction(27)::acc)
+    | IntSub -> aux t (Instruction(28)::acc)
+    | IntEq -> aux t (Instruction(29)::acc)
+    | IntLt -> aux t (Instruction(30)::acc)
+    | BoolEq -> aux t (Instruction(31)::acc)
+    | BoolNot -> aux t (Instruction(32)::acc)
+    | BoolAnd -> aux t (Instruction(33)::acc)
+    | BoolOr -> aux t (Instruction(34)::acc)
+    | GetSP -> aux t (Instruction(35)::acc)
+    | GetBP -> aux t (Instruction(36)::acc)
+    | ModSP (i) -> aux t (IntInstruction(37, i)::acc)
+    | FreeVar -> aux t (Instruction(38)::acc)
+    | FreeVars (i) -> aux t (IntInstruction(39, i)::acc)
+    | PrintVar -> aux t (Instruction(40)::acc)
+    | PrintInt -> aux t (Instruction(41)::acc)
+    | PrintBool -> aux t (Instruction(42)::acc)
+    | StackFetch (i) -> aux t (IntInstruction(43, i)::acc)
+    | BPFetch (i) -> aux t (IntInstruction(44, i)::acc)
+    | SizeOf -> aux t (Instruction(45)::acc)
   )
   in aux concrete_list []

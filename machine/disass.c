@@ -109,8 +109,7 @@ void dissas(byte* p, word file_len) {
                 printf("%i: DECLARE_BYTE\n", i);
                 break;
             case DECLARE_STRUCT:
-                printf("%i: DECLARE_STRUCT %lld\n", i, *((word*)(p+i+1)));
-                i+=8;
+                printf("%i: DECLARE_STRUCT\n", i);
                 break;
             case ASSIGN_FULL:
                 printf("%i: ASSIGN_FULL\n", i);
@@ -187,6 +186,9 @@ void dissas(byte* p, word file_len) {
             case BP_FETCH:
                 printf("%i: BP_FETCH %lld\n", i, *((word*)(p+i+1)));
                 i+=8;
+                break;
+            case SIZE_OF:
+                printf("%i: SIZE_OF\n", i);
                 break;
             default: return;
         }
