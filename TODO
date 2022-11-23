@@ -45,5 +45,7 @@
 
 
 - ToFix
-  - SIZE_OF finding the wrong size
-  - Assignments to arrays/structs only parse with something infront, like a STOP token
+  - Handle more in the parser
+    - If possible handle for-loops, as a block with while-loop
+    - Handle operating assignments
+      - x +:= a  ->  x := x + a
