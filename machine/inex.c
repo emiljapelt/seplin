@@ -454,7 +454,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 break;
             }
             case SIZE_OF: {
-                word** target = *(word***)(stack + bp + MOVE(FULL, -1));
+                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
                 *(word*)(stack + sp + MOVE(FULL, -1)) = ALLOC_SIZE(target);
                 ip++;
                 break;

@@ -154,7 +154,12 @@ let default_value t =
   match t with
   | T_Int -> Value (Int 0)
   | T_Bool -> Value (Bool false)
-  | _ -> compile_error "Struct/Array missing default value"
+  | _ -> Reference (Null)
+
+let simple_type t =
+  match t with
+    | T_Int | T_Bool -> true
+    | _ -> false
 
 (*    list of: string * int * bool * typ * assignable_expression    *)
 let get_globvars (tds : topdecs) = 
@@ -432,11 +437,11 @@ let rec compile_assignment op target assign globvars localvars structs =
       else if index_ty != T_Int then compile_error "Array index must be of type int"
       else if arr_ty != val_ty then compile_error "Type mismatch in array field assignment"
       else match val_ty with
-      | T_Int -> (refer_inst @ index_inst @ [FieldFetch; FetchFull;]) @ (val_inst @ [AssignFull])
-      | T_Bool -> (refer_inst @ index_inst @ [FieldFetch; FetchFull;]) @ (val_inst @ [AssignByte])
-      | T_Array _ -> (refer_inst @ index_inst) @ (val_inst @ [FieldAssign])
-      | T_Struct _ -> (refer_inst @ index_inst) @ (val_inst @ [FieldAssign])
-      | T_Null -> (refer_inst @ index_inst) @ (val_inst @ [FieldAssign])
+      | T_Int -> (refer_inst @ [FetchFull] @ index_inst @ [FieldFetch; FetchFull;]) @ (val_inst @ [AssignFull])
+      | T_Bool -> (refer_inst @ [FetchFull] @ index_inst @ [FieldFetch; FetchFull;]) @ (val_inst @ [AssignByte])
+      | T_Array _ -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FieldAssign])
+      | T_Struct _ -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FieldAssign])
+      | T_Null -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FieldAssign])
     )
     | _ -> compile_error "Array assignment to non-array" 
   )

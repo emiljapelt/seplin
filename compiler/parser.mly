@@ -14,13 +14,14 @@
 %token STOP HALT
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
 %token LOGIC_AND LOGIC_OR PIPE NOT VALUE
-%token COMMA DOT SEMI EOF
+%token COMMA DOT SEMI COLON EOF
 %token IF ELSE
 %token WHILE UNTIL FOR
 %token BREAK CONTINUE
 %token LOCKED STRUCT VAR NULL NEW
 %token PRINT
 
+%right ASSIGNMENT
 %left ELSE
 %left EQ NEQ
 %left GT LT GTEQ LTEQ
@@ -41,10 +42,10 @@ topdecs:
 ;
 
 topdec:
-    typ NAME SEMI                                             { Global (false, $1, $2) }
-  | LOCKED typ NAME SEMI                                      { Global (true, $2, $3) }
-  | typ NAME ASSIGNMENT assignable_expression SEMI            { GlobalAssign (false, $1, $2, $4)   }
-  | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI     { GlobalAssign (true, $2, $3, $5)    }
+    NAME COLON typ SEMI                                       { Global (false, $3, $1) }
+  | NAME COLON LOCKED typ SEMI                                      { Global (true, $4, $1) }
+  | NAME COLON typ ASSIGNMENT assignable_expression SEMI            { GlobalAssign (false, $3, $1, $5)   }
+  | NAME COLON LOCKED typ ASSIGNMENT assignable_expression SEMI     { GlobalAssign (true, $4, $1, $6)    }
   | INTERNAL NAME LPAR params RPAR block           { Routine (Internal, $2, $4, $6) }
   | EXTERNAL NAME LPAR params RPAR block           { Routine (External, $2, $4, $6) }
   | INTERNAL NAME LPAR params RPAR chain           { Routine (Internal, $2, $4, Block $6) }
@@ -104,7 +105,7 @@ value:
 ;
 
 unassignable_expression:
-    STOP reference ASSIGNMENT assignable_expression       { Assign ("", $2, $4) }
+    reference ASSIGNMENT assignable_expression       { Assign ("", $1, $3) }
   | reference PLUS ASSIGNMENT assignable_expression  { Assign ("+", $1, $4) }
   | reference MINUS ASSIGNMENT assignable_expression { Assign ("-", $1, $4) }
   | reference TIMES ASSIGNMENT assignable_expression { Assign ("*", $1, $4) }
@@ -138,12 +139,12 @@ stmtOrDec:
 ;
 
 dec:
-    typ NAME SEMI                                            { TypeDeclaration (false, $1, $2) }
-  | LOCKED typ NAME SEMI                                     { TypeDeclaration (true, $2, $3) }
-  | typ NAME ASSIGNMENT assignable_expression SEMI           { AssignDeclaration (false, $1, $2, $4) }
-  | LOCKED typ NAME ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, $2, $3, $5) }
-  | VAR NAME ASSIGNMENT assignable_expression SEMI           { VarDeclaration (false, $2, $4) }
-  | LOCKED VAR NAME ASSIGNMENT assignable_expression SEMI    { VarDeclaration (true, $3, $5) }
+    NAME COLON typ SEMI                                      { TypeDeclaration (false, $3, $1) }
+  | NAME COLON LOCKED typ SEMI                               { TypeDeclaration (true, $4, $1) }
+  | NAME COLON typ ASSIGNMENT assignable_expression SEMI     { AssignDeclaration (false, $3, $1, $5) }
+  | NAME COLON LOCKED typ ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, $4, $1, $6) }
+  | NAME COLON VAR ASSIGNMENT assignable_expression SEMI           { VarDeclaration (false, $1, $5) }
+  | NAME COLON LOCKED VAR ASSIGNMENT assignable_expression SEMI    { VarDeclaration (true, $1, $6) }
 ;
 
 stmt:
@@ -167,6 +168,6 @@ params1:
 ;
 
 param:
-    LOCKED typ NAME            { (true, $2, $3) }
-  | typ NAME                   { (false, $1, $2) }
+    NAME COLON LOCKED typ           { (true, $4, $1) }
+  | NAME COLON typ                  { (false, $3, $1) }
 ;

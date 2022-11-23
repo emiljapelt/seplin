@@ -60,5 +60,6 @@ rule lex = parse
     |   ','           { COMMA }
     |   '.'           { DOT }
     |   ';'           { SEMI }
+    |   ':'           { COLON }
     |   _             { syntax_error "Unknown token" line_num }
     |   eof           { EOF }

@@ -32,6 +32,7 @@ type token =
   | COMMA
   | DOT
   | SEMI
+  | COLON
   | EOF
   | IF
   | ELSE
