@@ -14,7 +14,6 @@
 #define MOVE(unit, steps) (SIZE(unit) * (steps))
 
 #define STACKSIZE 80000
-#define HEAPSIZE 1000
 
 void load_file(char* file_name, byte** out_file, word* out_len) {
     FILE* fp;
@@ -110,7 +109,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
 
                 uword i = sp - MOVE(FULL, 1);
                 while (i >= bp) {
-                    try_free(*((word**)(stack+i)));
+                    try_free(*((word**)(stack+i)), trace);
                     i -= MOVE(FULL, 1);
                 }
 
@@ -303,12 +302,24 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 ip++;
                 break;
             }
+            case REF_ASSIGN: {
+                word** target = *(word***)(stack + sp + MOVE(FULL, -1) + MOVE(FULL, -1));
+                word* value = *(word**)(stack + sp + MOVE(FULL, -1));
+
+                try_free(*target, trace);
+
+                INCR_REF_COUNT(value);
+                *target = value;
+                sp -= MOVE(FULL, 1) + MOVE (FULL, 1);
+                ip++;
+                break;
+            }
             case FIELD_ASSIGN: {
                 uword** target = *(uword***)(stack + sp + MOVE(FULL, -3));
                 uword offset = *(uword*)(stack + sp + MOVE(FULL, -2));
                 word* value = *(uword**)(stack + sp + MOVE(FULL, -1));
 
-                try_free(*(target + offset));
+                try_free(*(target + offset), trace);
 
                 INCR_REF_COUNT(value);
                 *(target + offset) = value;
@@ -399,7 +410,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
             // }
             case FREE_VAR: {
                 word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                try_free(target);
+                try_free(target, trace);
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
@@ -408,7 +419,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 word count = *(word*)(p+ip+1);
                 while (count > 0) {
                     word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                    try_free(target);
+                    try_free(target, trace);
                     sp -= MOVE(FULL, 1);
                     count--;
                 }

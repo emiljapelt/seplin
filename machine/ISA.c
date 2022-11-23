@@ -29,6 +29,7 @@ char* instruction_to_string(int inst) {
         case ASSIGN_HALF: return "ASSIGN_HALF";
         case ASSIGN_SHORT: return "ASSIGN_SHORT";
         case ASSIGN_BYTE: return "ASSIGN_BYTE";
+        case REF_ASSIGN: return "REF_ASSIGN";
         case FIELD_ASSIGN: return "FIELD_ASSIGN";
         case INT_ADD: return "INT_ADD";
         case INT_MUL: return "INT_MUL";

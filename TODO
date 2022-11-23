@@ -47,5 +47,3 @@
 - ToFix
   - Handle more in the parser
     - If possible handle for-loops, as a block with while-loop
-    - Handle operating assignments
-      - x +:= a  ->  x := x + a

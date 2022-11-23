@@ -50,7 +50,7 @@ topdec:
   | EXTERNAL NAME LPAR params RPAR block           { Routine (External, $2, $4, $6) }
   | INTERNAL NAME LPAR params RPAR chain           { Routine (Internal, $2, $4, Block $6) }
   | EXTERNAL NAME LPAR params RPAR chain           { Routine (External, $2, $4, Block $6) }
-  | STRUCT NAME LBRAKE params RBRAKE SEMI          { Struct ($2, $4) }
+  | STRUCT NAME LPAR params RPAR SEMI              { Struct ($2, $4) }
 ;
 
 typ:
@@ -73,13 +73,13 @@ assignable_expression:
     reference                                     { Reference $1 }
   | value                                         { Value $1 }
   | NEW typ LBRAKE assignable_expression RBRAKE   { NewArray ($2, $4) }
-  | NEW NAME LBRAKE arguments RBRAKE              { NewStruct ($2, $4) }
+  | NEW NAME LPAR arguments RPAR              { NewStruct ($2, $4) }
   | LPAR assignable_expression RPAR               { $2 }
 ;
 
 reference:
    NAME                                               { VarRef $1 }
-  | reference LBRAKE NAME RBRAKE                      { StructRef ($1, $3) }
+  | reference DOT NAME                                { StructRef ($1, $3) }
   | reference LBRAKE assignable_expression RBRAKE     { ArrayRef ($1, $3) }
   | NULL                                              { Null }
 ;
@@ -105,11 +105,11 @@ value:
 ;
 
 unassignable_expression:
-    reference ASSIGNMENT assignable_expression       { Assign ("", $1, $3) }
-  | reference PLUS ASSIGNMENT assignable_expression  { Assign ("+", $1, $4) }
-  | reference MINUS ASSIGNMENT assignable_expression { Assign ("-", $1, $4) }
-  | reference TIMES ASSIGNMENT assignable_expression { Assign ("*", $1, $4) }
-  | reference NOT ASSIGNMENT assignable_expression   { Assign ("!", $1, $4) }
+    reference ASSIGNMENT assignable_expression       { Assign ($1, $3) }
+  | reference PLUS ASSIGNMENT assignable_expression  { Assign ($1, Value(Binary_op("+", Reference $1, $4))) }
+  | reference MINUS ASSIGNMENT assignable_expression { Assign ($1, Value(Binary_op("-", Reference $1, $4))) }
+  | reference TIMES ASSIGNMENT assignable_expression { Assign ($1, Value(Binary_op("*", Reference $1, $4))) }
+  | reference NOT ASSIGNMENT assignable_expression   { Assign ($1, Value(Unary_op("!", $4))) }
   | NAME LPAR arguments RPAR                    { Call ($1, $3) }
   | STOP                                        { Stop }
   | HALT                                        { Halt }

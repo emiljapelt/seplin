@@ -11,12 +11,12 @@
 #define IS_STRUCT(addr) (((uword*)addr)[-1] & 1)
 #define ALLOC_SIZE(addr) (((((uword*)addr)[-1]) << 32) >> 33)
 #define REF_COUNT(addr) (((uword*)addr)[-1] >> 32)
-#define INCR_REF_COUNT(addr) (((unsigned int*)addr)[-2] = ((unsigned int*)addr)[-2] + 1)
-#define DECR_REF_COUNT(addr) (((unsigned int*)addr)[-2] = ((unsigned int*)addr)[-2] - 1)
+#define INCR_REF_COUNT(addr) (((unsigned int*)addr)[-1] = ((unsigned int*)addr)[-1] + 1)
+#define DECR_REF_COUNT(addr) (((unsigned int*)addr)[-1] = ((unsigned int*)addr)[-1] - 1)
 
 void memory_init();
 byte* allocate_simple(byte type);
 byte* allocate_struct(unsigned int fields);
-void try_free(word* addr);
+void try_free(word* addr, byte trace);
 byte on_heap(byte* addr);
 byte on_stack(byte* addr, uword sp);

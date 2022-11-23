@@ -17,7 +17,7 @@ and statement_or_declaration =
     | Declaration of declaration
 
 and unassignable_expression =
-    | Assign of string * reference * assignable_expression
+    | Assign of reference * assignable_expression
     | Call of string * assignable_expression list
     | Stop
     | Halt

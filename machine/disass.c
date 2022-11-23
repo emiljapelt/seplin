@@ -123,6 +123,9 @@ void dissas(byte* p, word file_len) {
             case ASSIGN_BYTE:
                 printf("%i: ASSIGN_BYTE\n", i);
                 break;
+            case REF_ASSIGN:
+                printf("%i: REF_ASSIGN\n", i);
+                break;
             case FIELD_ASSIGN:
                 printf("%i: FIELD_ASSIGN\n", i);
                 break;

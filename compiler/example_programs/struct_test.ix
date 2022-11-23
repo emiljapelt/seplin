@@ -1,16 +1,18 @@
 funny : locked int := 69;
 
-struct tuple [fst: int, snd: int];
-struct person [age: int, favoriteNumbers: tuple];
+struct tuple (fst: int, snd: int);
+struct person (age: int, favoriteNumbers: tuple);
 
 external str() {
-    x: var := new tuple[4,5];
-    print x[fst];
-    print x[snd];
+    x: var := new tuple(4,5);
+    print x.fst;
+    print x.snd;
 }
 
 external arr() {
     x: var := new int[3];
+    print |x|;
+    init_array(x);
     a: int := 4;
     b: int := 5;
     x[0] := 2;
@@ -20,22 +22,40 @@ external arr() {
     print |x|;
 }
 
-internal init_array(i: int, b: bool, arr: int[], t: tuple) {
-    i := 2;
-    b := true;
-    arr[0] := i;
-    t[fst] := i;
+internal init_array(arr: int[]) {
+    print |arr|;
+    for(i: int := 0; i < |arr|; i +:= 1) {
+        e: int := 0;
+        arr[i] := e;
+    }
 }
 
 external pers() {
-    emil: var := new person[23, new tuple[8, 16]];
+    emil: var := new person(23, new tuple(8, 16));
     
     print_person(emil);
-    print emil[favoriteNumbers][fst];
+    print emil.favoriteNumbers.fst;
 }
 
 internal print_person(p: locked person) {
-    print p[age];
-    print p[favoriteNumbers][fst];
-    print p[favoriteNumbers][snd];
+    print p.age;
+    print p.favoriteNumbers.fst;
+    print p.favoriteNumbers.snd;
+}
+
+external strarr() {
+    people : var := new person[2];
+    people[0] := new person(16, new tuple(0,0));
+    people[1] := new person(17, new tuple(0,0));
+
+    total: int;
+    total_age(people, total);
+    print total;
+}
+
+internal total_age(people: locked person[], sum: int) {
+    sum := 0;
+    for(i: int := 0; i < |people|; i +:= 1) {
+        sum +:= people[i].age;
+    }
 }

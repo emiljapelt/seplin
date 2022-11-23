@@ -25,7 +25,7 @@ byte* allocate_simple(byte type) {
     byte* b = alloc+8;
     for(unsigned int i = 0; i < total_size-8; i++) b[i] = 0;
 
-    uword header = 1ul << 32;  // reference count
+    uword header = 1ull << 32;  // reference count
     header = header | ((uword)SIZE(type) << 1); // payload size in bytes, and 0 for non struct
 
     *((uword*)alloc) = header;
@@ -42,7 +42,7 @@ byte* allocate_struct(unsigned int fields) {
     uword* field = ((uword*)alloc)+1;
     for(unsigned int i = 0; i < fields; i++) field[i] = 0;
 
-    uword header = 1ul << 32;  // reference count
+    uword header = 1ull << 32;  // reference count
     header = header | ((((uword)fields) << 1) | 1); // amount of fields, and 1 for struct marking
 
     *((uword*)alloc) = header;
@@ -50,16 +50,18 @@ byte* allocate_struct(unsigned int fields) {
     return alloc+8;
 }
 
-void try_free(word* addr) {
+void try_free(word* addr, byte trace) {
     if (addr == 0) return;
+    if (trace) printf("Trying to free: 0x%llx\n", (uword)addr);
 
     DECR_REF_COUNT(addr);
     if (IS_STRUCT(addr)) {
         unsigned int fields = ALLOC_SIZE(addr);
         word** point = (word**)addr;
-        for(int i = 0; i < fields; i++) try_free(*(point + i));
+        for(int i = 0; i < fields; i++) try_free(*(point + i), trace);
     }
     if (REF_COUNT(addr)) return;
+    if (trace) printf("Freeing: 0x%llx\n", (uword)addr);
     free(addr-1);
 }
 

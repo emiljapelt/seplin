@@ -367,10 +367,10 @@ let compile_arguments params exprs globvars localvars structs =
         else match eh with
         | Value _ -> (
           match expr_ty with
-          | T_Int -> aux pt et (DeclareFull :: CloneFull :: inst @ (AssignFull ::acc))
-          | T_Bool -> aux pt et (DeclareByte :: CloneFull :: inst @ (AssignByte ::acc))
-          | T_Array _ -> aux pt et (inst @ acc)
-          | T_Struct _ -> aux pt et (inst @ acc)
+          | T_Int -> aux pt et (DeclareFull :: CloneFull :: inst @ (AssignFull :: acc))
+          | T_Bool -> aux pt et (DeclareByte :: CloneFull :: inst @ (AssignByte :: acc))
+          | T_Array _ -> aux pt et (inst @ (FetchFull :: acc))
+          | T_Struct _ -> aux pt et (inst @ (FetchFull :: acc))
           | T_Null -> aux pt et (inst @ acc)
         )
         | _ -> aux pt et ((inst @ [FetchFull]) @ acc)
@@ -379,10 +379,10 @@ let compile_arguments params exprs globvars localvars structs =
   in
   aux (List.rev params) (List.rev exprs) []
 
-let rec compile_assignment op target assign globvars localvars structs =
-  match (op, target, assign) with
-  | (_, Null, _) -> compile_error "Cannot assign to null"
-  | ("", VarRef name, Value v) -> (
+let rec compile_assignment target assign globvars localvars structs =
+  match (target, assign) with
+  | (Null, _) -> compile_error "Cannot assign to null"
+  | (VarRef name, Value v) -> (
     let (refer_lock, refer_ty, refer_inst) = compile_reference target globvars localvars structs in
     let (val_ty, val_inst) = compile_value v globvars localvars structs in
     if refer_lock then compile_error "Cannot assign to locked variable"
@@ -390,23 +390,23 @@ let rec compile_assignment op target assign globvars localvars structs =
     else match val_ty with 
     | T_Int -> (refer_inst @ [FetchFull]) @ (val_inst @ [AssignFull])
     | T_Bool -> (refer_inst @ [FetchFull]) @ (val_inst @ [AssignByte])
-    | T_Array _ -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Struct _ -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Null -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Array _ -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Struct _ -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Null -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
   )
-  | ("", VarRef name, _) -> (
+  | (VarRef name, _) -> (
     let (refer_lock, refer_ty, refer_inst) = compile_reference target globvars localvars structs in
     let (val_lock, val_ty, val_inst) = compile_assignable_expr assign globvars localvars structs in
     if refer_lock || val_lock then compile_error "Cannot assign locked"
     else if refer_ty != val_ty then compile_error "Type mismatch in variable assignment"
     else match val_ty with 
-    | T_Int -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Bool -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Array _ -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Struct _ -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Null -> (refer_inst) @ (val_inst @ [AssignFull]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Int -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Bool -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Array _ -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Struct _ -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Null -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
   )
-  | ("", StructRef(refer, field), Value v) -> (
+  | (StructRef(refer, field), Value v) -> (
     let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
     let (val_ty, val_inst) = compile_value v globvars localvars structs in
     match refer_ty with
@@ -427,15 +427,36 @@ let rec compile_assignment op target assign globvars localvars structs =
     )
     | _ -> compile_error "Struct assignment to non-struct" 
   )
-  | ("", ArrayRef(refer, index), Value v) -> (
+  | (StructRef(refer, field), _) -> (
+    let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
+    let (val_lock, val_ty, val_inst) = compile_assignable_expr assign globvars localvars structs in
+    match refer_ty with
+    | T_Struct str_name -> ( match lookup_struct str_name structs with
+      | Some fields -> ( match struct_field field fields with
+        | (field_lock,field_ty,index) -> (
+          if field_lock || refer_lock then compile_error "Cannot assign to locked field"
+          else if field_ty != val_ty then compile_error "Type mismatch in field assignment"
+          else match val_ty with
+          | T_Int -> (refer_inst @ [FetchFull; PlaceInt(index);]) @ (val_inst @ [FieldAssign])
+          | T_Bool -> (refer_inst @ [FetchFull; PlaceInt(index); ]) @ (val_inst @ [FieldAssign])
+          | T_Array _ -> (refer_inst @ [FetchFull; PlaceInt(index);]) @ (val_inst @ [FieldAssign])
+          | T_Struct _ -> (refer_inst @ [FetchFull; PlaceInt(index);]) @ (val_inst @ [FieldAssign])
+          | T_Null  -> (refer_inst @ [FetchFull; PlaceInt(index);]) @ (val_inst @ [FieldAssign])
+        )
+      )
+      | None -> compile_error ("Could not find struct: " ^ str_name)
+    )
+    | _ -> compile_error "Struct assignment to non-struct" 
+  )
+  | (ArrayRef(refer, index), Value v) -> (
     let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
     let (val_ty, val_inst) = compile_value v globvars localvars structs in
     let (index_ty, index_inst) = compile_assignable_expr_as_value index globvars localvars structs in
     match refer_ty with
     | T_Array arr_ty -> ( 
       if refer_lock then compile_error "Cannot assign to locked array"
-      else if index_ty != T_Int then compile_error "Array index must be of type int"
-      else if arr_ty != val_ty then compile_error "Type mismatch in array field assignment"
+      else if not (type_equal index_ty T_Int) then compile_error "Array index must be of type int"
+      else if not (type_equal arr_ty val_ty) then compile_error "Type mismatch in array field assignment"
       else match val_ty with
       | T_Int -> (refer_inst @ [FetchFull] @ index_inst @ [FieldFetch; FetchFull;]) @ (val_inst @ [AssignFull])
       | T_Bool -> (refer_inst @ [FetchFull] @ index_inst @ [FieldFetch; FetchFull;]) @ (val_inst @ [AssignByte])
@@ -445,15 +466,15 @@ let rec compile_assignment op target assign globvars localvars structs =
     )
     | _ -> compile_error "Array assignment to non-array" 
   )
-  | ("", ArrayRef(refer, index), _) -> (
+  | (ArrayRef(refer, index), _) -> (
     let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
     let (val_lock, val_ty, val_inst) = compile_assignable_expr assign globvars localvars structs in
     let (index_ty, index_inst) = compile_assignable_expr_as_value index globvars localvars structs in
     match refer_ty with
     | T_Array arr_ty -> ( 
       if refer_lock then compile_error "Cannot assign to locked array"
-      else if index_ty != T_Int then compile_error "Array index must be of type int"
-      else if arr_ty != val_ty then compile_error "Type mismatch in array field assignment"
+      else if not (type_equal index_ty T_Int) then compile_error "Array index must be of type int"
+      else if not (type_equal arr_ty val_ty) then compile_error "Type mismatch in array field assignment"
       else match val_ty with
       | T_Int -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FetchFull; FieldAssign;])
       | T_Bool -> (refer_inst @ [FetchFull] @ index_inst) @ (val_inst @ [FetchFull; FieldAssign;])
@@ -463,11 +484,10 @@ let rec compile_assignment op target assign globvars localvars structs =
     )
     | _ -> compile_error "Array assignment to non-array" 
   )
-  | (_,_,_) -> compile_error "Unsupported assignment used"
 
 let compile_unassignable_expr expr globvars localvars structs routines break continue cleanup =
   match expr with
-  | Assign (op, target, aexpr) -> compile_assignment op target aexpr globvars localvars structs
+  | Assign (target, aexpr) -> compile_assignment target aexpr globvars localvars structs
   | Call (n, aexprs) -> (
     match lookup_routine n routines with
     | None -> compile_error ("No such routine: " ^ n)
