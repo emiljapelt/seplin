@@ -10,12 +10,12 @@ external str() {
 }
 
 external arr() {
-    x: var := new int[3];
+    x ::= new int[3];
     print |x|;
     init_array(x);
     a: int := 4;
     b: int := 5;
-    x[0] := 2;
+    x[0] := $a;
     x[1] := 3;
     print x[0];
     print x[1];

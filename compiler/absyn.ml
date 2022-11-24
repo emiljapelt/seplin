@@ -28,8 +28,6 @@ and unassignable_expression =
 and assignable_expression =
     | Reference of reference
     | Value of value
-    | NewArray of typ * assignable_expression
-    | NewStruct of string * assignable_expression list
 
 and reference =
     | VarRef of string
@@ -44,6 +42,8 @@ and value =
     | Bool of bool
     | Int of int
     | Lookup of reference
+    | NewArray of typ * assignable_expression
+    | NewStruct of string * assignable_expression list
 
 and top_declaration =
     | Routine of access_mod * string * (bool * typ * string) list * statement

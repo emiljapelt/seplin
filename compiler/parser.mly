@@ -72,8 +72,6 @@ chain:
 assignable_expression:
     reference                                     { Reference $1 }
   | value                                         { Value $1 }
-  | NEW typ LBRAKE assignable_expression RBRAKE   { NewArray ($2, $4) }
-  | NEW NAME LPAR arguments RPAR              { NewStruct ($2, $4) }
   | LPAR assignable_expression RPAR               { $2 }
 ;
 
@@ -102,6 +100,8 @@ value:
   | NOT assignable_expression                             { Unary_op ("!", $2) }
   | PIPE reference PIPE                                   { ArraySize $2 }
   | VALUE reference                                       { Lookup $2 }
+  | NEW typ LBRAKE assignable_expression RBRAKE           { NewArray ($2, $4) }
+  | NEW NAME LPAR arguments RPAR                          { NewStruct ($2, $4) }
 ;
 
 unassignable_expression:
@@ -145,6 +145,8 @@ dec:
   | NAME COLON LOCKED typ ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, $4, $1, $6) }
   | NAME COLON VAR ASSIGNMENT assignable_expression SEMI           { VarDeclaration (false, $1, $5) }
   | NAME COLON LOCKED VAR ASSIGNMENT assignable_expression SEMI    { VarDeclaration (true, $1, $6) }
+  | NAME COLON ASSIGNMENT assignable_expression SEMI           { VarDeclaration (false, $1, $4) }
+  | NAME COLON LOCKED ASSIGNMENT assignable_expression SEMI    { VarDeclaration (true, $1, $5) }
 ;
 
 stmt:
