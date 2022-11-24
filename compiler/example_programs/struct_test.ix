@@ -4,9 +4,14 @@ struct tuple (fst: int, snd: int);
 struct person (age: int, favoriteNumbers: tuple);
 
 external str() {
-    x: var := new tuple(4,5);
-    print x.fst;
-    print x.snd;
+    x ::= new tuple(null, null);
+    a ::= 1;
+
+    print (x.fst = null);
+    x.fst := a;
+    print (x.fst = null);
+    x.fst := null;
+    print (x.fst = null);
 }
 
 external arr() {

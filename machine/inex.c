@@ -127,7 +127,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
 
                 for(int i = 0; i < arg_count; i++) {
                     word* arg = *(word**)(stack + sp + MOVE(FULL, -3-i));
-                    INCR_REF_COUNT(arg);
+                    if (arg) INCR_REF_COUNT(arg);
                     *(word*)(stack + sp + MOVE(FULL, -1-i)) = (word)(arg);
                 }
 
@@ -308,7 +308,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
 
                 try_free(*target, trace);
 
-                INCR_REF_COUNT(value);
+                if (value) INCR_REF_COUNT(value);
                 *target = value;
                 sp -= MOVE(FULL, 1) + MOVE (FULL, 1);
                 ip++;
@@ -321,7 +321,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
 
                 try_free(*(target + offset), trace);
 
-                INCR_REF_COUNT(value);
+                if (value) INCR_REF_COUNT(value);
                 *(target + offset) = value;
                 sp -= MOVE(FULL, 3);
                 ip++;
