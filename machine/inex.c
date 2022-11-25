@@ -59,26 +59,25 @@ void print_stack(byte* stack, uword bp, uword sp) {
     printf("_ ]\n");
 }
 
-// void print_var(word* target) {
-//     switch (TYPE(target)) {
-//         case BYTE:
-//             if (*((byte*)PAYLOAD(target))) printf("true\n");
-//             else printf("false\n");
-//             break;
-//         case FULL:
-//             printf("%lld\n", *((word*)PAYLOAD(target)));
-//             break;
-//         default:
-//             printf("?\n");
-//             break;
-//     }
-// }
+void print_help() {
+    char message[1000];
 
-// void follow_trail(word** target, byte* stack, uword sp) {
-//     word* temp = *target;
-//     while(on_stack(temp, sp)) temp = (word*)*temp;
-//     *target = temp;
-// }
+    strcat(message, "Welcome to INEX!\n");
+    strcat(message, "Here are the available commands:\n");
+    strcat(message, "   help:\n");
+    strcat(message, "       Prints this message.\n");
+    strcat(message, "   i <file_path>:\n");
+    strcat(message, "       Prints the interface of a compiled INEX file.\n");
+    strcat(message, "   disass <file_path>:\n");
+    strcat(message, "       Prints the instructions of a compiled INEX file, using their names.\n");
+    strcat(message, "   run <file_path> <entry_point> <args>*:\n");
+    strcat(message, "       Executes a compiled INEX file, starting from the given entry point, using the given arguments.\n");
+    strcat(message, "       --time: Measure and print the execution time, in seconds.\n");
+    strcat(message, "       --trace: Print information about the execution.\n");
+    strcat(message, "           This includes which instruction is being executed, the current stack and memory management.\n");
+
+    printf("%s", message);
+}
 
 int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argument_count, byte trace, byte time) {
     uword ip = entry_point;
@@ -482,51 +481,84 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
 
 // Call should be: 'inex <command> <file>.ixc arg1? arg2? ...'
 int main(int argc, char** argv) {
-    char* command = argv[1];
-    byte* file;
-    word file_len;
-    load_file(argv[2], &file, &file_len);
-    if (file == NULL) { printf("Failure: No such file: %s\n", argv[2]); return -1;} 
 
-    switch (command_index(command)) {
-        case I:
+    byte trace = false;
+    byte time = false;
+
+    short cmd_argument_count = 0;
+    short flags = 0;
+
+    for(int i = 1; i < argc; i++) {
+        char* cmd_info = argv[i];
+        if (is_flag(cmd_info)) flags++;
+        else cmd_argument_count++;
+    }
+
+    if (!cmd_argument_count) { print_help(); return -1;}
+    char* cmd_arguments[cmd_argument_count];
+
+    short fls = 0;
+    for(int i = 1; i < argc; i++) {
+        char* cmd_info = argv[i];
+        if (is_flag(cmd_info)) {
+            switch (flag_index(cmd_info)) {
+                case TRACE:
+                    trace = true;
+                    fls++;
+                    break;
+                case TIME:
+                    time = true;
+                    fls++;
+                    break;
+                default:
+                    printf("Failure: Unknown flag: %s\n", cmd_info);
+                    return -1;
+            }
+        }
+        else cmd_arguments[i-(fls+1)] = cmd_info;
+    }
+
+
+    switch (command_index(cmd_arguments[0])) {
+        case I: {
+            if (cmd_argument_count != 2) { printf("Failure: Command 'i' requires 1 argument\n"); return -1; }
+
+            byte* file;
+            word file_len;
+            load_file(cmd_arguments[1], &file, &file_len);
+            if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;} 
+
             print_entry_points(file);
             return 0;
-        case DISASS:
+        }
+        case DISASS: {
+            if (cmd_argument_count != 2) { printf("Failure: Command 'disass' requires 1 argument\n"); return -1; }
+
+            byte* file;
+            word file_len;
+            load_file(cmd_arguments[1], &file, &file_len);
+            if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;}
+
             dissas(file, file_len);
             return 0;
+        }
         case RUN: {
+            if (cmd_argument_count < 3) { printf("Failure: Command 'run' requires 2 or more arguments\n"); return -1; }
 
-            byte trace = false;
-            byte time = false;
-            int flags = 0;
-            for(int i = 3; i < argc; i++) {
-                switch (flag_index(argv[i])) {
-                    case TRACE:
-                        trace = true;
-                        flags++;
-                        break;
-                    case TIME:
-                        time = true;
-                        flags++;
-                        break;
-                    case UNKNOWN_FLAG:
-                        flags++;
-                        break;
-                    default: break;
-                }
-            }
+            byte* file;
+            word file_len;
+            load_file(cmd_arguments[1], &file, &file_len);
+            if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;}
 
             //Find the requested entry point
-            word* entry_point_info = find_entry_point(file, argv[3+flags]);
-            if (entry_point_info == 0) { printf("Failure: No such entry point: %s\n", argv[3+flags]); return -1; }
-
+            word* entry_point_info = find_entry_point(file, cmd_arguments[2]);
+            if (entry_point_info == 0) { printf("Failure: No such entry point: %s\n", cmd_arguments[2]); return -1; }
 
             // Gather entry point information
             word entry_addr = entry_point_info[0];
             char* argument_info = (char*)(entry_point_info+1);
             char argument_count = argument_info[0];
-            if (argument_count+4 != argc-flags) { printf("Failure: Argument mismatch.\n"); return -1; }
+            if (argument_count != cmd_argument_count-3) { printf("Failure: Argument mismatch\n"); return -1; }
 
             byte stack[STACKSIZE];
 
@@ -570,16 +602,16 @@ int main(int argc, char** argv) {
             while (i < argument_count) {
                 switch (argument_info[i+1]) {
                     case BOOL: {
-                        byte bool_v = parse_bool(argv[4+flags+i]);
-                        if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", argv[4+flags+i]); return -1; }
+                        byte bool_v = parse_bool(cmd_arguments[i+3]);
+                        if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", cmd_arguments[i+3]); return -1; }
                         byte* bool_alloc = allocate_simple(BYTE);
                         *(bool_alloc) = bool_v;
                         *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)bool_alloc;
                         break;
                     }
                     case INT: {
-                        word int_v = parse_int(argv[4+flags+i]);
-                        if (int_v == 0 && !(strcmp(argv[4+flags+i], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", argv[4+flags+i]); return -1; }
+                        word int_v = parse_int(cmd_arguments[i+3]);
+                        if (int_v == 0 && !(strcmp(cmd_arguments[i+3], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", cmd_arguments[i+3]); return -1; }
                         byte* int_alloc = allocate_simple(FULL);
                         *((word*)(int_alloc)) = int_v;
                         *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)int_alloc;
@@ -595,7 +627,7 @@ int main(int argc, char** argv) {
             clock_t ticks;
             if (time) ticks = clock();
             if (trace) 
-                printf("Running %s @ instruction #%lld...\n\n", argv[3+flags], entry_addr);
+                printf("Running %s @ instruction #%lld...\n\n", cmd_arguments[2], entry_addr);
 
             int return_code = run(progresser, entry_addr, stack, glob_var_count, argument_count, trace, time);
 
@@ -604,7 +636,13 @@ int main(int argc, char** argv) {
                 
             return return_code;
         }
-        default:
+        case HELP: {
+            print_help();
             break;
+        }
+        default:
+            printf("Failure: Unknown command: %s", cmd_arguments[0]);
+            print_help();
+            return -1;
     }
 }
