@@ -81,14 +81,6 @@ let new_label () =
   let () = lg.next <- lg.next+1 in
   Int.to_string number
 
-let fetch_globvar_expr (name: string) globvars =
-  let rec aux li =
-    match li with
-    | [] -> compile_error ("No such global variable: " ^ name)
-    | (n,_,_,_,expr)::t -> if n = name then expr else aux t
-  in
-  aux globvars
-
 let var_index (name: string) globvars localvars = 
   match lookup_localvar name localvars with
   | Some (lc,_,_) -> lc
@@ -608,7 +600,7 @@ and compile_stmt stmt globvars localvars structs routines break continue cleanup
   )
   | Expression (expr) -> compile_unassignable_expr expr globvars localvars structs routines break continue cleanup
 
-(*    global var:  string * int * bool * typ * declaration    *)
+(*    Compute the list of variable dependencies for each global variable    *)
 let get_globvar_dependencies gvs =
   let rec dependencies_from_assignable expr acc =
     match expr with
@@ -641,19 +633,21 @@ let extract_name t =
   match t with
   | (f,_,_,_,_) -> f
 
-(*    dependant global var:  (string * int * bool * typ * declaration) * string list    *)
+(*    Compute an ordering of the global variables, according to their dependancies    *)
 let order_dep_globvars dep_gvs =
-  let rec aux dep_globvars remain count acc =
+  let rec aux dep_globvars count prev_count remain acc =
     match dep_globvars with
-    | [] -> if List.length remain = 0 then acc else aux remain [] count acc
+    | [] when count = prev_count -> compile_error "Cannot resolve an ordering of the global variables"
+    | [] when List.length remain = 0 -> acc
+    | [] -> aux remain count count [] acc
     | h::t -> ( match h with
       | ((name,cnt,lock,ty,dec), deps) -> (
-        if List.for_all (fun dep -> List.exists (fun a -> dep = extract_name a) acc) deps then aux t remain (count+1) ((name,count,lock,ty,dec)::acc)
-        else aux t (h::remain) count acc
+        if List.for_all (fun dep -> List.exists (fun a -> dep = extract_name a) acc) deps then aux t (count+1) prev_count remain ((name,count,lock,ty,dec)::acc)
+        else aux t count prev_count (h::remain) acc
       )
     )
   in
-  List.rev (aux dep_gvs [] 0 [])
+  List.rev (aux dep_gvs 0 0 [] [])
 
 let compile topdecs =
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
