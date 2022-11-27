@@ -70,6 +70,7 @@ type concrete_program_part =
   | StackFetch of int
   | BPFetch of int
   | SizeOf
+  | ToStart
 
 let translate concrete_list =
   let rec aux cl acc =
@@ -126,5 +127,6 @@ let translate concrete_list =
     | StackFetch (i) -> aux t (IntInstruction(44, i)::acc)
     | BPFetch (i) -> aux t (IntInstruction(45, i)::acc)
     | SizeOf -> aux t (Instruction(46)::acc)
+    | ToStart -> aux t (Instruction(47)::acc)
   )
   in aux concrete_list []

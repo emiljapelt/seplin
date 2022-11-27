@@ -47,8 +47,7 @@ and value =
 
 and top_declaration =
     | Routine of access_mod * string * (bool * typ * string) list * statement
-    | Global of bool * typ * string
-    | GlobalAssign of bool * typ * string * assignable_expression
+    | GlobalDeclaration of declaration
     | Struct of string * ((bool * typ * string) list)
 
 and access_mod =

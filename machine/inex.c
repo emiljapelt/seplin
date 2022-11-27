@@ -79,10 +79,11 @@ void print_help() {
     printf("%s", message);
 }
 
-int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argument_count, byte trace, byte time) {
-    uword ip = entry_point;
-    uword sp = MOVE(FULL, glob_var_count+argument_count);
-    uword bp = MOVE(FULL, glob_var_count);
+int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument_count, byte trace, byte time) {
+    uword ip = 0;//entry_point;
+    uword sp = 0;//MOVE(FULL, glob_var_count+argument_count);
+    uword bp = 0;//MOVE(FULL, glob_var_count);
+    uword depth = 0;
 
     if (trace) { print_stack(stack, bp, sp); printf("\n"); }
 
@@ -101,7 +102,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 return 0;
             }
             case STOP: {
-                if (bp == MOVE(FULL, glob_var_count)) {
+                if (depth == 0) {
                     if (trace) printf("Halting...\n");
                     return 0;
                 }
@@ -112,10 +113,10 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                     i -= MOVE(FULL, 1);
                 }
 
+                depth--;
                 uword old_bp = *(word*)(stack + bp + MOVE(FULL, -1));
                 uword next_ip = *(word*)(stack + bp + MOVE(FULL, -2));;
                 sp = bp - MOVE(FULL, 2);
-
                 bp = old_bp;
                 ip = next_ip;
                 break;
@@ -133,6 +134,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 *(word*)((stack + sp) - MOVE(FULL, arg_count+2)) = ip+9;
                 *(word*)((stack + sp) - MOVE(FULL, arg_count+1)) = (word)bp;
 
+                depth++;
                 bp = sp - MOVE(FULL, arg_count);
                 ip = *(word*)(p+ip+1);
                 break;
@@ -302,7 +304,7 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 break;
             }
             case REF_ASSIGN: {
-                word** target = *(word***)(stack + sp + MOVE(FULL, -1) + MOVE(FULL, -1));
+                word** target = *(word***)(stack + sp + MOVE(FULL, -2));
                 word* value = *(word**)(stack + sp + MOVE(FULL, -1));
 
                 try_free(*target, trace);
@@ -469,6 +471,15 @@ int run(byte* p, word entry_point, byte stack[], int glob_var_count, int argumen
                 ip++;
                 break;
             }
+            case TO_START: {
+                for(short i = 0; i < argument_count; i++) {
+                    *(byte**)(stack + sp + MOVE(FULL, i)) = arguments[i];
+                }
+                bp = sp;
+                sp += MOVE(FULL, argument_count);
+                ip = entry_point;
+                break;
+            }
             default: {
                 printf("Failure: Unknown instruction: %x\n", p[ip]);
                 return -1;
@@ -566,38 +577,38 @@ int main(int argc, char** argv) {
             byte* progresser = file;
             find_global_vars_start(progresser, &progresser);
 
-            byte* glob_var_ptr = progresser;
-            word glob_var_count = *((word*)glob_var_ptr);
-            glob_var_ptr += 8;
+            // byte* glob_var_ptr = progresser;
+            // word glob_var_count = *((word*)glob_var_ptr);
+            // glob_var_ptr += 8;
             int i = 0;
-            while (i < glob_var_count) {
-                byte type = *glob_var_ptr;
-                glob_var_ptr += 1;
-                switch (type){
-                    case BOOL: {
-                        byte* alloc = allocate_simple(BYTE);
-                        *(alloc+1) = *glob_var_ptr;
-                        glob_var_ptr += MOVE(BYTE, 1);
-                        *(word*)(stack + MOVE(FULL, i)) = (word)alloc;
-                        break;
-                    }
-                    case INT: {
-                        byte* alloc = allocate_simple(FULL);
-                        *((word*)(alloc+1)) = *(word*)glob_var_ptr;
-                        glob_var_ptr += MOVE(FULL, 1);
-                        *(word*)(stack + MOVE(FULL, i)) = (word)alloc;
-                        break;
-                    }
-                    default:
-                        break;
-                }
-                i++;
-            }
+            // while (i < glob_var_count) {
+            //     byte type = *glob_var_ptr;
+            //     glob_var_ptr += 1;
+            //     switch (type){
+            //         case BOOL: {
+            //             byte* alloc = allocate_simple(BYTE);
+            //             *(alloc+1) = *glob_var_ptr;
+            //             glob_var_ptr += MOVE(BYTE, 1);
+            //             *(word*)(stack + MOVE(FULL, i)) = (word)alloc;
+            //             break;
+            //         }
+            //         case INT: {
+            //             byte* alloc = allocate_simple(FULL);
+            //             *((word*)(alloc+1)) = *(word*)glob_var_ptr;
+            //             glob_var_ptr += MOVE(FULL, 1);
+            //             *(word*)(stack + MOVE(FULL, i)) = (word)alloc;
+            //             break;
+            //         }
+            //         default:
+            //             break;
+            //     }
+            //     i++;
+            // }
 
             find_instruction_start(progresser, &progresser);
 
             // Load given arguments
-            word* arguments[argument_count];
+            byte* arguments[argument_count];
             i = 0;
             while (i < argument_count) {
                 switch (argument_info[i+1]) {
@@ -606,7 +617,8 @@ int main(int argc, char** argv) {
                         if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", cmd_arguments[i+3]); return -1; }
                         byte* bool_alloc = allocate_simple(BYTE);
                         *(bool_alloc) = bool_v;
-                        *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)bool_alloc;
+                        // *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)bool_alloc;
+                        arguments[i] = bool_alloc;
                         break;
                     }
                     case INT: {
@@ -614,7 +626,8 @@ int main(int argc, char** argv) {
                         if (int_v == 0 && !(strcmp(cmd_arguments[i+3], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", cmd_arguments[i+3]); return -1; }
                         byte* int_alloc = allocate_simple(FULL);
                         *((word*)(int_alloc)) = int_v;
-                        *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)int_alloc;
+                        // *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)int_alloc;
+                        arguments[i] = int_alloc;
                         break;
                     }
                     default: ;
@@ -629,7 +642,7 @@ int main(int argc, char** argv) {
             if (trace) 
                 printf("Running %s @ instruction #%lld...\n\n", cmd_arguments[2], entry_addr);
 
-            int return_code = run(progresser, entry_addr, stack, glob_var_count, argument_count, trace, time);
+            int return_code = run(progresser, entry_addr, stack, arguments, argument_count, trace, time);
 
             if (time) 
                 printf("Total execution time: %fs\n", (((double)(clock() - ticks))/CLOCKS_PER_SEC));

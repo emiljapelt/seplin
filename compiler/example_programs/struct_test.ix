@@ -1,12 +1,17 @@
-funny : locked int := 69;
+funny1 : locked int := 69;
+one : locked int := 1;
+addd : locked int := funny1 + one;
+
+global_tuple : tuple := new tuple(null,null);
 
 struct tuple (fst: int, snd: int);
 struct person (age: int, favoriteNumbers: tuple);
 
 external str() {
-    x ::= new tuple(null, null);
+    x : tuple;
     a ::= 1;
 
+    x := global_tuple;
     print (x.fst = null);
     x.fst := a;
     print (x.fst = null);

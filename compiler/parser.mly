@@ -42,10 +42,7 @@ topdecs:
 ;
 
 topdec:
-    NAME COLON typ SEMI                                       { Global (false, $3, $1) }
-  | NAME COLON LOCKED typ SEMI                                      { Global (true, $4, $1) }
-  | NAME COLON typ ASSIGNMENT assignable_expression SEMI            { GlobalAssign (false, $3, $1, $5)   }
-  | NAME COLON LOCKED typ ASSIGNMENT assignable_expression SEMI     { GlobalAssign (true, $4, $1, $6)    }
+    dec { GlobalDeclaration $1 }
   | INTERNAL NAME LPAR params RPAR block           { Routine (Internal, $2, $4, $6) }
   | EXTERNAL NAME LPAR params RPAR block           { Routine (External, $2, $4, $6) }
   | INTERNAL NAME LPAR params RPAR chain           { Routine (Internal, $2, $4, Block $6) }

@@ -132,3 +132,5 @@ int string_to_instruction(char* str);
 #define BP_FETCH 0x2d
 
 #define SIZE_OF 0x2e
+
+#define TO_START 0x2f

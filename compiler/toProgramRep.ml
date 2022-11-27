@@ -163,23 +163,23 @@ let simple_type t =
     | T_Int | T_Bool -> true
     | _ -> false
 
-(*    list of: string * int * bool * typ * assignable_expression    *)
+(*    list of: string * int * bool * typ * declaration    *)
 let get_globvars (tds : topdecs) = 
   let rec aux topdecs acc count =
     match topdecs with
     | [] -> acc
-    | h::t -> (
-       match h with
-      | Global (locked, ty, name) -> (
+    | (GlobalDeclaration dec)::t -> ( match dec with
+      | TypeDeclaration (lock,ty,name) -> ( 
         if globvar_exists name acc then compile_error ("Duplicate global variable name: " ^ name)
-        else aux t ((name, count, locked, ty, (default_value ty))::acc) (count+1)
-        )
-      | GlobalAssign (locked, ty, name, a_expr) -> (
+        else aux t ((name, count, lock, ty, dec)::acc) (count+1)
+      )
+      | AssignDeclaration (lock,ty,name,expr) -> ( 
         if globvar_exists name acc then compile_error ("Duplicate global variable name: " ^ name)
-        else aux t ((name, count, locked, ty, a_expr)::acc) (count+1)
-        )
-      | _ -> aux t acc count
+        else aux t ((name, count, lock, ty, dec)::acc) (count+1)
+      )
+      | VarDeclaration (lock,name,expr) -> compile_error "var is not supported for global variables"
     )
+    | _::t -> aux t acc count
   in match tds with 
   | Topdecs l -> aux l [] 0
 
@@ -394,25 +394,25 @@ let rec compile_assignment target assign globvars localvars structs =
     let (val_lock, val_ty, val_inst) = compile_value v globvars localvars structs in
     if refer_lock then compile_error "Cannot assign to locked variable"
     else if val_lock then compile_error "Cannot assign locked value to new variable"
-    else if refer_ty != val_ty then compile_error "Type mismatch in variable assignment"
+    else if not (type_equal refer_ty val_ty) then compile_error "Type mismatch in variable assignment"
     else match val_ty with 
     | T_Int -> (refer_inst @ [FetchFull]) @ (val_inst @ [AssignFull])
     | T_Bool -> (refer_inst @ [FetchFull]) @ (val_inst @ [AssignByte])
-    | T_Array _ -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Struct _ -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Null -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Array _ -> (refer_inst) @ (val_inst @ [RefAssign]) 
+    | T_Struct _ -> (refer_inst) @ (val_inst @ [RefAssign]) 
+    | T_Null -> (refer_inst) @ (val_inst @ [RefAssign]) 
   )
   | (VarRef name, Reference re) -> (
     let (refer_lock, refer_ty, refer_inst) = compile_reference target globvars localvars structs in
     let (val_lock, val_ty, val_inst) = compile_reference re globvars localvars structs in
     if refer_lock || val_lock then compile_error "Cannot assign locked"
-    else if refer_ty != val_ty then compile_error "Type mismatch in variable assignment"
+    else if not (type_equal refer_ty val_ty) then compile_error "Type mismatch in variable assignment"
     else match val_ty with 
-    | T_Int -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Bool -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Array _ -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Struct _ -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
-    | T_Null -> (refer_inst) @ (val_inst @ [RefAssign]) (* Need instruction for reassigning, and freeing, variables *)
+    | T_Int -> (refer_inst) @ (val_inst @ [FetchFull; RefAssign;]) 
+    | T_Bool -> (refer_inst) @ (val_inst @ [FetchFull; RefAssign;]) 
+    | T_Array _ -> (refer_inst) @ (val_inst @ [FetchFull; RefAssign;]) 
+    | T_Struct _ -> (refer_inst) @ (val_inst @ [FetchFull; RefAssign;]) 
+    | T_Null -> (refer_inst) @ (val_inst @ [FetchFull; RefAssign;]) 
   )
   | (StructRef(refer, field), Value v) -> (
     let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
@@ -558,7 +558,7 @@ let rec compile_declaration dec globvars localvars structs =
     | T_Bool -> (DeclareByte :: [CloneFull] @ ins @ [AssignByte], (l,expr_ty,n)::localvars)
     | T_Array _ -> (ins, (l,expr_ty,n)::localvars)
     | T_Struct _ -> (ins, (l,expr_ty,n)::localvars)
-    | T_Null -> compile_error ("Cannot declare a variable of the null type")
+    | T_Null -> compile_error "Cannot declare the 'null' type"
   )
 
 let rec compile_sod_list sod_list globvars localvars structs routines break continue cleanup =
@@ -608,71 +608,58 @@ and compile_stmt stmt globvars localvars structs routines break continue cleanup
   )
   | Expression (expr) -> compile_unassignable_expr expr globvars localvars structs routines break continue cleanup
 
-let rec evaluate_globvar used_vars aexpr globvars structs = 
-  match aexpr with
-  | Reference r -> (
-    match r with
-    | VarRef n -> (
-      if List.for_all (fun var -> n != var) used_vars then evaluate_globvar (n::used_vars) (fetch_globvar_expr n globvars) globvars structs
-      else compile_error "Cyclic referencing detected in global variables"
+(*    global var:  string * int * bool * typ * declaration    *)
+let get_globvar_dependencies gvs =
+  let rec dependencies_from_assignable expr acc =
+    match expr with
+    | Reference r -> ( match r with
+      | VarRef (name) -> name::acc
+      | ArrayRef (refer,_) -> dependencies_from_assignable (Reference refer) acc
+      | StructRef (refer,_) -> dependencies_from_assignable (Reference refer) acc
+      | Null -> acc
     )
-    | StructRef (refer, str) -> compile_error "Structs not supported for global variables"
-    | ArrayRef (refer, va) -> compile_error "Arrays not supported for global variables"
-    | Null -> compile_error "Structs not supported for global variables"
-  )
-  | Value v -> (
-    match v with
-    | Bool b -> Bool b
-    | Int i -> Int i
-    | Lookup r -> evaluate_globvar used_vars (Reference(r)) globvars structs
-    | NewArray (ty, size) -> compile_error "Arrays not supported for global variables"
-    | NewStruct (name, args) -> compile_error "Structs not supported for global variables"
-    | ArraySize r -> compile_error "ArraySize not implemented for global variables"
-    | Binary_op (op, e1, e2) -> (
-        let v1 = evaluate_globvar used_vars e1 globvars structs in
-        let v2 = evaluate_globvar used_vars e2 globvars structs in
-        match (op, v1, v2) with
-        | ("&&", Bool b1, Bool b2) -> Bool (b1 && b2)
-        | ("||", Bool b1, Bool b2) -> Bool (b1 || b2)
-        | ("=", Bool b1, Bool b2) -> Bool (b1 = b2)
-        | ("!=", Bool b1, Bool b2) -> Bool (b1 != b2)
-        | ("=", Int i1, Int i2) -> Bool (i1 = i2)
-        | ("!=", Int i1, Int i2) -> Bool (i1 != i2)
-        | ("<=", Int i1, Int i2) -> Bool (i1 <= i2)
-        | ("<", Int i1, Int i2) -> Bool (i1 < i2)
-        | (">=", Int i1, Int i2) -> Bool (i1 >= i2)
-        | (">", Int i1, Int i2) -> Bool (i1 > i2)
-        | ("+", Int i1, Int i2) -> Int (i1 + i2)
-        | ("-", Int i1, Int i2) -> Int (i1 - i2)
-        | ("*", Int i1, Int i2) -> Int (i1 * i2)
-        | _ -> compile_error "Unknown binary operator, or type mismatch"
-      )
-    | Unary_op (op, e) -> (
-      let v = evaluate_globvar used_vars e globvars structs in
-      match (op, v) with
-      | ("!", Bool b) -> Bool (not b)
-      | _ -> compile_error "Unknown unary operator, or type mismatch"
-    )
-  )
-
-let compile_globvars lst structs =
-  let rec aux l acc = 
-    match l with
-    | [] -> acc
-    | (n,_,l,ty,expr)::t -> (
-      let v = evaluate_globvar [n] expr lst structs in
-      match (ty, v) with
-      | (T_Bool, Bool b) -> aux t ((G_Bool(b))::acc)
-      | (T_Int, Int i) ->  aux t ((G_Int(i))::acc)
-      | _ -> compile_error ("Type mismatch in global variable: " ^ n)
+    | Value v -> ( match v with
+      | Binary_op (_, expr1, expr2) -> dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc)
+      | Unary_op (_, expr1) -> dependencies_from_assignable expr1 acc
+      | ArraySize (refer) -> dependencies_from_assignable (Reference refer) acc
+      | Bool _ -> acc
+      | Int _ -> acc
+      | Lookup (refer) -> dependencies_from_assignable (Reference refer) acc
+      | NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
+      | NewStruct (_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
     )
   in
-  aux lst []
+  let rec dependencies_from_declaration dec =
+    match dec with
+    | TypeDeclaration _ -> []
+    | AssignDeclaration (_,_,_,expr) -> dependencies_from_assignable expr []
+    | VarDeclaration (_,_,expr) -> dependencies_from_assignable expr []
+  in
+  List.map (fun (name,cnt,lock,ty,dec) -> ((name,cnt,lock,ty,dec), dependencies_from_declaration dec)) gvs
+
+let extract_name t =
+  match t with
+  | (f,_,_,_,_) -> f
+
+(*    dependant global var:  (string * int * bool * typ * declaration) * string list    *)
+let order_dep_globvars dep_gvs =
+  let rec aux dep_globvars remain count acc =
+    match dep_globvars with
+    | [] -> if List.length remain = 0 then acc else aux remain [] count acc
+    | h::t -> ( match h with
+      | ((name,cnt,lock,ty,dec), deps) -> (
+        if List.for_all (fun dep -> List.exists (fun a -> dep = extract_name a) acc) deps then aux t remain (count+1) ((name,count,lock,ty,dec)::acc)
+        else aux t (h::remain) count acc
+      )
+    )
+  in
+  List.rev (aux dep_gvs [] 0 [])
 
 let compile topdecs =
-  let globvars = get_globvars topdecs in
+  let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
   let routines = get_routines topdecs in
   let structs = get_structs topdecs in
+  let globvar_inst = compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration dec) globvars) globvars [] structs [] None None 0 in
   let rec aux tds acc =
     match tds with
     | [] -> acc
@@ -682,4 +669,4 @@ let compile topdecs =
       | _ -> aux t acc
   in
   match topdecs with
-  | Topdecs tds -> Program(compile_globvars globvars structs, ProgramRep.translate(aux tds []))
+  | Topdecs tds -> Program([], ProgramRep.translate(globvar_inst @ (ToStart :: (aux tds []))))

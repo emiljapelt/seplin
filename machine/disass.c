@@ -193,6 +193,9 @@ void dissas(byte* p, word file_len) {
             case SIZE_OF:
                 printf("%i: SIZE_OF\n", i);
                 break;
+            case TO_START:
+                printf("%i: TO_START\n", i);
+                break;
             default: return;
         }
     }
