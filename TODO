@@ -1,49 +1,5 @@
-- structs and arrays
-  - Create a wrapper for malloc that keeps track of the min/max allocated address
-      - in use: 8[header]x[payload]
-      - LSB of header is 1 for data structures (structs/arrays).
-      - The LSB 4 bytes (except LSB) is the number of fields, as an unsigned int (size of the allocation in 8 bytes).
-      - The MSB 4 bytes is the number of heap objects referencing the object, as an unsiged int.
-    - When doing a freeing pass over parameters, each parameters reference count is decremented, and any if it becomes 0, the object is freed.
-      - When freeing a structure, each of it non-null fields gets it reference counter decremented, and if it becomes 0 that fields refereced object gets freed recursivly.
-  - All references are direct heap refereces, i.e. follow_path will not be needed.
-  - Do not handle types in the VM, just the sizes BYTE, SHORT, HALF, INT and a CUSTOM for varibale sizes
-    - Handle correct typing and checks in the compiler
-    - Generic DECLARE instructions
-    - Generic ASSIGN instructions
-    - Generic FETCH instructions
-    - FETCH and ASSIGN instructions needs an alternative working at an offset, but not outside an allocation, to access struct/array fields. Check this using the size header.
-      - FETCH_FULL(addr)
-      - OFFSET_FETCH(addr, offset)
-      - ASSIGN_FULL(addr, val)
-      - OFFSET_ASSIGN(addr, offset, val)
-  - Arrays are just STRUCT allocations.
-    - DECLARE_STRUCT(size)
-  - Structs are also just STRUCT allocations.
-    - DECLARE_STRUCT(field_count)
-  - Idea for structs:
-    - Definition:
-      struct adult {
-        int age := 18;
-        bool dead := false;
-        adult nemisis;
-      }
-    - Construction:
-      var emil = new person;                                 ~= PLACE_INT(3), DECLARE_STRUCT, CLONE_FULL, DECLARE_FULL, CLONE_FULL, PLACE_INT(18), ASSIGN_FULL, PLACE_INT(0), OFFSET_ASSIGN, CLONE_FULL, DECLARE_BYTE, CLONE_BYTE, PLACE_BOOL(false), ASSIGN_BYTE, PLACE_INT(1), OFFSET_ASSIGN
-    - Access:
-      var emilAgeIn5 := emil[age] + 5                        ~= #FETCH emil#, PLACE_INT(0), OFFSET_FETCH
-      var emilNemisisAgeIn5 := emil[nemisis][age] + 5        ~= #FETCH emil#, PLACE_INT(1), OFFSET_FETCH, PLACE_INT(1), OFFSET_FETCH
-  - Idea for arrays:
-    - Construction:
-      var numbers := new int[5];                             ~= PLACE_INT(5), DECLARE_STRUCT
-    - Assign:
-      numbers[2] := 3;                                       ~= #FETCH numbers#, PLACE_INT(2), OFFSET_FETCH, PLACE_INT(3), ASSIGN_FULL
-    - Access:
-      var third := numbers[2];                               ~= #FETCH numbers#, PLACE_INT(2), OFFSET_FETCH, FETCH_FULL
-  
-
-
-
-- ToFix
-  - Handle more in the parser
-    - If possible handle for-loops, as a block with while-loop
+- Handle more in the parser
+  - If possible handle for-loops, as a block with while-loop
+- Make VM support 32bit systems, using preprosession directives to define type size and header manipulators
+- Make global variables work for structures
+- More data types
