@@ -80,9 +80,11 @@ void print_help() {
 }
 
 int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument_count, byte trace, byte time) {
-    uword ip = 0;//entry_point;
-    uword sp = 0;//MOVE(FULL, glob_var_count+argument_count);
-    uword bp = 0;//MOVE(FULL, glob_var_count);
+    memory_init();
+    
+    uword ip = 0;
+    uword sp = 0;
+    uword bp = 0;
     uword depth = 0;
 
     if (trace) { print_stack(stack, bp, sp); printf("\n"); }
@@ -109,7 +111,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
 
                 uword i = sp - MOVE(FULL, 1);
                 while (i >= bp) {
-                    try_free(*((word**)(stack+i)), 0, trace);
+                    try_free(*((word**)(stack+i)), sp, 0, trace);
                     i -= MOVE(FULL, 1);
                 }
 
@@ -127,7 +129,8 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
 
                 for(int i = 0; i < arg_count; i++) {
                     word* arg = *(word**)(stack + sp + MOVE(FULL, -3-i));
-                    if (arg) INCR_REF_COUNT(arg);
+                    to_origin((word**)arg, sp);
+                    if (*arg) INCR_REF_COUNT(*arg);
                     *(word*)(stack + sp + MOVE(FULL, -1-i)) = (word)(arg);
                 }
 
@@ -236,6 +239,13 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 ip++;
                 break;
             }
+            case REF_FETCH: {
+                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
+                if (on_stack((byte*)target, sp)) to_origin((word**)target, sp);
+                *(word**)(stack + sp + MOVE(FULL, -1)) = target;
+                ip++;
+                break;
+            }
             case DECLARE_FULL: {
                 byte* alloc = allocate_simple(FULL);
                 *(word*)(stack + sp) = (word)((word*)alloc);
@@ -307,7 +317,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 word** target = *(word***)(stack + sp + MOVE(FULL, -2));
                 word* value = *(word**)(stack + sp + MOVE(FULL, -1));
 
-                try_free(*target, 0, trace);
+                try_free(*target, sp, 0, trace);
 
                 if (value) INCR_REF_COUNT(value);
                 *target = value;
@@ -320,7 +330,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 uword offset = *(uword*)(stack + sp + MOVE(FULL, -2));
                 word* value = *(uword**)(stack + sp + MOVE(FULL, -1));
 
-                try_free(*(target + offset), 0, trace);
+                try_free(*(target + offset), sp, 0, trace);
 
                 if (value) INCR_REF_COUNT(value);
                 *(target + offset) = value;
@@ -411,7 +421,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
             // }
             case FREE_VAR: {
                 word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                try_free(target, 0, trace);
+                try_free(target, sp, 0, trace);
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
@@ -420,7 +430,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 word count = *(word*)(p+ip+1);
                 while (count > 0) {
                     word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                    try_free(target, 0, trace);
+                    try_free(target, sp, 0, trace);
                     sp -= MOVE(FULL, 1);
                     count--;
                 }

@@ -196,6 +196,9 @@ void dissas(byte* p, word file_len) {
             case TO_START:
                 printf("%i: TO_START\n", i);
                 break;
+            case REF_FETCH:
+                printf("%i: REF_FETCH\n", i);
+                break;
             default: return;
         }
     }

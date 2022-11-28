@@ -134,3 +134,5 @@ int string_to_instruction(char* str);
 #define SIZE_OF 0x2e
 
 #define TO_START 0x2f
+
+#define REF_FETCH 0x30

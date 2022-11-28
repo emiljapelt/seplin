@@ -218,7 +218,7 @@ and compile_reference ref_expr globvars localvars structs =
   match ref_expr with
   | VarRef name -> (
     let (var_ty, inst) = fetch_var name globvars localvars in
-    (var_locked name globvars localvars, var_ty, [inst])
+    (var_locked name globvars localvars, var_ty, [inst; RefFetch;])
   )
   | StructRef (refer, field) -> (
     let (ref_lock, ref_ty, inst) = compile_reference refer globvars localvars structs in
@@ -376,7 +376,7 @@ let compile_arguments params exprs globvars localvars structs =
           | T_Struct _ -> aux pt et (inst @ acc)
           | T_Null -> aux pt et (inst @ acc)
         )
-        | _ -> aux pt et ((inst @ [FetchFull]) @ acc)
+        | _ -> aux pt et ((inst) @ acc)
       )
     | _ -> compile_error "Insufficient arguments in call"
   in
