@@ -39,7 +39,7 @@ void load_file(char* file_name, byte** out_file, word* out_len) {
 }
 
 void print_stack(byte* stack, uword bp, uword sp) {
-    byte done = false;
+    printf("V %llx\n", (word)stack);
     printf("[");
     uword i = 0;
     word to_top = sp - (sp % 8);
@@ -79,9 +79,7 @@ void print_help() {
     printf("%s", message);
 }
 
-int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument_count, byte trace, byte time) {
-    memory_init();
-    
+int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument_count, byte trace, byte time) {    
     uword ip = 0;
     uword sp = 0;
     uword bp = 0;
@@ -129,7 +127,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
 
                 for(int i = 0; i < arg_count; i++) {
                     word* arg = *(word**)(stack + sp + MOVE(FULL, -3-i));
-                    to_origin((word**)arg, sp);
+                    to_origin(&arg, sp);
                     if (*arg) INCR_REF_COUNT(*arg);
                     *(word*)(stack + sp + MOVE(FULL, -1-i)) = (word)(arg);
                 }
@@ -241,7 +239,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
             }
             case REF_FETCH: {
                 word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                if (on_stack((byte*)target, sp)) to_origin((word**)target, sp);
+                if (ON_STACK((byte*)target, sp)) to_origin(&target, sp);
                 *(word**)(stack + sp + MOVE(FULL, -1)) = target;
                 ip++;
                 break;
@@ -582,6 +580,7 @@ int main(int argc, char** argv) {
             if (argument_count != cmd_argument_count-3) { printf("Failure: Argument mismatch\n"); return -1; }
 
             byte stack[STACKSIZE];
+            memory_init(stack);
 
             // Load global variables
             byte* progresser = file;

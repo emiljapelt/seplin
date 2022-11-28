@@ -1,9 +1,8 @@
 
-struct stack_link (element: int, rest: stack_link);
-struct linked_stack (get: stack_link);
+struct linked_stack (element: int, rest: linked_stack);
 
 external linked(count: int) {
-    stk ::= new linked_stack(null);
+    stk: linked_stack;
 
     until(count = 0) {
         push_l(stk, count);
@@ -21,20 +20,20 @@ external linked(count: int) {
 }
 
 internal is_empty_l(stk: locked linked_stack, result: bool) {
-    if (stk.get = null) result := true;
+    if (stk = null) result := true;
     else result := false;
 }
 
 internal push_l(stk: linked_stack, element: int) {
-    stk.get := new stack_link($element, stk.get);
+    stk := new linked_stack($element, stk);
 }
 
 internal pop_l(stk: linked_stack, result: int) {
     empty: bool;
     is_empty_l(stk, empty);
     if (empty) halt;
-    result := $stk.get.element;
-    stk.get := stk.get.rest;
+    result := $stk.element;
+    stk := stk.rest;
 }
 
 

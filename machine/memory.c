@@ -52,8 +52,9 @@ byte* allocate_struct(unsigned int fields) {
 
 void try_free(word* addr, uword sp, unsigned int depth, byte trace) {
     if (addr == 0) return;
-    to_origin((word**)addr, sp);
-    addr = (word*)*addr;
+    if (*addr == 0) return;
+    to_origin(&addr, sp);
+    if (!ON_HEAP((byte*)addr)) addr = (word*)*addr;
     if (trace) {
         for(unsigned int i = 0; i < depth; i++) printf("  ");
         printf("Trying to free: 0x%llx\n", (uword)addr);
@@ -73,24 +74,20 @@ void try_free(word* addr, uword sp, unsigned int depth, byte trace) {
     free(addr-1);
 }
 
-byte on_heap(byte* addr) {
-    return heap_min <= addr && addr <= heap_max;
-}
-
-byte on_stack(byte* addr, uword sp) {
-    return stack_base <= addr && addr <= (stack_base + sp);
-}
-
+// * is the variable
+// ** is the stack value
 byte to_origin(word** target, uword sp) {
-    if (target == 0) return true;
-    if (!on_heap((byte*)target) && !on_stack((byte*)target, sp)) return false;
-    if (on_heap((byte*)target)) return true;
-    if (on_stack((byte*)target, sp)) {
-        word* temp = *target;
+    if (**target == 0) return true;
+    if (!ON_HEAP((byte*)**target) && !ON_STACK((byte*)**target, sp)) return false;
+    if (ON_HEAP((byte*)**target)) return true;
+    if (ON_STACK((byte*)**target, sp)) {
+        word temp = **target;
         while(true) {
-            if (on_heap((byte*)*temp)) break;
-            else temp = (word*)*temp;
+            if (*(byte**)temp == 0) break;
+            if (ON_HEAP(*(byte**)temp)) break;
+            temp = *(word*)temp;
         }
-        *target = temp;
+        *target = (word*)temp;
+        return true;
     }
 }

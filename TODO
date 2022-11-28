@@ -4,4 +4,4 @@
 - More data types
 - Make better error for compiler
 - Add printing for structures
-- Add support for variable assignmenst in the global scope
+- Cleanup
