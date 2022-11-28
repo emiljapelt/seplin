@@ -50,18 +50,24 @@ byte* allocate_struct(unsigned int fields) {
     return alloc+8;
 }
 
-void try_free(word* addr, byte trace) {
+void try_free(word* addr, unsigned int depth, byte trace) {
     if (addr == 0) return;
-    if (trace) printf("Trying to free: 0x%llx\n", (uword)addr);
+    if (trace) {
+        for(unsigned int i = 0; i < depth; i++) printf("  ");
+        printf("Trying to free: 0x%llx\n", (uword)addr);
+    }
 
     DECR_REF_COUNT(addr);
+    if (REF_COUNT(addr)) return;
     if (IS_STRUCT(addr)) {
         unsigned int fields = ALLOC_SIZE(addr);
         word** point = (word**)addr;
-        for(int i = 0; i < fields; i++) try_free(*(point + i), trace);
+        for(int i = 0; i < fields; i++) try_free(*(point + i), depth+1, trace);
     }
-    if (REF_COUNT(addr)) return;
-    if (trace) printf("Freeing: 0x%llx\n", (uword)addr);
+    if (trace) {
+        for(unsigned int i = 0; i < depth; i++) printf("  ");
+        printf("Freeing: 0x%llx\n", (uword)addr);
+    }
     free(addr-1);
 }
 

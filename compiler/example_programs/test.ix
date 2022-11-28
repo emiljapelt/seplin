@@ -1,7 +1,0 @@
-
-external main() {
-    a: var := 2;
-    b: var := 3;
-    a := b;
-    halt;
-}

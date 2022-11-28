@@ -17,6 +17,6 @@
 void memory_init();
 byte* allocate_simple(byte type);
 byte* allocate_struct(unsigned int fields);
-void try_free(word* addr, byte trace);
+void try_free(word* addr, unsigned int depth, byte trace);
 byte on_heap(byte* addr);
 byte on_stack(byte* addr, uword sp);

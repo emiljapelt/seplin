@@ -298,7 +298,11 @@ and compile_value val_expr globvars localvars structs =
           | T_Bool -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: DeclareByte :: CloneFull :: ha_inst) @ (AssignByte :: FieldAssign :: acc))
           | _ -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: ha_inst) @ (FieldAssign :: acc))
         )
-        | _ -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: ha_inst) @ (FieldAssign :: acc))
+        | Reference r -> (
+          match r with
+          | Null -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: ha_inst) @ (FieldAssign :: acc))
+          | _ -> aux ta tf (c+1) ((CloneFull :: PlaceInt(c) :: ha_inst) @ (FetchFull :: FieldAssign :: acc))
+        )
       )
       | (_,_) -> compile_error ("Struct argument count mismatch")
     in
@@ -570,7 +574,7 @@ and compile_stmt stmt globvars localvars structs routines break continue cleanup
   | If (e, s1, s2) -> (
     let label_true = new_label () in
     let label_stop = new_label () in
-    let (_, t, ins) = compile_assignable_expr e globvars localvars structs in
+    let (t, ins) = compile_assignable_expr_as_value e globvars localvars structs in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
     else ins @ [IfTrue(label_true)] @ (compile_stmt s2 globvars localvars structs routines break continue cleanup) @ [GoTo(label_stop)] @ [CLabel(label_true)] @ (compile_stmt s1 globvars localvars structs routines break continue cleanup) @ [CLabel(label_stop)]
   )
@@ -578,7 +582,7 @@ and compile_stmt stmt globvars localvars structs routines break continue cleanup
     let label_cond = new_label () in
     let label_start = new_label () in
     let label_stop = new_label () in
-    let (_, t, ins) = compile_assignable_expr e globvars localvars structs in
+    let (t, ins) = compile_assignable_expr_as_value e globvars localvars structs in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
     else (GoTo(label_cond)) :: CLabel(label_start) :: (compile_stmt s globvars localvars structs routines (Some label_stop) (Some label_cond) 0) @ [CLabel(label_cond)] @ ins @ (IfTrue(label_start) :: [CLabel(label_stop)])
   )
@@ -588,7 +592,7 @@ and compile_stmt stmt globvars localvars structs routines break continue cleanup
     let label_modi = new_label () in
     let label_stop = new_label () in
     let (dec_ins, new_localvars) = compile_declaration dec globvars localvars structs in
-    let (_, con_t, con_ins) = compile_assignable_expr con globvars new_localvars structs in
+    let (con_t, con_ins) = compile_assignable_expr_as_value con globvars new_localvars structs in
     let modi_ins = compile_unassignable_expr modi globvars new_localvars structs routines None None cleanup in
     if con_t != T_Bool then compile_error "Conditional requires 'bool'"
     else dec_ins @ (GoTo(label_cond) :: CLabel(label_start) :: compile_stmt s globvars new_localvars structs routines (Some label_stop) (Some label_modi) 0) @ (CLabel(label_modi) :: modi_ins) @ [CLabel(label_cond)] @ con_ins @ (IfTrue(label_start) :: CLabel(label_stop) :: [FreeVar])
@@ -637,8 +641,8 @@ let extract_name t =
 let order_dep_globvars dep_gvs =
   let rec aux dep_globvars count prev_count remain acc =
     match dep_globvars with
-    | [] when count = prev_count -> compile_error "Cannot resolve an ordering of the global variables"
     | [] when List.length remain = 0 -> acc
+    | [] when count = prev_count -> compile_error "Cannot resolve an ordering of the global variables"
     | [] -> aux remain count count [] acc
     | h::t -> ( match h with
       | ((name,cnt,lock,ty,dec), deps) -> (

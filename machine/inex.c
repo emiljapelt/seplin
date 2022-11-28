@@ -109,7 +109,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
 
                 uword i = sp - MOVE(FULL, 1);
                 while (i >= bp) {
-                    try_free(*((word**)(stack+i)), trace);
+                    try_free(*((word**)(stack+i)), 0, trace);
                     i -= MOVE(FULL, 1);
                 }
 
@@ -307,7 +307,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 word** target = *(word***)(stack + sp + MOVE(FULL, -2));
                 word* value = *(word**)(stack + sp + MOVE(FULL, -1));
 
-                try_free(*target, trace);
+                try_free(*target, 0, trace);
 
                 if (value) INCR_REF_COUNT(value);
                 *target = value;
@@ -320,7 +320,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 uword offset = *(uword*)(stack + sp + MOVE(FULL, -2));
                 word* value = *(uword**)(stack + sp + MOVE(FULL, -1));
 
-                try_free(*(target + offset), trace);
+                try_free(*(target + offset), 0, trace);
 
                 if (value) INCR_REF_COUNT(value);
                 *(target + offset) = value;
@@ -411,7 +411,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
             // }
             case FREE_VAR: {
                 word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                try_free(target, trace);
+                try_free(target, 0, trace);
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
@@ -420,7 +420,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 word count = *(word*)(p+ip+1);
                 while (count > 0) {
                     word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                    try_free(target, trace);
+                    try_free(target, 0, trace);
                     sp -= MOVE(FULL, 1);
                     count--;
                 }

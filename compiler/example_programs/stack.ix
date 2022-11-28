@@ -1,0 +1,81 @@
+
+struct stack_link (element: int, rest: stack_link);
+struct linked_stack (get: stack_link);
+
+external linked(count: int) {
+    stk ::= new linked_stack(null);
+
+    until(count = 0) {
+        push_l(stk, count);
+        count -:= 1;
+    }
+
+    empty: bool;
+    is_empty_l(stk, empty);
+    while(!empty) {
+        element: int;
+        pop_l(stk, element);
+        print element;
+        is_empty_l(stk, empty);
+    }
+}
+
+internal is_empty_l(stk: locked linked_stack, result: bool) {
+    if (stk.get = null) result := true;
+    else result := false;
+}
+
+internal push_l(stk: linked_stack, element: int) {
+    stk.get := new stack_link($element, stk.get);
+}
+
+internal pop_l(stk: linked_stack, result: int) {
+    empty: bool;
+    is_empty_l(stk, empty);
+    if (empty) halt;
+    result := $stk.get.element;
+    stk.get := stk.get.rest;
+}
+
+
+
+
+struct array_stack (get: int[], count: int);
+
+external array(count: int) {
+    stk ::= new array_stack(new int[count], 0);
+
+    until(count = 0) {
+        push_a(stk, count);
+        count -:= 1;
+    }
+
+    empty: bool;
+    is_empty_a(stk, empty);
+    while(!empty) {
+        element: int;
+        pop_a(stk, element);
+        print element;
+        is_empty_a(stk, empty);
+    }
+}
+
+internal is_empty_a(stk: array_stack, result: bool) {
+    if (stk.count = 0) result := true;
+    else result := false;
+}
+
+internal push_a(stk: array_stack, element: int) {
+    e ::= $element;
+    stk.get[stk.count] := e;
+    stk.count +:= 1;
+}
+
+internal pop_a(stk: array_stack, result: int) {
+    empty: bool;
+    is_empty_a(stk, empty);
+    if (empty) halt;
+    stk.count -:= 1;
+    result := $stk.get[stk.count];
+    stk.get[stk.count] := null;
+}
