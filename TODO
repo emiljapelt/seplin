@@ -1,5 +1,3 @@
-- Handle more in the parser
-  - If possible handle for-loops, as a block with while-loop
 - Make VM support 32bit systems, using preprosession directives to define type size and header manipulators
 - More data types
 - Make better error for compiler

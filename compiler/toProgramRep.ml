@@ -592,17 +592,6 @@ and compile_stmt stmt globvars localvars structs routines break continue cleanup
     if t != T_Bool then compile_error "Conditional requires 'bool'"
     else (GoTo(label_cond)) :: CLabel(label_start) :: (compile_stmt s globvars localvars structs routines (Some label_stop) (Some label_cond) 0) @ [CLabel(label_cond)] @ ins @ (IfTrue(label_start) :: [CLabel(label_stop)])
   )
-  | For (dec, con, modi, s) -> (
-    let label_cond = new_label () in
-    let label_start = new_label () in
-    let label_modi = new_label () in
-    let label_stop = new_label () in
-    let (dec_ins, new_localvars) = compile_declaration dec globvars localvars structs in
-    let (con_t, con_ins) = compile_assignable_expr_as_value con globvars new_localvars structs in
-    let modi_ins = compile_unassignable_expr modi globvars new_localvars structs routines None None cleanup in
-    if con_t != T_Bool then compile_error "Conditional requires 'bool'"
-    else dec_ins @ (GoTo(label_cond) :: CLabel(label_start) :: compile_stmt s globvars new_localvars structs routines (Some label_stop) (Some label_modi) 0) @ (CLabel(label_modi) :: modi_ins) @ [CLabel(label_cond)] @ con_ins @ (IfTrue(label_start) :: CLabel(label_stop) :: [FreeVar])
-  )
   | Block (sod_list) -> (
     let decs = count_decl sod_list in
     let block_ins = compile_sod_list sod_list globvars localvars structs routines break continue cleanup in 

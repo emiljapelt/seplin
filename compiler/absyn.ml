@@ -3,7 +3,6 @@ open ProgramRep
 type statement =
     | If of assignable_expression * statement * statement
     | While of assignable_expression * statement
-    | For of declaration * assignable_expression * unassignable_expression * statement
     | Block of statement_or_declaration list
     | Expression of unassignable_expression
 

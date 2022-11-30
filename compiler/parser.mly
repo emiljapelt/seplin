@@ -153,7 +153,7 @@ stmt:
   | IF LPAR assignable_expression RPAR stmt                  { If ($3, $5, Block []) }
   | WHILE LPAR assignable_expression RPAR stmt               { While ($3, $5) }
   | UNTIL LPAR assignable_expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec assignable_expression SEMI unassignable_expression RPAR stmt    { For ($3, $4, $6, $8) }
+  | FOR LPAR dec assignable_expression SEMI unassignable_expression RPAR stmt    { Block([Declaration($3); Statement(While($4, Block([Statement($8); Statement(Expression($6));])));]) }
 ;
 
 params:

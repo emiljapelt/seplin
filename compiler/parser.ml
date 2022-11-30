@@ -1040,7 +1040,7 @@ let yyact = [|
     let _8 = (Parsing.peek_val __caml_parser_env 0 : 'stmt) in
     Obj.repr(
 # 156 "parser.mly"
-                                                                                 ( For (_3, _4, _6, _8) )
+                                                                                 ( Block([Declaration(_3); Statement(While(_4, Block([Statement(_8); Statement(Expression(_6));])));]) )
 # 1045 "parser.ml"
                : 'stmt))
 ; (fun __caml_parser_env ->
