@@ -72,8 +72,17 @@ let routine_head accmod name params =
   | Internal -> CLabel(name)
   | External -> CEntryPoint(name, List.map (fun (l,t,n) -> t) params)
 
-type label_generator = { mutable next : int }
+type variable_environment = { 
+  local: (bool * typ * string) list; 
+  globals: (string * int * bool * typ * declaration) list; 
+  structs: (string * (bool * typ * string) list) list; 
+}
+type environment = { 
+  var_env: variable_environment;
+  routine_env: (string * (bool * typ * string) list) list; 
+}
 
+type label_generator = { mutable next : int }
 let lg = ( {next = 0;} )
 
 let new_label () =
@@ -209,22 +218,22 @@ let get_structs (tds : topdecs) =
 
 
 (* lock, type, instructions *)
-let rec compile_assignable_expr expr globvars localvars structs =
+let rec compile_assignable_expr expr var_env =
   match expr with
-  | Reference ref_expr -> compile_reference ref_expr globvars localvars structs
-  | Value val_expr -> compile_value val_expr globvars localvars structs
+  | Reference ref_expr -> compile_reference ref_expr var_env
+  | Value val_expr -> compile_value val_expr var_env
 
-and compile_reference ref_expr globvars localvars structs =
+and compile_reference ref_expr var_env =
   match ref_expr with
   | VarRef name -> (
-    let (var_ty, inst) = fetch_var name globvars localvars in
-    (var_locked name globvars localvars, var_ty, [inst; RefFetch;])
+    let (var_ty, inst) = fetch_var name var_env.globals var_env.local in
+    (var_locked name var_env.globals var_env.local, var_ty, [inst; RefFetch;])
   )
   | StructRef (refer, field) -> (
-    let (ref_lock, ref_ty, inst) = compile_reference refer globvars localvars structs in
+    let (ref_lock, ref_ty, inst) = compile_reference refer var_env in
     match ref_ty with
     | T_Struct name -> (
-      match lookup_struct name structs with
+      match lookup_struct name var_env.structs with
       | Some params -> (
         let (field_lock, field_ty, index) = struct_field field params in
         (ref_lock || field_lock, field_ty, (inst) @ [FetchFull; PlaceInt(index); FieldFetch;])
@@ -234,18 +243,18 @@ and compile_reference ref_expr globvars localvars structs =
     | _ -> compile_error ("Struct field lookup type failure")
   )
   | ArrayRef (refer, index) -> (
-    let (ref_lock, ref_ty, inst) = compile_reference refer globvars localvars structs in
-    let (idx_ty, index_inst) = compile_assignable_expr_as_value index globvars localvars structs in
+    let (ref_lock, ref_ty, inst) = compile_reference refer var_env in
+    let (idx_ty, index_inst) = compile_assignable_expr_as_value index var_env in
     match (ref_ty, idx_ty) with
     | (T_Array (sub_ty), T_Int) -> (ref_lock, sub_ty, inst @ (FetchFull :: index_inst) @ [FieldFetch;])
     | _ -> compile_error ("Array lookup type failure")
   )
   | Null -> (false, T_Null, [PlaceInt(0)])
 
-and compile_assignable_expr_as_value aexpr globvars localvars structs =
+and compile_assignable_expr_as_value aexpr var_env =
   match aexpr with
   | Reference r -> (
-    let (_, ref_ty, inst) = compile_reference r globvars localvars structs in
+    let (_, ref_ty, inst) = compile_reference r var_env in
     match ref_ty with
     | T_Int -> (ref_ty, inst @ [FetchFull;FetchFull;])
     | T_Bool -> (ref_ty, inst @ [FetchFull;FetchByte;])
@@ -254,22 +263,22 @@ and compile_assignable_expr_as_value aexpr globvars localvars structs =
     | T_Null -> (ref_ty, inst)
   )
   | _ -> (
-    let (expr_lock, expr_ty, inst) = compile_assignable_expr aexpr globvars localvars structs in
+    let (expr_lock, expr_ty, inst) = compile_assignable_expr aexpr var_env in
     (expr_ty, inst)
   )
 
-and compile_value val_expr globvars localvars structs =
+and compile_value val_expr var_env =
   match val_expr with
   | Bool b -> (false, T_Bool, [PlaceBool(b)])
   | Int i -> (false, T_Int, [PlaceInt(i)])
   | ArraySize refer -> (
-    let (_, ref_ty, inst) = compile_reference refer globvars localvars structs in
+    let (_, ref_ty, inst) = compile_reference refer var_env in
     match ref_ty with
     | T_Array _ -> (false, T_Int, inst @ [FetchFull; SizeOf;])
     | _ -> compile_error "Array size only makes sense for arrays"
   )
   | Lookup refer -> (
-    let (ref_lock, ref_ty, inst) = compile_reference refer globvars localvars structs in
+    let (ref_lock, ref_ty, inst) = compile_reference refer var_env in
     match ref_ty with
     | T_Int -> (ref_lock, T_Int, inst @ [FetchFull; FetchFull;])
     | T_Bool -> (ref_lock, T_Bool, inst @ [FetchFull; FetchByte])
@@ -278,7 +287,7 @@ and compile_value val_expr globvars localvars structs =
     | T_Null -> compile_error ("Direct null pointer dereferencing")
   )
   | NewArray (arr_ty, size_expr) -> (
-    let (s_ty, size_inst) = compile_assignable_expr_as_value size_expr globvars localvars structs in
+    let (s_ty, size_inst) = compile_assignable_expr_as_value size_expr var_env in
     match s_ty with
     | T_Int -> (false, T_Array arr_ty, size_inst @ [DeclareStruct; IncrRef;])
     | _ -> compile_error ("Init array with non-int size")
@@ -288,7 +297,7 @@ and compile_value val_expr globvars localvars structs =
       match (ags, fields) with
       | ([], []) -> acc
       | (ha::ta, (field_lock,field_ty,_)::tf) -> (
-        let (ha_lock, ha_ty, ha_inst) = compile_assignable_expr ha globvars localvars structs in
+        let (ha_lock, ha_ty, ha_inst) = compile_assignable_expr ha var_env in
         if not (type_equal field_ty ha_ty) then compile_error ("Struct argument type mismatch")
         else if ha_lock && (not field_lock) then compile_error "Cannot give a locked variable as a parameter that is not locked"
         else match ha with
@@ -306,13 +315,13 @@ and compile_value val_expr globvars localvars structs =
       )
       | (_,_) -> compile_error ("Struct argument count mismatch")
     in
-    match lookup_struct name structs with
+    match lookup_struct name var_env.structs with
     | Some params -> (false, T_Struct name, PlaceInt(List.length params) :: DeclareStruct :: IncrRef :: (aux args params 0 []) )
     | None -> compile_error ("No such struct: " ^ name)
   )
   | Binary_op (op, e1, e2) -> (
-      let (t1, ins1) = compile_assignable_expr_as_value e1 globvars localvars structs in
-      let (t2, ins2) = compile_assignable_expr_as_value e2 globvars localvars structs in
+      let (t1, ins1) = compile_assignable_expr_as_value e1 var_env in
+      let (t2, ins2) = compile_assignable_expr_as_value e2 var_env in
       match (op, t1, t2, e1, e2) with
       | ("&&", T_Bool, T_Bool, Value(Bool true), _) ->  (false, T_Bool, ins2)
       | ("&&", T_Bool, T_Bool, _, Value(Bool true)) ->  (false, T_Bool, ins1)
@@ -325,11 +334,11 @@ and compile_value val_expr globvars localvars structs =
       | ("||", T_Bool, T_Bool, _, Value(Bool false)) -> (false, T_Bool, ins1)
       | ("||", T_Bool, T_Bool, _, _) -> (false, T_Bool, ins1 @ ins2 @ [BoolOr])
       | ("=", _, _, Reference(r), Reference(Null)) -> (
-        let (_,_,r_inst) = compile_reference r globvars localvars structs in
+        let (_,_,r_inst) = compile_reference r var_env in
         (false, T_Bool, (r_inst) @ [FetchFull;PlaceInt(0); IntEq;])
       )
       | ("=", _, _, Reference(Null), Reference(r)) -> (
-        let (_,_,r_inst) = compile_reference r globvars localvars structs in
+        let (_,_,r_inst) = compile_reference r var_env in
         (false, T_Bool, (r_inst) @ [FetchFull;PlaceInt(0); IntEq;])
       )
       | ("=", T_Bool, T_Bool, _, _) -> (false, T_Bool, ins1 @ ins2 @ [BoolEq])
@@ -353,18 +362,18 @@ and compile_value val_expr globvars localvars structs =
       | _ -> compile_error "Unknown binary operator, or type mismatch"
     )
   | Unary_op (op, e) -> (
-    let (t, ins) = compile_assignable_expr_as_value e globvars localvars structs in
+    let (t, ins) = compile_assignable_expr_as_value e var_env in
     match (op, t) with
     | ("!", T_Bool) -> (false, T_Bool, ins @ [BoolNot])
     | _ -> compile_error "Unknown unary operator, or type mismatch"
   )
 
-let compile_arguments params exprs globvars localvars structs =
+let compile_arguments params exprs var_env =
   let rec aux ps es acc =
     match (ps, es) with
     | ([],[]) -> acc
     | ((plock, pty, pname)::pt,eh::et) -> (
-        let (expr_lock, expr_ty, inst) = compile_assignable_expr eh globvars localvars structs in
+        let (expr_lock, expr_ty, inst) = compile_assignable_expr eh var_env in
         if not (type_equal pty expr_ty) then compile_error ("Type mismatch on assignment: expected " ^ (type_string pty) ^ ", got " ^ (type_string expr_ty)) 
         else if expr_lock && (not plock) then compile_error "Cannot give a locked variable as a parameter that is not locked"
         else match eh with
@@ -388,12 +397,12 @@ let compile_arguments params exprs globvars localvars structs =
   in
   aux (List.rev params) (List.rev exprs) []
 
-let rec compile_assignment target assign globvars localvars structs =
+let rec compile_assignment target assign var_env =
   match (target, assign) with
   | (Null, _) -> compile_error "Cannot assign to null"
   | (VarRef name, Value v) -> (
-    let (refer_lock, refer_ty, refer_inst) = compile_reference target globvars localvars structs in
-    let (val_lock, val_ty, val_inst) = compile_value v globvars localvars structs in
+    let (refer_lock, refer_ty, refer_inst) = compile_reference target var_env in
+    let (val_lock, val_ty, val_inst) = compile_value v var_env in
     if refer_lock then compile_error "Cannot assign to locked variable"
     else if val_lock then compile_error "Cannot assign locked value to new variable"
     else if not (type_equal refer_ty val_ty) then compile_error "Type mismatch in variable assignment"
@@ -405,8 +414,8 @@ let rec compile_assignment target assign globvars localvars structs =
     | T_Null -> (refer_inst) @ (val_inst @ [IncrRef; RefAssign;]) 
   )
   | (VarRef name, Reference re) -> (
-    let (refer_lock, refer_ty, refer_inst) = compile_reference target globvars localvars structs in
-    let (val_lock, val_ty, val_inst) = compile_reference re globvars localvars structs in
+    let (refer_lock, refer_ty, refer_inst) = compile_reference target var_env in
+    let (val_lock, val_ty, val_inst) = compile_reference re var_env in
     if refer_lock || val_lock then compile_error "Cannot assign locked"
     else if not (type_equal refer_ty val_ty) then compile_error "Type mismatch in variable assignment"
     else match val_ty with 
@@ -417,10 +426,10 @@ let rec compile_assignment target assign globvars localvars structs =
     | T_Null -> (refer_inst) @ (val_inst @ [FetchFull; IncrRef; RefAssign;]) 
   )
   | (StructRef(refer, field), Value v) -> (
-    let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
-    let (val_lock, val_ty, val_inst) = compile_value v globvars localvars structs in
+    let (refer_lock, refer_ty, refer_inst) = compile_reference refer var_env in
+    let (val_lock, val_ty, val_inst) = compile_value v var_env in
     match refer_ty with
-    | T_Struct str_name -> ( match lookup_struct str_name structs with
+    | T_Struct str_name -> ( match lookup_struct str_name var_env.structs with
       | Some fields -> ( match struct_field field fields with
         | (field_lock,field_ty,index) -> (
           if field_lock || refer_lock then compile_error "Cannot assign to locked field"
@@ -439,10 +448,10 @@ let rec compile_assignment target assign globvars localvars structs =
     | _ -> compile_error "Struct assignment to non-struct" 
   )
   | (StructRef(refer, field), Reference re) -> (
-    let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
-    let (val_lock, val_ty, val_inst) = compile_reference re globvars localvars structs in
+    let (refer_lock, refer_ty, refer_inst) = compile_reference refer var_env in
+    let (val_lock, val_ty, val_inst) = compile_reference re var_env in
     match refer_ty with
-    | T_Struct str_name -> ( match lookup_struct str_name structs with
+    | T_Struct str_name -> ( match lookup_struct str_name var_env.structs with
       | Some fields -> ( match struct_field field fields with
         | (field_lock, field_ty, index) -> (
           if field_lock || refer_lock then compile_error "Cannot assign to locked field"
@@ -460,9 +469,9 @@ let rec compile_assignment target assign globvars localvars structs =
     | _ -> compile_error "Struct assignment to non-struct" 
   )
   | (ArrayRef(refer, index), Value v) -> (
-    let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
-    let (val_lock, val_ty, val_inst) = compile_value v globvars localvars structs in
-    let (index_ty, index_inst) = compile_assignable_expr_as_value index globvars localvars structs in
+    let (refer_lock, refer_ty, refer_inst) = compile_reference refer var_env in
+    let (val_lock, val_ty, val_inst) = compile_value v var_env in
+    let (index_ty, index_inst) = compile_assignable_expr_as_value index var_env in
     match refer_ty with
     | T_Array arr_ty -> ( 
       if refer_lock then compile_error "Cannot assign to locked array"
@@ -479,9 +488,9 @@ let rec compile_assignment target assign globvars localvars structs =
     | _ -> compile_error "Array assignment to non-array" 
   )
   | (ArrayRef(refer, index), Reference re) -> (
-    let (refer_lock, refer_ty, refer_inst) = compile_reference refer globvars localvars structs in
-    let (val_lock, val_ty, val_inst) = compile_reference re globvars localvars structs in
-    let (index_ty, index_inst) = compile_assignable_expr_as_value index globvars localvars structs in
+    let (refer_lock, refer_ty, refer_inst) = compile_reference refer var_env in
+    let (val_lock, val_ty, val_inst) = compile_reference re var_env in
+    let (index_ty, index_inst) = compile_assignable_expr_as_value index var_env in
     match refer_ty with
     | T_Array arr_ty -> ( 
       if refer_lock then compile_error "Cannot assign to locked array"
@@ -497,14 +506,14 @@ let rec compile_assignment target assign globvars localvars structs =
     | _ -> compile_error "Array assignment to non-array" 
   )
 
-let compile_unassignable_expr expr globvars localvars structs routines break continue cleanup =
+let compile_unassignable_expr expr env break continue cleanup =
   match expr with
-  | Assign (target, aexpr) -> compile_assignment target aexpr globvars localvars structs
+  | Assign (target, aexpr) -> compile_assignment target aexpr env.var_env
   | Call (n, aexprs) -> (
-    match lookup_routine n routines with
+    match lookup_routine n env.routine_env with
     | None -> compile_error ("No such routine: " ^ n)
     | Some (ps) when (List.length ps) = (List.length aexprs) -> (
-      (compile_arguments ps aexprs globvars localvars structs) @ (PlaceInt(List.length ps) :: [Call(n)])
+      (compile_arguments ps aexprs env.var_env) @ (PlaceInt(List.length ps) :: [Call(n)])
     )
     | Some (ps) -> compile_error (n ^ " requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
   )
@@ -523,81 +532,81 @@ let compile_unassignable_expr expr globvars localvars structs routines break con
     | None -> compile_error "No loop to continue in"
   )
   | Print expr -> (
-    let (expr_ty, inst) = compile_assignable_expr_as_value expr globvars localvars structs in
+    let (expr_ty, inst) = compile_assignable_expr_as_value expr env.var_env in
     match expr_ty with
     | T_Bool -> inst @ [PrintBool]
     | T_Int -> inst @ [PrintInt]
     | _ -> [PlaceBool(false); PrintBool;] (* This is not as intended! *)
   )
 
-let rec compile_declaration dec globvars localvars structs =
+let rec compile_declaration dec var_env =
   match dec with
   | TypeDeclaration (l, ty, n) -> (
-    if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
+    if localvar_exists n var_env.local then compile_error ("Duplicate variable name: " ^ n)
     else match ty with
-    | T_Int -> (DeclareFull :: IncrRef :: CloneFull :: PlaceInt(0) :: [AssignFull], (l,ty,n)::localvars)
-    | T_Bool -> (DeclareByte :: IncrRef :: CloneFull :: PlaceBool(false) :: [AssignByte], (l,ty,n)::localvars)
-    | T_Array _ -> ([PlaceInt(0)], (l,ty,n)::localvars)
-    | T_Struct _ -> ([PlaceInt(0)], (l,ty,n)::localvars)
+    | T_Int -> (DeclareFull :: IncrRef :: CloneFull :: PlaceInt(0) :: [AssignFull], (l,ty,n)::var_env.local)
+    | T_Bool -> (DeclareByte :: IncrRef :: CloneFull :: PlaceBool(false) :: [AssignByte], (l,ty,n)::var_env.local)
+    | T_Array _ -> ([PlaceInt(0)], (l,ty,n)::var_env.local)
+    | T_Struct _ -> ([PlaceInt(0)], (l,ty,n)::var_env.local)
     | T_Null -> compile_error "Cannot declare the 'null' type"
   )
   | AssignDeclaration (l, ty, n, expr) -> (
-    if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
-    else let (expr_lock, expr_ty, ins) = compile_assignable_expr expr globvars localvars structs in
+    if localvar_exists n var_env.local then compile_error ("Duplicate variable name: " ^ n)
+    else let (expr_lock, expr_ty, ins) = compile_assignable_expr expr var_env in
     if expr_lock && (not l) then compile_error "Cannot "
     else match ty with
-    | T_Int when expr_ty = T_Int -> (DeclareFull :: IncrRef :: [CloneFull] @ ins @ [AssignFull], (l,ty,n)::localvars)
-    | T_Bool when expr_ty = T_Bool -> (DeclareByte :: IncrRef :: [CloneFull] @ ins @ [AssignByte], (l,ty,n)::localvars)
-    | T_Array arr_ty when expr_ty = T_Array(arr_ty) -> (ins @ [IncrRef], (l,ty,n)::localvars)
-    | T_Struct str_ty when expr_ty = T_Struct(str_ty) -> (ins @ [IncrRef], (l,ty,n)::localvars)
+    | T_Int when expr_ty = T_Int -> (DeclareFull :: IncrRef :: [CloneFull] @ ins @ [AssignFull], (l,ty,n)::var_env.local)
+    | T_Bool when expr_ty = T_Bool -> (DeclareByte :: IncrRef :: [CloneFull] @ ins @ [AssignByte], (l,ty,n)::var_env.local)
+    | T_Array arr_ty when expr_ty = T_Array(arr_ty) -> (ins @ [IncrRef], (l,ty,n)::var_env.local)
+    | T_Struct str_ty when expr_ty = T_Struct(str_ty) -> (ins @ [IncrRef], (l,ty,n)::var_env.local)
     | _ -> compile_error ("Type mismatch on declaration: expected " ^ (type_string ty) ^ ", got " ^ (type_string expr_ty)) 
   )
   | VarDeclaration (l, n, expr) -> (
-    if localvar_exists n localvars then compile_error ("Duplicate variable name: " ^ n)
-    else let (expr_lock, expr_ty, ins) = compile_assignable_expr expr globvars localvars structs in
+    if localvar_exists n var_env.local then compile_error ("Duplicate variable name: " ^ n)
+    else let (expr_lock, expr_ty, ins) = compile_assignable_expr expr var_env in
     match expr_ty with
-    | T_Int -> (DeclareFull :: IncrRef :: [CloneFull] @ ins @ [AssignFull], (l,expr_ty,n)::localvars)
-    | T_Bool -> (DeclareByte :: IncrRef :: [CloneFull] @ ins @ [AssignByte], (l,expr_ty,n)::localvars)
-    | T_Array _ -> (ins @ [IncrRef], (l,expr_ty,n)::localvars)
-    | T_Struct _ -> (ins @ [IncrRef], (l,expr_ty,n)::localvars)
+    | T_Int -> (DeclareFull :: IncrRef :: [CloneFull] @ ins @ [AssignFull], (l,expr_ty,n)::var_env.local)
+    | T_Bool -> (DeclareByte :: IncrRef :: [CloneFull] @ ins @ [AssignByte], (l,expr_ty,n)::var_env.local)
+    | T_Array _ -> (ins @ [IncrRef], (l,expr_ty,n)::var_env.local)
+    | T_Struct _ -> (ins @ [IncrRef], (l,expr_ty,n)::var_env.local)
     | T_Null -> compile_error "Cannot declare the 'null' type"
   )
 
-let rec compile_sod_list sod_list globvars localvars structs routines break continue cleanup =
+let rec compile_sod_list sod_list env break continue cleanup =
   match sod_list with
   | [] -> []
   | h::t -> (
     match h with
-    | Statement s -> compile_stmt s globvars localvars structs routines break continue cleanup @ compile_sod_list t globvars localvars structs routines break continue cleanup
+    | Statement stmt -> compile_stmt stmt env break continue cleanup @ compile_sod_list t env break continue cleanup
     | Declaration dec -> (
-      let (dec_ins, new_localvars) = compile_declaration dec globvars localvars structs in
-      dec_ins @ compile_sod_list t globvars new_localvars structs routines break continue (cleanup+1)
+      let (dec_ins, new_localvars) = compile_declaration dec env.var_env in
+      dec_ins @ compile_sod_list t ({ env with var_env = ({ env.var_env with local = new_localvars }) }) break continue (cleanup+1)
     )
   )
 
-and compile_stmt stmt globvars localvars structs routines break continue cleanup =
+and compile_stmt stmt env break continue cleanup =
   match stmt with
-  | If (e, s1, s2) -> (
+  | If (expr, s1, s2) -> (
     let label_true = new_label () in
     let label_stop = new_label () in
-    let (t, ins) = compile_assignable_expr_as_value e globvars localvars structs in
+    let (t, ins) = compile_assignable_expr_as_value expr env.var_env in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
-    else ins @ [IfTrue(label_true)] @ (compile_stmt s2 globvars localvars structs routines break continue cleanup) @ [GoTo(label_stop)] @ [CLabel(label_true)] @ (compile_stmt s1 globvars localvars structs routines break continue cleanup) @ [CLabel(label_stop)]
+    else ins @ [IfTrue(label_true)] @ (compile_stmt s2 env break continue cleanup) @ [GoTo(label_stop)] @ [CLabel(label_true)] @ (compile_stmt s1 env break continue cleanup) @ [CLabel(label_stop)]
   )
-  | While (e, s) -> (
+  | While (expr, s) -> (
     let label_cond = new_label () in
     let label_start = new_label () in
     let label_stop = new_label () in
-    let (t, ins) = compile_assignable_expr_as_value e globvars localvars structs in
+    let (t, ins) = compile_assignable_expr_as_value expr env.var_env in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
-    else (GoTo(label_cond)) :: CLabel(label_start) :: (compile_stmt s globvars localvars structs routines (Some label_stop) (Some label_cond) 0) @ [CLabel(label_cond)] @ ins @ (IfTrue(label_start) :: [CLabel(label_stop)])
+    else (GoTo(label_cond)) :: CLabel(label_start) :: (compile_stmt s env (Some label_stop) (Some label_cond) 0) @ [CLabel(label_cond)] @ ins @ (IfTrue(label_start) :: [CLabel(label_stop)])
   )
   | Block (sod_list) -> (
     let decs = count_decl sod_list in
-    let block_ins = compile_sod_list sod_list globvars localvars structs routines break continue cleanup in 
+    let block_ins = compile_sod_list sod_list env break continue cleanup in 
     if decs = 0 then block_ins else block_ins @ [FreeVars(count_decl sod_list)]
   )
-  | Expression (expr) -> compile_unassignable_expr expr globvars localvars structs routines break continue cleanup
+  | Expression (expr) -> compile_unassignable_expr expr env break continue cleanup
 
 (*    Compute the list of variable dependencies for each global variable    *)
 let get_globvar_dependencies gvs =
@@ -652,13 +661,13 @@ let compile topdecs =
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
   let routines = get_routines topdecs in
   let structs = get_structs topdecs in
-  let globvar_inst = compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration dec) globvars) globvars [] structs [] None None 0 in
+  let globvar_inst = compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration dec) globvars) ({ var_env = ({ local = []; globals = globvars; structs = structs; }); routine_env = []; }) None None 0 in
   let rec aux tds acc =
     match tds with
     | [] -> acc
     | h::t -> match h with
       | Routine (accmod, n, params, stmt) -> 
-        aux t ((routine_head accmod n params)::(compile_stmt stmt globvars (List.rev params) structs routines None None 0) @ [CStop] @ acc)
+        aux t ((routine_head accmod n params)::(compile_stmt stmt ({ var_env = ({ local = (List.rev params); globals = globvars; structs = structs;}); routine_env = routines; }) None None 0) @ [CStop] @ acc)
       | _ -> aux t acc
   in
   match topdecs with
