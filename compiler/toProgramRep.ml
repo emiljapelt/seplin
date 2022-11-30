@@ -2,6 +2,24 @@ open Absyn
 open ProgramRep
 open Exceptions
 
+(*** Types ***)
+type variable_environment = { 
+  local: (bool * typ * string) list; 
+  globals: (string * int * bool * typ * declaration) list; 
+  structs: (string * (bool * typ * string) list) list; 
+}
+
+type environment = { 
+  var_env: variable_environment;
+  routine_env: (string * (bool * typ * string) list) list; 
+}
+
+type label_generator = { mutable next : int }
+
+
+
+(*** Helper functions ***)
+(* Lookup *)
 let lookup_routine (name: string) routines =
   let rec aux li =
     match li with
@@ -34,89 +52,6 @@ let lookup_struct (name: string) structs =
   in
   aux structs
 
-let count_decl stmt_dec_list =
-  let rec aux sdl c =
-    match sdl with
-    | [] -> c
-    | (Declaration dec)::t -> (
-      match dec with
-      | TypeDeclaration _ -> aux t (c+1)
-      | AssignDeclaration _ -> aux t (c+1)
-      | VarDeclaration _ -> aux t (c+1)
-    )
-    | _::t -> aux t (c)
-  in
-  aux stmt_dec_list 0
-
-let rec type_string t =
-  match t with
-  | T_Bool -> "bool"
-  | T_Int -> "int"
-  | T_Array arr_ty -> (type_string arr_ty)^"[]"
-  | T_Struct n -> n
-  | T_Null -> "null"
-
-let rec type_equal type1 type2 =
-  let rec aux t1 t2 =
-    match (t1, t2) with
-    | (T_Int, T_Int) -> true
-    | (T_Bool, T_Bool) -> true
-    | (T_Array at1, T_Array at2) -> type_equal at1 at2
-    | (T_Struct n1, T_Struct n2) when n1 = n2 -> true
-    | (T_Null, _) -> true
-    | _ -> false
-  in aux type1 type2 || aux type2 type1
-
-let routine_head accmod name params =
-  match accmod with
-  | Internal -> CLabel(name)
-  | External -> CEntryPoint(name, List.map (fun (l,t,n) -> t) params)
-
-type variable_environment = { 
-  local: (bool * typ * string) list; 
-  globals: (string * int * bool * typ * declaration) list; 
-  structs: (string * (bool * typ * string) list) list; 
-}
-type environment = { 
-  var_env: variable_environment;
-  routine_env: (string * (bool * typ * string) list) list; 
-}
-
-type label_generator = { mutable next : int }
-let lg = ( {next = 0;} )
-
-let new_label () =
-  let number = lg.next in
-  let () = lg.next <- lg.next+1 in
-  Int.to_string number
-
-let var_index (name: string) globvars localvars = 
-  match lookup_localvar name localvars with
-  | Some (lc,_,_) -> lc
-  | None -> 
-    match lookup_globvar name globvars with
-    | Some (gc,_,_) -> gc
-    | None -> compile_error ("No such variable " ^ name)
-
-let fetch_var_index (name: string) globvars localvars = 
-  match lookup_localvar name localvars with
-  | Some (lc,_,_) -> BPFetch(lc)
-  | None -> 
-    match lookup_globvar name globvars with
-    | Some (gc,_,_) -> StackFetch(gc)
-    | None -> compile_error ("No such variable " ^ name)
-
-let fetch_var (name: string) globvars localvars = 
-  let t = match lookup_localvar name localvars with
-    | Some (_,lt,_) -> lt
-    | None -> 
-      match lookup_globvar name globvars with
-      | Some (_,gt,_) -> gt
-      | None -> compile_error ("No such variable " ^ name)
-  in
-  (t, (fetch_var_index name globvars localvars))
-
-
 let struct_field field params =
   let rec aux ps c =
     match ps with
@@ -132,6 +67,14 @@ let var_locked (name: string) globvars localvars =
       match lookup_globvar name globvars with
       | Some (_,_,gl) -> gl
       | None -> compile_error ("No such variable " ^ name)
+
+let var_index (name: string) globvars localvars = 
+  match lookup_localvar name localvars with
+  | Some (lc,_,_) -> lc
+  | None -> 
+    match lookup_globvar name globvars with
+    | Some (gc,_,_) -> gc
+    | None -> compile_error ("No such variable " ^ name)
 
 let globvar_exists (name: string) globvars =
   match lookup_globvar name globvars with
@@ -153,16 +96,22 @@ let struct_exists (name: string) structs =
   | Some _ -> true
   | None -> false
 
-let default_value t =
-  match t with
-  | T_Int -> Value (Int 0)
-  | T_Bool -> Value (Bool false)
-  | _ -> Reference (Null)
 
-let simple_type t =
-  match t with
-    | T_Int | T_Bool -> true
-    | _ -> false
+
+(* Scanning *)
+let count_decl stmt_dec_list =
+  let rec aux sdl c =
+    match sdl with
+    | [] -> c
+    | (Declaration dec)::t -> (
+      match dec with
+      | TypeDeclaration _ -> aux t (c+1)
+      | AssignDeclaration _ -> aux t (c+1)
+      | VarDeclaration _ -> aux t (c+1)
+    )
+    | _::t -> aux t (c)
+  in
+  aux stmt_dec_list 0
 
 (*    list of: string * int * bool * typ * declaration    *)
 let get_globvars (tds : topdecs) = 
@@ -217,7 +166,126 @@ let get_structs (tds : topdecs) =
   | Topdecs l -> aux l []
 
 
-(* lock, type, instructions *)
+
+(* Typing *)
+let rec type_string t =
+  match t with
+  | T_Bool -> "bool"
+  | T_Int -> "int"
+  | T_Array arr_ty -> (type_string arr_ty)^"[]"
+  | T_Struct n -> n
+  | T_Null -> "null"
+
+let rec type_equal type1 type2 =
+  let rec aux t1 t2 =
+    match (t1, t2) with
+    | (T_Int, T_Int) -> true
+    | (T_Bool, T_Bool) -> true
+    | (T_Array at1, T_Array at2) -> type_equal at1 at2
+    | (T_Struct n1, T_Struct n2) when n1 = n2 -> true
+    | (T_Null, _) -> true
+    | _ -> false
+  in aux type1 type2 || aux type2 type1
+
+let default_value t =
+  match t with
+  | T_Int -> Value (Int 0)
+  | T_Bool -> Value (Bool false)
+  | _ -> Reference (Null)
+
+let simple_type t =
+  match t with
+    | T_Int | T_Bool -> true
+    | _ -> false
+
+
+    
+(* Labels *)
+let lg = ( {next = 0;} )
+
+let new_label () =
+  let number = lg.next in
+  let () = lg.next <- lg.next+1 in
+  Int.to_string number
+
+
+
+(*** Global variable handling ***)
+(*    Compute the list of variable dependencies for each global variable    *)
+let get_globvar_dependencies gvs =
+  let rec dependencies_from_assignable expr acc =
+    match expr with
+    | Reference r -> ( match r with
+      | VarRef (name) -> name::acc
+      | ArrayRef (refer,_) -> dependencies_from_assignable (Reference refer) acc
+      | StructRef (refer,_) -> dependencies_from_assignable (Reference refer) acc
+      | Null -> acc
+    )
+    | Value v -> ( match v with
+      | Binary_op (_, expr1, expr2) -> dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc)
+      | Unary_op (_, expr1) -> dependencies_from_assignable expr1 acc
+      | ArraySize (refer) -> dependencies_from_assignable (Reference refer) acc
+      | Bool _ -> acc
+      | Int _ -> acc
+      | Lookup (refer) -> dependencies_from_assignable (Reference refer) acc
+      | NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
+      | NewStruct (_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
+    )
+  in
+  let rec dependencies_from_declaration dec =
+    match dec with
+    | TypeDeclaration _ -> []
+    | AssignDeclaration (_,_,_,expr) -> dependencies_from_assignable expr []
+    | VarDeclaration (_,_,expr) -> dependencies_from_assignable expr []
+  in
+  List.map (fun (name,cnt,lock,ty,dec) -> ((name,cnt,lock,ty,dec), dependencies_from_declaration dec)) gvs
+
+let extract_name t =
+  match t with
+  | (f,_,_,_,_) -> f
+
+(*    Compute an ordering of the global variables, according to their dependancies    *)
+let order_dep_globvars dep_gvs =
+  let rec aux dep_globvars count prev_count remain acc =
+    match dep_globvars with
+    | [] when List.length remain = 0 -> acc
+    | [] when count = prev_count -> compile_error "Cannot resolve an ordering of the global variables"
+    | [] -> aux remain count count [] acc
+    | h::t -> ( match h with
+      | ((name,cnt,lock,ty,dec), deps) -> (
+        if List.for_all (fun dep -> List.exists (fun a -> dep = extract_name a) acc) deps then aux t (count+1) prev_count remain ((name,count,lock,ty,dec)::acc)
+        else aux t count prev_count (h::remain) acc
+      )
+    )
+  in
+  List.rev (aux dep_gvs 0 0 [] [])
+
+
+
+(*** Compiling functions ***)
+let routine_head accmod name params =
+  match accmod with
+  | Internal -> CLabel(name)
+  | External -> CEntryPoint(name, List.map (fun (l,t,n) -> t) params)
+
+let fetch_var_index (name: string) globvars localvars = 
+  match lookup_localvar name localvars with
+  | Some (lc,_,_) -> BPFetch(lc)
+  | None -> 
+    match lookup_globvar name globvars with
+    | Some (gc,_,_) -> StackFetch(gc)
+    | None -> compile_error ("No such variable " ^ name)
+
+let fetch_var (name: string) globvars localvars = 
+  let t = match lookup_localvar name localvars with
+    | Some (_,lt,_) -> lt
+    | None -> 
+      match lookup_globvar name globvars with
+      | Some (_,gt,_) -> gt
+      | None -> compile_error ("No such variable " ^ name)
+  in
+  (t, (fetch_var_index name globvars localvars))
+
 let rec compile_assignable_expr expr var_env =
   match expr with
   | Reference ref_expr -> compile_reference ref_expr var_env
@@ -607,55 +675,6 @@ and compile_stmt stmt env break continue cleanup =
     if decs = 0 then block_ins else block_ins @ [FreeVars(count_decl sod_list)]
   )
   | Expression (expr) -> compile_unassignable_expr expr env break continue cleanup
-
-(*    Compute the list of variable dependencies for each global variable    *)
-let get_globvar_dependencies gvs =
-  let rec dependencies_from_assignable expr acc =
-    match expr with
-    | Reference r -> ( match r with
-      | VarRef (name) -> name::acc
-      | ArrayRef (refer,_) -> dependencies_from_assignable (Reference refer) acc
-      | StructRef (refer,_) -> dependencies_from_assignable (Reference refer) acc
-      | Null -> acc
-    )
-    | Value v -> ( match v with
-      | Binary_op (_, expr1, expr2) -> dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc)
-      | Unary_op (_, expr1) -> dependencies_from_assignable expr1 acc
-      | ArraySize (refer) -> dependencies_from_assignable (Reference refer) acc
-      | Bool _ -> acc
-      | Int _ -> acc
-      | Lookup (refer) -> dependencies_from_assignable (Reference refer) acc
-      | NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
-      | NewStruct (_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
-    )
-  in
-  let rec dependencies_from_declaration dec =
-    match dec with
-    | TypeDeclaration _ -> []
-    | AssignDeclaration (_,_,_,expr) -> dependencies_from_assignable expr []
-    | VarDeclaration (_,_,expr) -> dependencies_from_assignable expr []
-  in
-  List.map (fun (name,cnt,lock,ty,dec) -> ((name,cnt,lock,ty,dec), dependencies_from_declaration dec)) gvs
-
-let extract_name t =
-  match t with
-  | (f,_,_,_,_) -> f
-
-(*    Compute an ordering of the global variables, according to their dependancies    *)
-let order_dep_globvars dep_gvs =
-  let rec aux dep_globvars count prev_count remain acc =
-    match dep_globvars with
-    | [] when List.length remain = 0 -> acc
-    | [] when count = prev_count -> compile_error "Cannot resolve an ordering of the global variables"
-    | [] -> aux remain count count [] acc
-    | h::t -> ( match h with
-      | ((name,cnt,lock,ty,dec), deps) -> (
-        if List.for_all (fun dep -> List.exists (fun a -> dep = extract_name a) acc) deps then aux t (count+1) prev_count remain ((name,count,lock,ty,dec)::acc)
-        else aux t count prev_count (h::remain) acc
-      )
-    )
-  in
-  List.rev (aux dep_gvs 0 0 [] [])
 
 let compile topdecs =
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
