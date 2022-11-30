@@ -18,8 +18,8 @@ extern byte* heap_min;
 extern byte* heap_max;
 extern byte* stack_base;
 
-#define ON_HEAP(addr) (heap_min <= addr && addr <= heap_max)
-#define ON_STACK(addr, sp) (stack_base <= addr && addr <= (stack_base + sp))
+#define ON_HEAP(addr) (heap_min <= ((byte*)addr) && ((byte*)addr) <= heap_max)
+#define ON_STACK(addr, sp) (stack_base <= ((byte*)addr) && ((byte*)addr) <= (stack_base + sp))
 
 void memory_init(byte* sb);
 byte* allocate_simple(byte type);

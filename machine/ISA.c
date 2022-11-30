@@ -53,6 +53,7 @@ char* instruction_to_string(int inst) {
         case SIZE_OF: return "SIZE_OF";
         case TO_START: return "TO_START";
         case REF_FETCH: return "REF_FETCH";
+        case INCR_REF: return "INCR_REF";
         default: return "?";
     }
 }
@@ -106,5 +107,6 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "SIZE_OF") == 0) return SIZE_OF;
     if (strcmp(str, "TO_START") == 0) return TO_START;
     if (strcmp(str, "REF_FETCH") == 0) return REF_FETCH;
+    if (strcmp(str, "INCR_REF") == 0) return INCR_REF;
     return -1;
 }

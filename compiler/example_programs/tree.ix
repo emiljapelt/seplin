@@ -1,0 +1,48 @@
+
+struct binary_tree (left: binary_tree, element: int, right: binary_tree);
+
+external main() {
+    tree: binary_tree;
+
+    add(tree, 4);
+
+    for(i: int := 0; i < 10; i +:= 1) {
+        contains: bool;
+        contains(tree, i, contains);
+        print i;
+        print contains;
+    }
+}
+
+internal is_empty(tree: locked binary_tree, result: bool) {
+    if (tree = null) result := true;
+    else result := false;
+}
+
+internal add(tree: binary_tree, element: int) {
+    if (tree = null) {
+        tree := new binary_tree(null, $element, null);
+    }
+    else {
+        if (element = tree.element) stop;
+        if (element < tree.element) {
+            add(tree.left, element);
+        }
+        else {
+            add(tree.right, element);
+        }
+    }
+}
+
+internal contains(tree: locked binary_tree, element: locked int, result: bool) {
+    if (tree = null) result := false;
+    else {
+        if (element = tree.element) result := true;
+        else if (element < tree.element) {
+            contains(tree.left, element, result);
+        }
+        else {
+            contains(tree.right, element, result);
+        }
+    }
+}

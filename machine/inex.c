@@ -127,8 +127,8 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
 
                 for(int i = 0; i < arg_count; i++) {
                     word* arg = *(word**)(stack + sp + MOVE(FULL, -3-i));
-                    to_origin(&arg, sp);
-                    if (*arg) INCR_REF_COUNT(*arg);
+                    // to_origin(&arg, sp);
+                    // if (*arg) INCR_REF_COUNT(*arg);
                     *(word*)(stack + sp + MOVE(FULL, -1-i)) = (word)(arg);
                 }
 
@@ -317,7 +317,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
 
                 try_free(*target, sp, 0, trace);
 
-                if (value) INCR_REF_COUNT(value);
+                // if (value) INCR_REF_COUNT(value);
                 *target = value;
                 sp -= MOVE(FULL, 1) + MOVE (FULL, 1);
                 ip++;
@@ -330,7 +330,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
 
                 try_free(*(target + offset), sp, 0, trace);
 
-                if (value) INCR_REF_COUNT(value);
+                // if (value) INCR_REF_COUNT(value);
                 *(target + offset) = value;
                 sp -= MOVE(FULL, 3);
                 ip++;
@@ -486,6 +486,22 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 bp = sp;
                 sp += MOVE(FULL, argument_count);
                 ip = entry_point;
+                break;
+            }
+            case INCR_REF: {
+                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
+                if (target) {
+                    if (ON_HEAP(target)) {
+                        INCR_REF_COUNT(target);
+                    }
+                    else if (ON_STACK(target, sp)) {
+                        to_origin(&target, sp);
+                        if (*target) {
+                            INCR_REF_COUNT(*target);
+                        }
+                    }
+                }
+                ip++;
                 break;
             }
             default: {

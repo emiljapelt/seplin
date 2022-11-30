@@ -72,6 +72,7 @@ type concrete_program_part =
   | SizeOf
   | ToStart
   | RefFetch
+  | IncrRef
 
 let translate concrete_list =
   let rec aux cl acc =
@@ -130,5 +131,6 @@ let translate concrete_list =
     | SizeOf -> aux t (Instruction(46)::acc)
     | ToStart -> aux t (Instruction(47)::acc)
     | RefFetch -> aux t (Instruction(48)::acc)
+    | IncrRef -> aux t (Instruction(49)::acc)
   )
   in aux concrete_list []
