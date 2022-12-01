@@ -770,7 +770,7 @@ and compile_stmt stmt env break continue cleanup acc =
     let label_stop = new_label () in
     let (_, t) = type_assignable_expr expr env.var_env in
     if t != T_Bool then compile_error "Conditional requires 'bool'"
-    else GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_assignable_expr_as_value expr env.var_env (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
+    else GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_assignable_expr_as_value (optimize_assignable_expr expr env.var_env) env.var_env (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
   )
   | Block (sod_list) -> (
     let decs = count_decl sod_list in
