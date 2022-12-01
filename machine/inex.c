@@ -644,6 +644,7 @@ int main(int argc, char** argv) {
                         *(bool_alloc) = bool_v;
                         // *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)bool_alloc;
                         arguments[i] = bool_alloc;
+                        INCR_REF_COUNT(bool_alloc);
                         break;
                     }
                     case INT: {
@@ -653,6 +654,7 @@ int main(int argc, char** argv) {
                         *((word*)(int_alloc)) = int_v;
                         // *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)int_alloc;
                         arguments[i] = int_alloc;
+                        INCR_REF_COUNT(int_alloc);
                         break;
                     }
                     default: ;
