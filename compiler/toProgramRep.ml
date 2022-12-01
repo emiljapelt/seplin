@@ -331,6 +331,63 @@ let order_dep_globvars dep_gvs =
 
 
 
+(*** Optimizing functions ***)
+let rec optimize_assignable_expr expr var_env =
+  match expr with
+  | Reference _ -> expr
+  | Value val_expr -> optimize_value val_expr var_env
+
+and optimize_value expr var_env =
+  match expr with
+  | Binary_op (op, e1, e2) -> ( 
+    let opte1 = optimize_assignable_expr e1 var_env in
+    let opte2 = optimize_assignable_expr e2 var_env in
+    match (op, opte1, opte2) with
+    | ("&&", Value(Bool b1), Value(Bool b2)) -> Value(Bool(b1&&b2))
+    | ("&&", Value(Bool true), _) -> opte2
+    | ("&&", _, Value(Bool true)) -> opte1
+    | ("&&", Value(Bool false), _) -> Value(Bool false)
+    | ("&&", _, Value(Bool false)) -> Value(Bool false)
+    | ("||", Value(Bool b1), Value(Bool b2)) -> Value(Bool(b1||b2))
+    | ("||", Value(Bool true), _) -> Value(Bool true)
+    | ("||", _, Value(Bool true)) -> Value(Bool true)
+    | ("||", Value(Bool false), _) -> opte2
+    | ("||", _, Value(Bool false)) -> opte1
+    | ("+", Value(Int i1), Value(Int i2)) -> Value(Int (i1+i2))
+    | ("+", Value(Int 0), _) -> opte2
+    | ("+", _, Value(Int 0)) -> opte1
+    | ("-", Value(Int 0), Value(Int i)) -> Value(Int (-i))
+    | ("-", Value(Int i1), Value(Int i2)) -> Value(Int (i1-i2))
+    | ("-", _, Value(Int 0)) -> opte1
+    | ("*", Value(Int i1), Value(Int i2)) -> Value(Int (i1*i2))
+    | ("*", Value(Int 0), _) -> Value(Int 0)
+    | ("*", _, Value(Int 0)) -> Value(Int 0)
+    | ("*", Value(Int 1), _) -> opte2
+    | ("*", _, Value(Int 1)) -> opte1
+    | ("=", Value(Int i1), Value(Int i2)) -> Value(Bool (i1=i2))
+    | ("=", Value(Bool b1), Value(Bool b2)) -> Value(Bool (b1=b2))
+    | ("!=", Value(Int i1), Value(Int i2)) -> Value(Bool (i1!=i2))
+    | ("!=", Value(Bool b1), Value(Bool b2)) -> Value(Bool (b1!=b2))
+    | ("<", Value(Int i1), Value(Int i2)) -> Value(Bool (i1<i2))
+    | ("<=", Value(Int i1), Value(Int i2)) -> Value(Bool (i1<=i2))
+    | (">", Value(Int i1), Value(Int i2)) -> Value(Bool (i1>i2))
+    | (">=", Value(Int i1), Value(Int i2)) -> Value(Bool (i1>=i2))
+    | _ -> Value(Binary_op(op, opte1, opte2))
+  )
+  | Unary_op (op, e) -> ( 
+    let opte = optimize_assignable_expr e var_env in
+    match (op, opte) with
+    | ("!", Value(Bool b)) -> Value(Bool (not b))
+    | _ -> opte
+  )
+  | ArraySize _ -> Value(expr)
+  | Bool _ -> Value(expr)
+  | Int _ -> Value(expr)
+  | Lookup _ -> Value(expr)
+  | NewArray _ -> Value(expr)
+  | NewStruct (_,_) -> Value(expr)
+
+
 (*** Compiling functions ***)
 let routine_head accmod name params =
   match accmod with
@@ -410,7 +467,7 @@ and compile_value val_expr var_env acc =
   | NewArray (arr_ty, size_expr) -> (
     let (_, s_ty) = type_assignable_expr size_expr var_env in
     match s_ty with
-    | T_Int -> compile_assignable_expr_as_value size_expr var_env (DeclareStruct :: IncrRef :: acc)
+    | T_Int -> compile_assignable_expr_as_value (optimize_assignable_expr size_expr var_env) var_env (DeclareStruct :: IncrRef :: acc)
     | _ -> compile_error ("Init array with non-int size")
   )
   | NewStruct (name, args) -> (
@@ -421,17 +478,18 @@ and compile_value val_expr var_env acc =
         let (ha_lock, ha_ty) = type_assignable_expr ha var_env in
         if not (type_equal field_ty ha_ty) then compile_error ("Struct argument type mismatch")
         else if ha_lock && (not field_lock) then compile_error "Cannot give a locked variable as a parameter that is not locked"
-        else match ha with
+        else let optha = optimize_assignable_expr ha var_env in
+        match optha with
         | Value _ -> (
           match ha_ty with
-          | T_Int -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr ha var_env (AssignFull :: FieldAssign :: acc))
-          | T_Bool -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr ha var_env (AssignByte :: FieldAssign :: acc))
-          | _ -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr ha var_env (IncrRef :: FieldAssign :: acc))
+          | T_Int -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr optha var_env (AssignFull :: FieldAssign :: acc))
+          | T_Bool -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr optha var_env (AssignByte :: FieldAssign :: acc))
+          | _ -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (IncrRef :: FieldAssign :: acc))
         )
         | Reference r -> (
           match r with
-          | Null -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr ha var_env (FieldAssign :: acc))
-          | _ -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr ha var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
+          | Null -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (FieldAssign :: acc))
+          | _ -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
         )
       )
       | (_,_) -> compile_error ("Struct argument count mismatch")
@@ -444,62 +502,26 @@ and compile_value val_expr var_env acc =
       let (_, t1) = type_assignable_expr e1 var_env in
       let (_, t2) = type_assignable_expr e2 var_env in
       match (op, t1, t2, e1, e2) with
-      | ("&&", T_Bool, T_Bool, Value(Bool b1), Value(Bool b2)) -> PlaceBool(b1 && b2) :: acc
-      | ("&&", T_Bool, T_Bool, Value(Bool true), _) -> compile_assignable_expr_as_value e2 var_env acc
-      | ("&&", T_Bool, T_Bool, _, Value(Bool true)) -> compile_assignable_expr_as_value e1 var_env acc
-      | ("&&", T_Bool, T_Bool, Value(Bool false), _) -> PlaceBool(false) :: acc
-      | ("&&", T_Bool, T_Bool, _, Value(Bool false)) -> PlaceBool(false) :: acc
       | ("&&", T_Bool, T_Bool, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (BoolAnd :: acc))
-
-      | ("||", T_Bool, T_Bool, Value(Bool b1), Value(Bool b2)) -> PlaceBool(b1 || b2) :: acc
-      | ("||", T_Bool, T_Bool, Value(Bool true), _) -> PlaceBool(true) :: acc
-      | ("||", T_Bool, T_Bool, _, Value(Bool true)) -> PlaceBool(true) :: acc
-      | ("||", T_Bool, T_Bool, Value(Bool false), _) -> compile_assignable_expr_as_value e2 var_env acc
-      | ("||", T_Bool, T_Bool, _, Value(Bool false)) -> compile_assignable_expr_as_value e1 var_env acc
       | ("||", T_Bool, T_Bool, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (BoolOr :: acc))
-
       | ("=", _, _, Reference(r), Reference(Null)) -> compile_reference r var_env (FetchFull :: PlaceInt(0) :: IntEq :: acc)
       | ("=", _, _, Reference(Null), Reference(r)) -> compile_reference r var_env (FetchFull :: PlaceInt(0) :: IntEq :: acc)
-      | ("=", T_Bool, T_Bool, Value(Bool b1), Value(Bool b2)) -> PlaceBool(b1 = b2) :: acc
       | ("=", T_Bool, T_Bool, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (BoolEq :: acc))
-      | ("=", T_Int, T_Int, Value(Int i1), Value(Int i2)) -> PlaceBool(i1 = i2) :: acc
       | ("=", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntEq :: acc))
-
-      | ("!=", T_Bool, T_Bool, Value(Bool b1), Value(Bool b2)) -> PlaceBool(b1 != b2) :: acc
       | ("!=", T_Bool, T_Bool, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (BoolEq :: BoolNot :: acc))
-      | ("!=", T_Int, T_Int, Value(Int i1), Value(Int i2)) -> PlaceBool(i1 != i2) :: acc
       | ("!=", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntEq :: BoolNot :: acc))
-
-      | ("<=", T_Int, T_Int, Value(Int i1), Value(Int i2)) -> PlaceBool(i1 <= i2) :: acc
       | ("<=", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntLt :: BoolNot :: acc))
-      | ("<", T_Int, T_Int, Value(Int i1), Value(Int i2)) -> PlaceBool(i1 < i2) :: acc
       | ("<", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e2 var_env (compile_assignable_expr_as_value e1 var_env (IntLt :: acc))
-      | (">=", T_Int, T_Int, Value(Int i1), Value(Int i2)) -> PlaceBool(i1 >= i2) :: acc
       | (">=", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e2 var_env (compile_assignable_expr_as_value e1 var_env (IntLt :: BoolNot :: acc))
-      | (">", T_Int, T_Int, Value(Int i1), Value(Int i2)) -> PlaceBool(i1 > i2) :: acc
       | (">", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntLt :: acc))
-
-      | ("+", T_Int, T_Int, Value(Int i1), Value(Int i2)) -> PlaceInt(i1 + i2) :: acc
-      | ("+", T_Int, T_Int, Value(Int 0), _) -> compile_assignable_expr_as_value e2 var_env acc
-      | ("+", T_Int, T_Int, _, Value(Int 0)) -> compile_assignable_expr_as_value e1 var_env acc
       | ("+", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntAdd :: acc))
-
-      | ("-", T_Int, T_Int, Value(Int i1), Value(Int i2)) -> PlaceInt(i1 - i2) :: acc
-      | ("-", T_Int, T_Int, _, Value(Int 0)) -> compile_assignable_expr_as_value e1 var_env acc
       | ("-", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e2 var_env (compile_assignable_expr_as_value e1 var_env (IntSub :: acc))
-
-      | ("*", T_Int, T_Int, Value(Int i1), Value(Int i2)) -> PlaceInt(i1 * i2) :: acc
-      | ("*", T_Int, T_Int, Value(Int 0), _) -> PlaceInt(0) :: acc
-      | ("*", T_Int, T_Int, _, Value(Int 0)) -> PlaceInt(0) :: acc
-      | ("*", T_Int, T_Int, Value(Int 1), _) -> compile_assignable_expr_as_value e2 var_env acc
-      | ("*", T_Int, T_Int, _, Value(Int 1)) -> compile_assignable_expr_as_value e1 var_env acc
       | ("*", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntMul :: acc))
       | _ -> compile_error "Unknown binary operator, or type mismatch"
     )
   | Unary_op (op, e) -> (
     let (_, t) = type_assignable_expr e var_env in
     match (op, t, e) with
-    | ("!", T_Bool, Value(Bool b)) -> PlaceBool(not b) :: acc
     | ("!", T_Bool, _) -> compile_assignable_expr_as_value e var_env (BoolNot :: acc)
     | _ -> compile_error "Unknown unary operator, or type mismatch"
   )
@@ -512,21 +534,23 @@ let compile_arguments params exprs var_env acc =
         let (expr_lock, expr_ty) = type_assignable_expr eh var_env in
         if not (type_equal pty expr_ty) then compile_error ("Type mismatch on call: expected " ^ (type_string pty) ^ ", got " ^ (type_string expr_ty)) 
         else if expr_lock && (not plock) then compile_error "Cannot give a locked variable as a parameter that is not locked"
-        else match eh with
+        else 
+        let opteh = optimize_assignable_expr eh var_env in
+        match opteh with
         | Value _ -> (
           match expr_ty with
-          | T_Int -> aux pt et (DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr eh var_env (AssignFull :: acc)))
-          | T_Bool -> aux pt et (DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr eh var_env (AssignByte :: acc)))
-          | T_Array _ -> aux pt et (compile_assignable_expr eh var_env (IncrRef :: acc))
-          | T_Struct _ -> aux pt et (compile_assignable_expr eh var_env (IncrRef :: acc))
-          | T_Null -> aux pt et (compile_assignable_expr eh var_env (IncrRef :: acc))
+          | T_Int -> aux pt et (DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opteh var_env (AssignFull :: acc)))
+          | T_Bool -> aux pt et (DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opteh var_env (AssignByte :: acc)))
+          | T_Array _ -> aux pt et (compile_assignable_expr opteh var_env (IncrRef :: acc))
+          | T_Struct _ -> aux pt et (compile_assignable_expr opteh var_env (IncrRef :: acc))
+          | T_Null -> aux pt et (compile_assignable_expr opteh var_env (IncrRef :: acc))
         )
         | Reference r -> (
           match r with
-          | VarRef _ -> aux pt et (compile_assignable_expr eh var_env (IncrRef :: acc)) 
-          | StructRef _ -> aux pt et (compile_assignable_expr eh var_env (FetchFull :: IncrRef :: acc)) 
-          | ArrayRef _ -> aux pt et (compile_assignable_expr eh var_env (FetchFull :: IncrRef :: acc)) 
-          | Null -> aux pt et (compile_assignable_expr eh var_env acc) 
+          | VarRef _ -> aux pt et (compile_assignable_expr opteh var_env (IncrRef :: acc)) 
+          | StructRef _ -> aux pt et (compile_assignable_expr opteh var_env (FetchFull :: IncrRef :: acc)) 
+          | ArrayRef _ -> aux pt et (compile_assignable_expr opteh var_env (FetchFull :: IncrRef :: acc)) 
+          | Null -> aux pt et (compile_assignable_expr opteh var_env acc) 
         )
       )
     | _ -> compile_error "Insufficient arguments in call"
@@ -644,7 +668,7 @@ let rec compile_assignment target assign var_env acc =
 
 let compile_unassignable_expr expr env break continue cleanup acc =
   match expr with
-  | Assign (target, aexpr) -> compile_assignment target aexpr env.var_env acc
+  | Assign (target, aexpr) -> compile_assignment target (optimize_assignable_expr aexpr env.var_env) env.var_env acc
   | Call (n, aexprs) -> (
     match lookup_routine n env.routine_env with
     | None -> compile_error ("No such routine: " ^ n)
@@ -669,9 +693,10 @@ let compile_unassignable_expr expr env break continue cleanup acc =
   )
   | Print expr -> (
     let (_, expr_ty) = type_assignable_expr expr env.var_env in
+    let opte = optimize_assignable_expr expr env.var_env in
     match expr_ty with
-    | T_Bool ->  compile_assignable_expr_as_value expr env.var_env (PrintBool :: acc)
-    | T_Int -> compile_assignable_expr_as_value expr env.var_env (PrintInt :: acc)
+    | T_Bool ->  compile_assignable_expr_as_value opte env.var_env (PrintBool :: acc)
+    | T_Int -> compile_assignable_expr_as_value opte env.var_env (PrintInt :: acc)
     | _ -> PlaceBool(false) :: PrintBool :: acc (* This is not as intended! *)
   )
 
@@ -691,22 +716,24 @@ let rec compile_declaration dec var_env acc =
     else let (expr_lock, expr_ty) = type_assignable_expr expr var_env in 
     if expr_lock && (not l) then compile_error "Cannot "
     else if not (type_equal ty expr_ty) then compile_error "Type mismatch in assignment"
-    else match ty with
-    | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr expr var_env (AssignFull :: acc))
-    | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr expr var_env (AssignByte :: acc))
-    | T_Array _ -> compile_assignable_expr expr var_env (IncrRef :: acc)
-    | T_Struct _ -> compile_assignable_expr expr var_env (IncrRef :: acc)
+    else let opte = optimize_assignable_expr expr var_env in
+    match ty with
+    | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
+    | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
+    | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
+    | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
     | _ -> compile_error ("Type mismatch on declaration: expected " ^ (type_string ty) ^ ", got " ^ (type_string expr_ty)) 
   )
   | VarDeclaration (l, n, expr) -> (
     if localvar_exists n var_env.locals then compile_error ("Duplicate variable name: " ^ n)
     else let (expr_lock, expr_ty) = type_assignable_expr expr var_env in
     if expr_lock && (not l) then compile_error "Cannot -" 
-    else match expr_ty with
-    | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr expr var_env (AssignFull :: acc))
-    | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr expr var_env (AssignByte :: acc))
-    | T_Array _ -> compile_assignable_expr expr var_env (IncrRef :: acc)
-    | T_Struct _ -> compile_assignable_expr expr var_env (IncrRef :: acc)
+    else let opte = optimize_assignable_expr expr var_env in
+    match expr_ty with
+    | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
+    | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
+    | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
+    | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
     | T_Null -> compile_error "Cannot declare the 'null' type"
   )
 

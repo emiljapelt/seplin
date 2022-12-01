@@ -1,8 +1,12 @@
 
 external test() {
 
-    for(i ::= 0; i < 10; i +:= 1) {
-        print i;
-    }
+    x: int;
+    add(1+1,2,x);
+    print x;
 
+}
+
+internal add(a: int, b: int, o: int) {
+    o := a + b;
 }
