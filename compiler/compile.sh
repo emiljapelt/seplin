@@ -16,4 +16,7 @@ ocamllex lexer.mll &&
 ocamlc -c lexer.ml &&
 ocamlc -c toProgramRep.ml &&
 
-ocamlc str.cma programRep.cmo exceptions.cmo assemblyParser.cmo assemblyLexer.cmo assemblyWriter.cmo absyn.cmo lexer.cmo parser.cmo toProgramRep.cmo compiler.ml -o inexc.exe
+ocamlc str.cma programRep.cmo exceptions.cmo assemblyParser.cmo assemblyLexer.cmo assemblyWriter.cmo absyn.cmo lexer.cmo parser.cmo toProgramRep.cmo compiler.ml -o inexc.exe &&
+mkdir -p ./bin &&
+mv ./*.cmo ./bin &&
+mv ./*.cmi ./bin
