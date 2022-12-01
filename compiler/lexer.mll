@@ -17,6 +17,7 @@
                           "while", WHILE;
                           "until", UNTIL;
                           "for", FOR;
+                          "repeat", REPEAT;
                           "stop", STOP;
                           "break", BREAK;
                           "continue", CONTINUE;

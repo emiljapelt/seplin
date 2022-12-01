@@ -2,6 +2,13 @@
   open Absyn
   open ProgramRep
   open Exceptions
+
+  type var_name_generator = { mutable next : int }
+  let vg = ( {next = 0;} )
+  let new_var () =
+    let number = vg.next in
+    let () = vg.next <- vg.next+1 in
+    Int.to_string number
 %}
 %token <int> CSTINT
 %token INT
@@ -16,7 +23,7 @@
 %token LOGIC_AND LOGIC_OR PIPE NOT VALUE
 %token COMMA DOT SEMI COLON EOF
 %token IF ELSE
-%token WHILE UNTIL FOR
+%token WHILE UNTIL FOR REPEAT
 %token BREAK CONTINUE
 %token LOCKED STRUCT VAR NULL NEW
 %token PRINT
@@ -154,6 +161,32 @@ stmt:
   | WHILE LPAR assignable_expression RPAR stmt               { While ($3, $5) }
   | UNTIL LPAR assignable_expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec assignable_expression SEMI unassignable_expression RPAR stmt    { Block([Declaration($3); Statement(While($4, Block([Statement($8); Statement(Expression($6));])));]) }
+  | REPEAT LPAR value RPAR stmt { 
+    let var_name = new_var () in
+    Block([
+      Declaration(TypeDeclaration(false, T_Int, var_name)); 
+      Statement(While(Value(Binary_op("<", Reference(VarRef var_name), Value $3)), 
+        Block([
+          Statement($5); 
+          Statement(Expression(Assign(VarRef(var_name), Value(Binary_op("+", Value(Int 1), Reference(VarRef var_name))))));
+        ])
+      ));
+    ]) 
+  }
+  | REPEAT LPAR reference RPAR stmt { 
+    let count_name = new_var () in
+    let limit_name = new_var () in
+    Block([
+      Declaration(AssignDeclaration(false, T_Int, limit_name, Value(Lookup($3)))); 
+      Declaration(TypeDeclaration(false, T_Int, count_name)); 
+      Statement(While(Value(Binary_op("<", Reference(VarRef count_name), Reference(VarRef limit_name))), 
+        Block([
+          Statement($5); 
+          Statement(Expression(Assign(VarRef count_name, Value(Binary_op("+", Value(Int 1), Reference(VarRef count_name))))));
+        ])
+      ));
+    ]) 
+  }
 ;
 
 params:

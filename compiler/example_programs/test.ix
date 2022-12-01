@@ -1,12 +1,11 @@
 
 external test() {
 
-    x: int;
-    add(1+1,2,x);
-    print x;
+    x ::= 10;
+    repeat(x) {
+        print x;
+        repeat(x) print 0;
+        x -:= 1;
+    }
 
-}
-
-internal add(a: int, b: int, o: int) {
-    o := a + b;
 }

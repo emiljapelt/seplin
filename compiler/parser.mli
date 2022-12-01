@@ -39,6 +39,7 @@ type token =
   | WHILE
   | UNTIL
   | FOR
+  | REPEAT
   | BREAK
   | CONTINUE
   | LOCKED
