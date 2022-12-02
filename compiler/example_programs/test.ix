@@ -1,11 +1,44 @@
 
-external test() {
+struct tuple(fst: int, snd: int);
 
-    x ::= 10;
-    repeat(x) {
-        print x;
-        repeat(x) print 0;
-        x -:= 1;
+external test() {
+    x ::= new tuple(1,2);
+    inner(x);
+}
+
+internal inner(a: tuple) {
+    b ::= new tuple(3,4);
+
+    {
+        do_things(b.snd);
     }
 
+    print a.fst;
+    print a.snd;
+    print b.fst;
+    print b.snd;
+}
+
+internal do_things(y: int) {
+    y := 5;
+}
+
+
+external ass() {
+    t ::= new tuple(1,2);
+    x ::= 5;
+    y: int;
+
+    y := x;
+    y := t.fst;
+
+    print t.fst;
+    print t.snd;
+    print x;
+    print y;
+
+    t.fst := 6;
+
+    print t.fst;
+    print y;
 }
