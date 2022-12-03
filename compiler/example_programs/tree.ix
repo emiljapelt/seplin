@@ -5,6 +5,8 @@ external main() {
     tree: binary_tree;
 
     add(tree, 4);
+    add(tree, 8);
+    add(tree, 2);
 
     for(i: int := 0; i < 10; i +:= 1) {
         contains: bool;
@@ -26,10 +28,12 @@ internal add(tree: binary_tree, element: int) {
     else {
         if (element = tree.element) stop;
         if (element < tree.element) {
-            add(tree.left, element);
+            if (tree.left = null) tree.left := new binary_tree(null, $element, null);
+            else add(tree.left, element);
         }
         else {
-            add(tree.right, element);
+            if (tree.right = null) tree.right := new binary_tree(null, $element, null);
+            else add(tree.right, element);
         }
     }
 }

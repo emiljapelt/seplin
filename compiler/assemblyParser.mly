@@ -111,26 +111,40 @@ program:
     | ASSIGN_HALF program { Instruction(22) :: $2 }
     | ASSIGN_SHORT program { Instruction(23) :: $2 }
     | ASSIGN_BYTE program { Instruction(24) :: $2 }
-    | FIELD_ASSIGN program { Instruction(25) :: $2 }
-    | INT_ADD program { Instruction(26) :: $2 }
-    | INT_MUL program { Instruction(27) :: $2 }
-    | INT_SUB program { Instruction(28) :: $2 }
-    | INT_EQ program { Instruction(29) :: $2 }
-    | INT_LT program { Instruction(30) :: $2 }
-    | BOOL_EQ program { Instruction(31) :: $2 }
-    | BOOL_NOT program { Instruction(32) :: $2 }
-    | BOOL_AND program { Instruction(33) :: $2 }
-    | BOOL_OR program { Instruction(34) :: $2 }
-    | GETSP program { Instruction(35) :: $2 }
-    | GETBP program { Instruction(36) :: $2 }
-    | MODSP CST_INT program { IntInstruction(37, $2) :: $3 }
-    | FREE_VAR program { Instruction(38) :: $2 }
-    | FREE_VARS CST_INT program { IntInstruction(39, $2) :: $3 }
-    | PRINT_VAR program { Instruction(40) :: $2 }
-    | PRINT_INT program { Instruction(41) :: $2 }
-    | PRINT_BOOL program { Instruction(42) :: $2 }
-    | STACK_FETCH CST_INT program { IntInstruction(43, $2) :: $3 }
-    | BP_FETCH CST_INT program { IntInstruction(44, $2) :: $3 }
+    | REF_ASSIGN program { Instruction(25) :: $2 }
+    | FIELD_ASSIGN program { Instruction(26) :: $2 }
+    | INT_ADD program { Instruction(27) :: $2 }
+    | INT_MUL program { Instruction(28) :: $2 }
+    | INT_SUB program { Instruction(29) :: $2 }
+    | INT_EQ program { Instruction(30) :: $2 }
+    | INT_LT program { Instruction(31) :: $2 }
+    | BOOL_EQ program { Instruction(32) :: $2 }
+    | BOOL_NOT program { Instruction(33) :: $2 }
+    | BOOL_AND program { Instruction(34) :: $2 }
+    | BOOL_OR program { Instruction(35) :: $2 }
+    | GETSP program { Instruction(36) :: $2 }
+    | GETBP program { Instruction(37) :: $2 }
+    | MODSP CST_INT program { IntInstruction(38, $2) :: $3 }
+    | FREE_VAR program { Instruction(39) :: $2 }
+    | FREE_VARS CST_INT program { IntInstruction(40, $2) :: $3 }
+    | PRINT_VAR program { Instruction(41) :: $2 }
+    | PRINT_INT program { Instruction(42) :: $2 }
+    | PRINT_BOOL program { Instruction(43) :: $2 }
+    | STACK_FETCH CST_INT program { IntInstruction(44, $2) :: $3 }
+    | BP_FETCH CST_INT program { IntInstruction(45, $2) :: $3 }
+    | SIZE_OF program { Instruction(46) :: $2 }
+    | TO_START program { Instruction(47) :: $2 }
+    | REF_FETCH program { Instruction(48) :: $2 }
+    | INCR_REF program { Instruction(49) :: $2 }
+    
+    
+    
+    
+    
+    
+    
+    
+    
 ;
 
 type_list:
