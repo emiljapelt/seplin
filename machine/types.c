@@ -1,7 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "defs.h"
 #include "memory.h"
 #include "types.h"
 
@@ -13,11 +12,11 @@ char* type_name(char index) {
     }
 }
 
-word parse_int(char* str) {
+ufull_t parse_int(char* str) {
     return atoi(str);
 }
 
-byte parse_bool(char* str) {
+byte_t parse_bool(char* str) {
     if (strcmp(str, "true") == 0) {
         return 1;
     }

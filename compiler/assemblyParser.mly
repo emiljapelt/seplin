@@ -36,6 +36,7 @@
 %token ASSIGN_HALF
 %token ASSIGN_SHORT
 %token ASSIGN_BYTE
+%token REF_ASSIGN
 %token FIELD_ASSIGN
 %token INT_ADD
 %token INT_MUL
@@ -56,6 +57,10 @@
 %token PRINT_BOOL
 %token STACK_FETCH
 %token BP_FETCH
+%token SIZE_OF
+%token TO_START
+%token REF_FETCH
+%token INCR_REF
 %token EOF
 
 %start main

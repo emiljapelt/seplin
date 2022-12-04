@@ -3,91 +3,107 @@
 #include <stdio.h>
 
 #include "memory.h"
-#include "defs.h"
 #include "types.h"
 
-byte* heap_min;
-byte* heap_max;
-byte* stack_base;
+byte_t* heap_min;
+byte_t* heap_max;
+byte_t* stack_base;
 
-void memory_init(byte* sb) {
+void memory_init(byte_t* sb) {
     stack_base = sb;
-    heap_max = (byte*)0;
-    heap_min = (byte*)ULONG_MAX;
+    heap_max = (byte_t*)0;
+    heap_min = (byte_t*)ULONG_MAX;
 }
 
-byte* allocate_simple(byte type) {
+byte_t* allocate_simple(byte_t type) {
     unsigned int total_size = 8+SIZE(type);
-    byte* alloc = (byte*)malloc(total_size);
+    byte_t* alloc = (byte_t*)malloc(total_size);
     if (alloc+total_size > heap_max) heap_max = alloc+total_size;
     if (alloc < heap_min) heap_min = alloc;
 
-    byte* b = alloc+8;
+    byte_t* b = alloc+8;
     for(unsigned int i = 0; i < total_size-8; i++) b[i] = 0;
 
-    uword header = 0ull << 32;  // reference count
-    header = header | ((uword)SIZE(type) << 1); // payload size in bytes, and 0 for non struct
-
-    *((uword*)alloc) = header;
+    #if defined(ENV64)
+        *((uhalf_t*)alloc) = 0; // referecne count
+        *(((uhalf_t*)alloc)+1) = ((uhalf_t)SIZE(type) << 1); // byte size and non-struct mark
+    #elif defined(ENV32)
+        // ufull_t instead of uhalf_t
+        #error "Error: The INEX virtual machine does not yet support 32bit architectures."
+    #else
+        #error "Error: Could not resolve architecture size (32/64bit)."
+    #endif
 
     return alloc+8;
 }
 
-byte* allocate_struct(unsigned int fields) {
-    unsigned int total_size = 8+(fields*8);
-    byte* alloc = (byte*)malloc(total_size);
+byte_t* allocate_struct(unsigned int fields) {
+    unsigned int total_size = 8+(fields*SIZE(FULL));
+    byte_t* alloc = (byte_t*)malloc(total_size);
     if (alloc+total_size > heap_max) heap_max = alloc+total_size;
     if (alloc < heap_min) heap_min = alloc;
 
-    uword* field = ((uword*)alloc)+1;
+    ufull_t* field = ((ufull_t*)alloc)+1;
     for(unsigned int i = 0; i < fields; i++) field[i] = 0;
 
-    uword header = 0ull << 32;  // reference count
-    header = header | ((((uword)fields) << 1) | 1); // amount of fields, and 1 for struct marking
-
-    *((uword*)alloc) = header;
+    #if defined(ENV64)
+        *((uhalf_t*)alloc) = 0; // reference count
+        *(((uhalf_t*)alloc)+1) = ((((uhalf_t)fields) << 1) | 1); // field count and struct mark
+    #elif defined(ENV32)
+        // ufull_t instead of uhalf_t
+        #error "Error: The INEX virtual machine does not yet support 32bit architectures."
+    #else
+        #error "Error: Could not resolve architecture size (32/64bit)."
+    #endif
 
     return alloc+8;
 }
 
-void try_free(word* addr, uword sp, unsigned int depth, byte trace) {
+void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace) {
     if (addr == 0) return;
     if (*addr == 0) return;
     to_origin(&addr, sp);
-    if (!ON_HEAP((byte*)addr)) addr = (word*)*addr;
+    if (!ON_HEAP((byte_t*)addr)) addr = (full_t*)*addr;
     if (trace) {
         for(unsigned int i = 0; i < depth; i++) printf("  ");
-        printf("Trying to free: 0x%llx\n", (uword)addr);
+        printf("Trying to free: 0x%llx\n", (ufull_t)addr);
     }
 
     DECR_REF_COUNT(addr);
     if (REF_COUNT(addr)) return;
     if (IS_STRUCT(addr)) {
         unsigned int fields = ALLOC_SIZE(addr);
-        word** point = (word**)addr;
+        full_t** point = (full_t**)addr;
         for(int i = 0; i < fields; i++) try_free(*(point + i), sp, depth+1, trace);
     }
     if (trace) {
         for(unsigned int i = 0; i < depth; i++) printf("  ");
-        printf("Freeing: 0x%llx\n", (uword)addr);
+        printf("Freeing: 0x%llx\n", (ufull_t)addr);
     }
-    free(addr-1);
+    #if defined(ENV64)
+        free(addr-1);
+    #elif defined(ENV32)
+        // -2 instead of -1
+        #error "Error: The INEX virtual machine does not yet support 32bit architectures."
+    #else
+        #error "Error: Could not resolve architecture size (32/64bit)."
+    #endif
 }
 
 // * is the variable
 // ** is the stack value
-byte to_origin(word** target, uword sp) {
+byte_t to_origin(full_t** target, ufull_t sp) {
     if (**target == 0) return true;
-    if (!ON_HEAP((byte*)**target) && !ON_STACK((byte*)**target, sp)) return false;
-    if (ON_HEAP((byte*)**target)) return true;
-    if (ON_STACK((byte*)**target, sp)) {
-        word temp = **target;
+    if (!ON_HEAP((byte_t*)**target) && !ON_STACK((byte_t*)**target, sp)) return false;
+    if (ON_HEAP((byte_t*)**target)) return true;
+    if (ON_STACK((byte_t*)**target, sp)) {
+        full_t temp = **target;
         while(true) {
-            if (*(byte**)temp == 0) break;
-            if (ON_HEAP(*(byte**)temp)) break;
-            temp = *(word*)temp;
+            if (*(byte_t**)temp == 0) break;
+            if (ON_HEAP(*(byte_t**)temp)) break;
+            temp = *(full_t*)temp;
         }
-        *target = (word*)temp;
+        *target = (full_t*)temp;
         return true;
     }
 }

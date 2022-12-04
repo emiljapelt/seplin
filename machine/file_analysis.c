@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "defs.h"
+#include "memory.h"
 #include "types.h"
 
-void find_global_vars_start(byte* ptr, byte** progresser) {
-    word entry_points = ((word*)ptr)[0];
+void find_global_vars_start(byte_t* ptr, byte_t** progresser) {
+    full_t entry_points = ((full_t*)ptr)[0];
     ptr += 8;
 
     int i = 0;
@@ -22,13 +22,13 @@ void find_global_vars_start(byte* ptr, byte** progresser) {
     *progresser = ptr;
 }
 
-void find_instruction_start(byte* ptr, byte** progresser) {
-    word variables = ((word*)ptr)[0];
+void find_instruction_start(byte_t* ptr, byte_t** progresser) {
+    full_t variables = ((full_t*)ptr)[0];
     ptr += 8;
 
     int i = 0;
     while (i < variables) {
-        byte type = *ptr;
+        byte_t type = *ptr;
         switch (type){
             case BOOL:
                 ptr += 2;
@@ -44,8 +44,8 @@ void find_instruction_start(byte* ptr, byte** progresser) {
     *progresser = ptr;
 }
 
-word* find_entry_point(byte* ptr, char* routine) {
-    word entry_points = ((word*)ptr)[0];
+full_t* find_entry_point(byte_t* ptr, char* routine) {
+    full_t entry_points = ((full_t*)ptr)[0];
     ptr += 8;
 
     int i = 0;
@@ -56,7 +56,7 @@ word* find_entry_point(byte* ptr, char* routine) {
                 if (*ptr == 0b00000000) {ptr++; break;}
                 else ptr++;
             }
-            return ((word*)ptr);
+            return ((full_t*)ptr);
         }
         else {
             // Skip to next entry point
@@ -75,7 +75,7 @@ word* find_entry_point(byte* ptr, char* routine) {
 }
 
 void print_entry_points(char* ptr) {
-    word entry_points = ((word*)ptr)[0];
+    full_t entry_points = ((full_t*)ptr)[0];
     ptr += 8;
 
     int i = 0;
@@ -87,7 +87,7 @@ void print_entry_points(char* ptr) {
         }
         printf("( ");
 
-        word addr = ((word*)ptr)[0];
+        full_t addr = ((full_t*)ptr)[0];
         ptr += 8;
 
         char argc = *ptr;

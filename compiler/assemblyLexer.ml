@@ -39,6 +39,7 @@
                             "ASSIGN_HALF",      ASSIGN_HALF;
                             "ASSIGN_SHORT",     ASSIGN_SHORT;
                             "ASSIGN_BYTE",      ASSIGN_BYTE;
+                            "REF_ASSIGN",       REF_ASSIGN;
                             "FIELD_ASSIGN",     FIELD_ASSIGN;
                             "INT_ADD",          INT_ADD;
                             "INT_MUL",          INT_MUL;
@@ -59,11 +60,15 @@
                             "PRINT_BOOL",       PRINT_BOOL;
                             "STACK_FETCH",      STACK_FETCH;
                             "BP_FETCH",         BP_FETCH;
+                            "SIZE_OF",          SIZE_OF;
+                            "TO_START",         TO_START;
+                            "REF_FETCH",        REF_FETCH;
+                            "INCR_REF",         INCR_REF;
                         ]
 
     let line_num = ref 1
 
-# 67 "assemblyLexer.ml"
+# 72 "assemblyLexer.ml"
 let __ocaml_lex_tables = {
   Lexing.lex_base =
    "\000\000\244\255\245\255\075\000\160\000\235\000\054\001\129\001\
@@ -527,88 +532,88 @@ let rec lex lexbuf =
 and __ocaml_lex_lex_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 66 "assemblyLexer.mll"
+# 71 "assemblyLexer.mll"
                                                 ( lex lexbuf )
-# 533 "assemblyLexer.ml"
+# 538 "assemblyLexer.ml"
 
   | 1 ->
-# 67 "assemblyLexer.mll"
+# 72 "assemblyLexer.mll"
                                                 ( incr line_num; lex lexbuf )
-# 538 "assemblyLexer.ml"
+# 543 "assemblyLexer.ml"
 
   | 2 ->
 let
-# 68 "assemblyLexer.mll"
+# 73 "assemblyLexer.mll"
                             lxm
-# 544 "assemblyLexer.ml"
+# 549 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 68 "assemblyLexer.mll"
+# 73 "assemblyLexer.mll"
                                                 ( CST_INT (int_of_string lxm) )
-# 548 "assemblyLexer.ml"
-
-  | 3 ->
-# 69 "assemblyLexer.mll"
-                                                ( CST_BOOL true )
 # 553 "assemblyLexer.ml"
 
-  | 4 ->
-# 70 "assemblyLexer.mll"
-                                                ( CST_BOOL false )
+  | 3 ->
+# 74 "assemblyLexer.mll"
+                                                ( CST_BOOL true )
 # 558 "assemblyLexer.ml"
 
-  | 5 ->
-# 71 "assemblyLexer.mll"
-                                                ( INT )
+  | 4 ->
+# 75 "assemblyLexer.mll"
+                                                ( CST_BOOL false )
 # 563 "assemblyLexer.ml"
 
-  | 6 ->
-# 72 "assemblyLexer.mll"
-                                                ( BOOL )
+  | 5 ->
+# 76 "assemblyLexer.mll"
+                                                ( INT )
 # 568 "assemblyLexer.ml"
+
+  | 6 ->
+# 77 "assemblyLexer.mll"
+                                                ( BOOL )
+# 573 "assemblyLexer.ml"
 
   | 7 ->
 let
-# 73 "assemblyLexer.mll"
+# 78 "assemblyLexer.mll"
                              id
-# 574 "assemblyLexer.ml"
+# 579 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 74 "assemblyLexer.mll"
+# 79 "assemblyLexer.mll"
                 ( try
                     Hashtbl.find meta_table id
                   with Not_found -> syntax_error ("Unknown meta symbol \'" ^ id ^ "\'") line_num)
-# 580 "assemblyLexer.ml"
+# 585 "assemblyLexer.ml"
 
   | 8 ->
 let
-# 77 "assemblyLexer.mll"
+# 82 "assemblyLexer.mll"
                                       id
-# 586 "assemblyLexer.ml"
+# 591 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 78 "assemblyLexer.mll"
+# 83 "assemblyLexer.mll"
                 ( try
                     Hashtbl.find instruction_table id
                   with Not_found -> syntax_error ("Unknown instruction \'" ^ id ^ "\'") line_num )
-# 592 "assemblyLexer.ml"
+# 597 "assemblyLexer.ml"
 
   | 9 ->
 let
-# 81 "assemblyLexer.mll"
+# 86 "assemblyLexer.mll"
                                                                   name
-# 598 "assemblyLexer.ml"
+# 603 "assemblyLexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 81 "assemblyLexer.mll"
+# 86 "assemblyLexer.mll"
                                                                          ( NAME name )
-# 602 "assemblyLexer.ml"
-
-  | 10 ->
-# 82 "assemblyLexer.mll"
-                        ( syntax_error "Unknown token" line_num)
 # 607 "assemblyLexer.ml"
 
-  | 11 ->
-# 83 "assemblyLexer.mll"
-                        ( EOF )
+  | 10 ->
+# 87 "assemblyLexer.mll"
+                        ( syntax_error "Unknown token" line_num)
 # 612 "assemblyLexer.ml"
+
+  | 11 ->
+# 88 "assemblyLexer.mll"
+                        ( EOF )
+# 617 "assemblyLexer.ml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf;
       __ocaml_lex_lex_rec lexbuf __ocaml_lex_state

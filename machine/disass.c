@@ -3,11 +3,10 @@
 #include "disass.h"
 #include "file_analysis.h"
 #include "ISA.h"
-#include "defs.h"
 #include "types.h"
 
-void dissas(byte* p, word file_len) {
-    byte* temp = p;
+void dissas(byte_t* p, full_t file_len) {
+    byte_t* temp = p;
     int diff = 0;
     printf("    ENTRY POINTS:\n");
     print_entry_points(p);
@@ -16,18 +15,18 @@ void dissas(byte* p, word file_len) {
     p += temp-p;
     file_len -= diff;
     int offset = 0;
-    word globvars = p[offset];
+    full_t globvars = p[offset];
     offset += 8;
     printf("\n    GLOBAL VARIABLES:\n");
     for(int i = 0; i < globvars; i++) {
-        byte type = ((byte*)p)[offset++];
+        byte_t type = ((byte_t*)p)[offset++];
         switch (type) {
             case BOOL:;
-                char* b_value = (((byte*)p)[offset++]) ? "true" : "false";
+                char* b_value = (((byte_t*)p)[offset++]) ? "true" : "false";
                 printf("%s: %s\n", type_name(type), b_value);
                 break;
             case INT:;
-                word i_value = p[offset];
+                full_t i_value = p[offset];
                 offset += 8;
                 printf("%s: %lli\n", type_name(type), i_value);
                 break;
@@ -45,7 +44,7 @@ void dissas(byte* p, word file_len) {
         char* name_string = instruction_to_string(p[i]);
         switch (p[i]) {
             case PLACE_BOOL:
-                printf("%i: %s %x\n", i, name_string, *((byte*)(p+i+1)));
+                printf("%i: %s %x\n", i, name_string, *((byte_t*)(p+i+1)));
                 i+=1;
                 break;
             case CALL:
@@ -56,7 +55,7 @@ void dissas(byte* p, word file_len) {
             case FREE_VARS:
             case STACK_FETCH:
             case BP_FETCH:
-                printf("%i: %s %lld\n", i, name_string, *((word*)(p+i+1)));
+                printf("%i: %s %lld\n", i, name_string, *((full_t*)(p+i+1)));
                 i+=8;
                 break;
             default:

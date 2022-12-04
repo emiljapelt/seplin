@@ -5,7 +5,6 @@
 
 #include "ISA.h"
 #include "types.h"
-#include "defs.h"
 #include "disass.h"
 #include "memory.h"
 #include "file_analysis.h"
@@ -15,7 +14,7 @@
 
 #define STACKSIZE 80000
 
-void load_file(char* file_name, byte** out_file, word* out_len) {
+void load_file(char* file_name, byte_t** out_file, full_t* out_len) {
     FILE* fp;
     char* buffer;
     long numbytes;
@@ -27,7 +26,7 @@ void load_file(char* file_name, byte** out_file, word* out_len) {
     fseek(fp, 0L, SEEK_END);
     numbytes = ftell(fp);
     fseek(fp, 0L, SEEK_SET);	
-    buffer = (byte*)calloc(numbytes, sizeof(char));	
+    buffer = (byte_t*)calloc(numbytes, sizeof(char));	
     
     if(buffer == NULL) { out_file = 0; return; }
     
@@ -38,21 +37,21 @@ void load_file(char* file_name, byte** out_file, word* out_len) {
     *out_len = numbytes;
 }
 
-void print_stack(byte* stack, uword bp, uword sp) {
-    printf("V %llx\n", (word)stack);
+void print_stack(byte_t* stack, ufull_t bp, ufull_t sp) {
+    printf("V %llx\n", (full_t)stack);
     printf("[");
-    uword i = 0;
-    word to_top = sp - (sp % 8);
+    ufull_t i = 0;
+    full_t to_top = sp - (sp % 8);
     while(i < to_top) {
         if (i == bp) printf("bp>");
-        printf("0x%llx, ", *(word*)(stack + i));
+        printf("0x%llx, ", *(full_t*)(stack + i));
         i+=8;
     }
     if (to_top != sp) {
         printf("| ");
-        byte x = 0;
+        byte_t x = 0;
         while(x < sp % 8) {
-            printf("0x%x, ", *(byte*)(stack + i + x));
+            printf("0x%x, ", *(byte_t*)(stack + i + x));
             x++;
         }
     }
@@ -79,16 +78,16 @@ void print_help() {
     printf("%s", message);
 }
 
-int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument_count, byte trace, byte time) {    
-    uword ip = 0;
-    uword sp = 0;
-    uword bp = 0;
-    uword depth = 0;
+int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int argument_count, byte_t trace, byte_t time) {    
+    ufull_t ip = 0;
+    ufull_t sp = 0;
+    ufull_t bp = 0;
+    ufull_t depth = 0;
 
     if (trace) { print_stack(stack, bp, sp); printf("\n"); }
 
     while(true) {
-        byte i = p[ip];
+        byte_t i = p[ip];
 
         if (sp < bp) { printf("Failure: stack underflow!\n"); return -1; }
         if (sp > STACKSIZE) { printf("Failure: stack overflow!\n"); return -1; }
@@ -107,48 +106,48 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                     return 0;
                 }
 
-                uword i = sp - MOVE(FULL, 1);
+                ufull_t i = sp - MOVE(FULL, 1);
                 while (i >= bp) {
-                    try_free(*((word**)(stack+i)), sp, 0, trace);
+                    try_free(*((full_t**)(stack+i)), sp, 0, trace);
                     i -= MOVE(FULL, 1);
                 }
 
                 depth--;
-                uword old_bp = *(word*)(stack + bp + MOVE(FULL, -1));
-                uword next_ip = *(word*)(stack + bp + MOVE(FULL, -2));;
+                ufull_t old_bp = *(full_t*)(stack + bp + MOVE(FULL, -1));
+                ufull_t next_ip = *(full_t*)(stack + bp + MOVE(FULL, -2));;
                 sp = bp - MOVE(FULL, 2);
                 bp = old_bp;
                 ip = next_ip;
                 break;
             }
             case CALL: {
-                word arg_count = *(word*)(stack + sp + MOVE(FULL, -1));
+                full_t arg_count = *(full_t*)(stack + sp + MOVE(FULL, -1));
                 sp += MOVE(FULL, 1);
 
                 for(int i = 0; i < arg_count; i++) {
-                    word* arg = *(word**)(stack + sp + MOVE(FULL, -3-i));
+                    full_t* arg = *(full_t**)(stack + sp + MOVE(FULL, -3-i));
                     // to_origin(&arg, sp);
                     // if (*arg) INCR_REF_COUNT(*arg);
-                    *(word*)(stack + sp + MOVE(FULL, -1-i)) = (word)(arg);
+                    *(full_t*)(stack + sp + MOVE(FULL, -1-i)) = (full_t)(arg);
                 }
 
-                *(word*)((stack + sp) - MOVE(FULL, arg_count+2)) = ip+9;
-                *(word*)((stack + sp) - MOVE(FULL, arg_count+1)) = (word)bp;
+                *(full_t*)((stack + sp) - MOVE(FULL, arg_count+2)) = ip+9;
+                *(full_t*)((stack + sp) - MOVE(FULL, arg_count+1)) = (full_t)bp;
 
                 depth++;
                 bp = sp - MOVE(FULL, arg_count);
-                ip = *(word*)(p+ip+1);
+                ip = *(full_t*)(p+ip+1);
                 break;
             }
             case GOTO: {
-                word target = *(word*)(p + ip + 1);
+                full_t target = *(full_t*)(p + ip + 1);
                 ip = target;
                 break;
             }
             case IF_TRUE: {
-                if (*(byte*)(stack + sp + MOVE(BYTE, -1))) {
+                if (*(byte_t*)(stack + sp + MOVE(BYTE, -1))) {
                     sp -= MOVE(BYTE, 1);
-                    ip = *(word*)(p + ip + 1);
+                    ip = *(full_t*)(p + ip + 1);
                 }
                 else {
                     sp -= MOVE(BYTE, 1);
@@ -157,163 +156,163 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 break;
             }
             case PLACE_BOOL: {
-                word value = *(byte*)(p + ip + 1);
-                *(byte*)(stack + sp) = value;
+                full_t value = *(byte_t*)(p + ip + 1);
+                *(byte_t*)(stack + sp) = value;
                 sp += MOVE(BYTE, 1);
                 ip += MOVE(BYTE, 1) + 1;
                 break;
             }
             case PLACE_INT: {
-                word value = *(word*)(p + ip + 1);
-                *(word*)(stack + sp) = value;
+                full_t value = *(full_t*)(p + ip + 1);
+                *(full_t*)(stack + sp) = value;
                 sp += MOVE(FULL, 1);
                 ip += MOVE(FULL, 1) + 1;
                 break;
             }
             case CLONE_FULL: {
-                word value = *(word*)(stack + sp + MOVE(FULL, -1));
-                *(word*)(stack + sp) = value;
+                full_t value = *(full_t*)(stack + sp + MOVE(FULL, -1));
+                *(full_t*)(stack + sp) = value;
                 sp += MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case CLONE_HALF: {
-                byte value = *(byte*)(stack + sp + MOVE(HALF, -1));
-                *(byte*)(stack + sp) = value;
+                byte_t value = *(byte_t*)(stack + sp + MOVE(HALF, -1));
+                *(byte_t*)(stack + sp) = value;
                 sp += MOVE(HALF, 1);
                 ip++;
                 break;
             }
             case CLONE_SHORT: {
-                byte value = *(byte*)(stack + sp + MOVE(SHORT, -1));
-                *(byte*)(stack + sp) = value;
+                byte_t value = *(byte_t*)(stack + sp + MOVE(SHORT, -1));
+                *(byte_t*)(stack + sp) = value;
                 sp += MOVE(SHORT, 1);
                 ip++;
                 break;
             }
             case CLONE_BYTE: {
-                byte value = *(byte*)(stack + sp + MOVE(BYTE, -1));
-                *(byte*)(stack + sp) = value;
+                byte_t value = *(byte_t*)(stack + sp + MOVE(BYTE, -1));
+                *(byte_t*)(stack + sp) = value;
                 sp += MOVE(BYTE, 1);
                 ip++;
                 break;
             }
             case FETCH_FULL: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                *(word*)(stack + sp + MOVE(FULL, -1)) = *((word*)target);
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
+                *(full_t*)(stack + sp + MOVE(FULL, -1)) = *((full_t*)target);
                 ip++;
                 break;
             }
             case FETCH_HALF: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                *(byte*)(stack + sp + MOVE(FULL, -1)) = *((short*)target);
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
+                *(half_t*)(stack + sp + MOVE(FULL, -1)) = *((half_t*)target);
                 sp -= MOVE(HALF, 1);
                 ip++;
                 break;
             }
             case FETCH_SHORT: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                *(byte*)(stack + sp + MOVE(FULL, -1)) = *((short*)target);
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
+                *(short_t*)(stack + sp + MOVE(FULL, -1)) = *((short_t*)target);
                 sp -= MOVE(SHORT, 3);
                 ip++;
                 break;
             }
             case FETCH_BYTE: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                *(byte*)(stack + sp + MOVE(FULL, -1)) = *((byte*)target);
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
+                *(byte_t*)(stack + sp + MOVE(FULL, -1)) = *((byte_t*)target);
                 sp -= MOVE(BYTE, 7);
                 ip++;
                 break;
             }
             case FIELD_FETCH: {
-                uword offset = *(uword*)(stack + sp + MOVE(FULL, -1));
-                word** target = *((word***)(stack + sp + MOVE(FULL, -2)));
+                ufull_t offset = *(ufull_t*)(stack + sp + MOVE(FULL, -1));
+                full_t** target = *((full_t***)(stack + sp + MOVE(FULL, -2)));
 
                 if (!IS_STRUCT(target)) { printf("Failure: Field fetch from non-struct data\n"); return -1; } 
                 if (ALLOC_SIZE(target) <= offset) { printf("Failure: Field fetch out of struct bounds\n"); return -1; } 
 
-                *(word***)(stack + sp + MOVE(FULL, -2)) = target + offset;
+                *(full_t***)(stack + sp + MOVE(FULL, -2)) = target + offset;
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case REF_FETCH: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                if (ON_STACK((byte*)target, sp)) to_origin(&target, sp);
-                *(word**)(stack + sp + MOVE(FULL, -1)) = target;
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
+                if (ON_STACK((byte_t*)target, sp)) to_origin(&target, sp);
+                *(full_t**)(stack + sp + MOVE(FULL, -1)) = target;
                 ip++;
                 break;
             }
             case DECLARE_FULL: {
-                byte* alloc = allocate_simple(FULL);
-                *(word*)(stack + sp) = (word)((word*)alloc);
+                byte_t* alloc = allocate_simple(FULL);
+                *(full_t*)(stack + sp) = (full_t)((full_t*)alloc);
                 sp += MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case DECLARE_HALF: {
-                byte* alloc = allocate_simple(HALF);
-                *(word*)(stack + sp) = (word)((word*)alloc);
+                byte_t* alloc = allocate_simple(HALF);
+                *(full_t*)(stack + sp) = (full_t)((full_t*)alloc);
                 sp += MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case DECLARE_SHORT: {
-                byte* alloc = allocate_simple(SHORT);
-                *(word*)(stack + sp) = (word)((word*)alloc);
+                byte_t* alloc = allocate_simple(SHORT);
+                *(full_t*)(stack + sp) = (full_t)((full_t*)alloc);
                 sp += MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case DECLARE_BYTE: {
-                byte* alloc = allocate_simple(BYTE);
-                *(word*)(stack + sp) = (word)((word*)alloc);
+                byte_t* alloc = allocate_simple(BYTE);
+                *(full_t*)(stack + sp) = (full_t)((full_t*)alloc);
                 sp += MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case DECLARE_STRUCT: {
-                uword fields = *(uword*)(stack + sp + MOVE(FULL, -1));
-                byte* alloc = allocate_struct(fields);
-                *(word*)(stack + sp + MOVE(FULL, -1)) = (word)((word*)alloc);
+                ufull_t fields = *(ufull_t*)(stack + sp + MOVE(FULL, -1));
+                byte_t* alloc = allocate_struct(fields);
+                *(full_t*)(stack + sp + MOVE(FULL, -1)) = (full_t)((full_t*)alloc);
                 ip++;
                 break;
             }
             case ASSIGN_FULL: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1) + MOVE(FULL, -1));
-                word value = *(word*)(stack + sp + MOVE(FULL, -1));
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1) + MOVE(FULL, -1));
+                full_t value = *(full_t*)(stack + sp + MOVE(FULL, -1));
                 *target = value;
                 sp -= MOVE(FULL, 1) + MOVE (FULL, 1);
                 ip++;
                 break;
             }
             case ASSIGN_HALF: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1) + MOVE(HALF, -1));
-                byte value = *(byte*)(stack + sp + MOVE(HALF, -1));
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1) + MOVE(HALF, -1));
+                half_t value = *(half_t*)(stack + sp + MOVE(HALF, -1));
                 *target = value;
                 sp -= MOVE(FULL, 1) + MOVE (HALF, 1);
                 ip++;
                 break;
             }
             case ASSIGN_SHORT: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1) + MOVE(SHORT, -1));
-                byte value = *(byte*)(stack + sp + MOVE(SHORT, -1));
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1) + MOVE(SHORT, -1));
+                short_t value = *(short_t*)(stack + sp + MOVE(SHORT, -1));
                 *target = value;
                 sp -= MOVE(FULL, 1) + MOVE (SHORT, 1);
                 ip++;
                 break;
             }
             case ASSIGN_BYTE: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1) + MOVE(BYTE, -1));
-                byte value = *(byte*)(stack + sp + MOVE(BYTE, -1));
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1) + MOVE(BYTE, -1));
+                byte_t value = *(byte_t*)(stack + sp + MOVE(BYTE, -1));
                 *target = value;
                 sp -= MOVE(FULL, 1) + MOVE (BYTE, 1);
                 ip++;
                 break;
             }
             case REF_ASSIGN: {
-                word** target = *(word***)(stack + sp + MOVE(FULL, -2));
-                word* value = *(word**)(stack + sp + MOVE(FULL, -1));
+                full_t** target = *(full_t***)(stack + sp + MOVE(FULL, -2));
+                full_t* value = *(full_t**)(stack + sp + MOVE(FULL, -1));
 
                 try_free(*target, sp, 0, trace);
 
@@ -324,9 +323,9 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 break;
             }
             case FIELD_ASSIGN: {
-                uword** target = *(uword***)(stack + sp + MOVE(FULL, -3));
-                uword offset = *(uword*)(stack + sp + MOVE(FULL, -2));
-                word* value = *(uword**)(stack + sp + MOVE(FULL, -1));
+                ufull_t** target = *(ufull_t***)(stack + sp + MOVE(FULL, -3));
+                ufull_t offset = *(ufull_t*)(stack + sp + MOVE(FULL, -2));
+                full_t* value = *(ufull_t**)(stack + sp + MOVE(FULL, -1));
 
                 try_free(*(target + offset), sp, 0, trace);
 
@@ -337,97 +336,97 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 break;
             }
             case INT_ADD: {
-                word value = (*(word*)(stack + sp + MOVE(FULL, -1))) + (*(word*)(stack + sp + MOVE(FULL, -2)));
-                *(word*)(stack + sp + MOVE(FULL, -2)) = value;
+                full_t value = (*(full_t*)(stack + sp + MOVE(FULL, -1))) + (*(full_t*)(stack + sp + MOVE(FULL, -2)));
+                *(full_t*)(stack + sp + MOVE(FULL, -2)) = value;
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case INT_MUL: {
-                word value = (*(word*)(stack + sp + MOVE(FULL, -1))) * (*(word*)(stack + sp + MOVE(FULL, -2)));
-                *(word*)(stack + sp + MOVE(FULL, -2)) = value;
+                full_t value = (*(full_t*)(stack + sp + MOVE(FULL, -1))) * (*(full_t*)(stack + sp + MOVE(FULL, -2)));
+                *(full_t*)(stack + sp + MOVE(FULL, -2)) = value;
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case INT_SUB: {
-                word value = (*(word*)(stack + sp + MOVE(FULL, -1))) - (*(word*)(stack + sp + MOVE(FULL, -2)));
-                *(word*)(stack + sp + MOVE(FULL, -2)) = value;
+                full_t value = (*(full_t*)(stack + sp + MOVE(FULL, -1))) - (*(full_t*)(stack + sp + MOVE(FULL, -2)));
+                *(full_t*)(stack + sp + MOVE(FULL, -2)) = value;
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case INT_EQ: {
-                byte eq = (*(word*)(stack + sp + MOVE(FULL, -1))) == (*(word*)(stack + sp + MOVE(FULL, -2)));
+                byte_t eq = (*(full_t*)(stack + sp + MOVE(FULL, -1))) == (*(full_t*)(stack + sp + MOVE(FULL, -2)));
                 sp -= MOVE(FULL, 2);
-                *(byte*)(stack + sp) = eq; 
+                *(byte_t*)(stack + sp) = eq; 
                 sp += MOVE(BYTE, 1);
                 ip++;
                 break;
             }
             case INT_LT: {
-                byte lt = (*(word*)(stack + sp + MOVE(FULL, -1))) < (*(word*)(stack + sp + MOVE(FULL, -2)));
+                byte_t lt = (*(full_t*)(stack + sp + MOVE(FULL, -1))) < (*(full_t*)(stack + sp + MOVE(FULL, -2)));
                 sp -= MOVE(FULL, 2);
-                *(byte*)(stack + sp) = lt; 
+                *(byte_t*)(stack + sp) = lt; 
                 sp += MOVE(BYTE, 1);
                 ip++;
                 break;
             }
             case BOOL_EQ: {
-                byte eq = !!(*(stack + sp + MOVE(BYTE, -1))) == !!(*(stack + sp + MOVE(BYTE, -2)));
-                *(byte*)(stack + sp + MOVE(BYTE, -2)) = eq;
+                byte_t eq = !!(*(stack + sp + MOVE(BYTE, -1))) == !!(*(stack + sp + MOVE(BYTE, -2)));
+                *(byte_t*)(stack + sp + MOVE(BYTE, -2)) = eq;
                 sp -= MOVE(BYTE, 1);
                 ip++;
                 break;
             }
             case BOOL_NOT: {
-                *(byte*)(stack + sp + MOVE(BYTE, -1)) = !(*(stack + sp + MOVE(BYTE, -1)));
+                *(byte_t*)(stack + sp + MOVE(BYTE, -1)) = !(*(stack + sp + MOVE(BYTE, -1)));
                 ip++;
                 break;
             }
             case BOOL_AND: {
-                byte res = (*(stack + sp + MOVE(BYTE, -1))) && (*(stack + sp + MOVE(BYTE, -2)));
-                *(byte*)(stack + sp + MOVE(BYTE, -2)) = res;
+                byte_t res = (*(stack + sp + MOVE(BYTE, -1))) && (*(stack + sp + MOVE(BYTE, -2)));
+                *(byte_t*)(stack + sp + MOVE(BYTE, -2)) = res;
                 sp -= MOVE(BYTE, 1);
                 ip++;
                 break;
             }
             case BOOL_OR: {
-                byte res = (*(stack + sp + MOVE(BYTE, -1))) || (*(stack + sp + MOVE(BYTE, -2)));
-                *(byte*)(stack + sp + MOVE(BYTE, -2)) = res;
+                byte_t res = (*(stack + sp + MOVE(BYTE, -1))) || (*(stack + sp + MOVE(BYTE, -2)));
+                *(byte_t*)(stack + sp + MOVE(BYTE, -2)) = res;
                 sp -= MOVE(BYTE, 1);
                 ip++;
                 break;
             }
             case GETBP: {
-                *(word*)(stack + sp) = (word)bp;
+                *(full_t*)(stack + sp) = (full_t)bp;
                 sp += MOVE(FULL, 1);
                 ip++;
                 break;
             }
             // case GETSP: {
-            //     *(word*)(stack + sp) = (word)sp;
+            //     *(full_t*)(stack + sp) = (full_t)sp;
             //     sp += MOVE(FULL, 1);
             //     ip++;
             //     break;
             // }
             // case MODSP: {
-            //     word amount = *(word*)(p+ip+1);
+            //     full_t amount = *(full_t*)(p+ip+1);
             //     sp += amount;
             //     ip += MOVE(FULL, 1) + 1;
             //     break;
             // }
             case FREE_VAR: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
                 try_free(target, sp, 0, trace);
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case FREE_VARS: {
-                word count = *(word*)(p+ip+1);
+                full_t count = *(full_t*)(p+ip+1);
                 while (count > 0) {
-                    word* target = *(word**)(stack + sp + MOVE(FULL, -1));
+                    full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
                     try_free(target, sp, 0, trace);
                     sp -= MOVE(FULL, 1);
                     count--;
@@ -436,21 +435,21 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 break;
             }
             // case PRINT_VAR: {
-            //     word* target = *(word**)(stack + sp + MOVE(FULL, -1));
+            //     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
             //     print_var(target);
             //     sp -= MOVE(FULL, 1);
             //     ip++;
             //     break;
             // }
             case PRINT_INT: {
-                word value = *(word*)(stack + sp + MOVE(FULL, -1));
+                full_t value = *(full_t*)(stack + sp + MOVE(FULL, -1));
                 printf("%lld\n", value);
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case PRINT_BOOL: {
-                word value = *(byte*)(stack + sp + MOVE(BYTE, -1));
+                full_t value = *(byte_t*)(stack + sp + MOVE(BYTE, -1));
                 if (value) printf("true\n");
                 else printf("false\n");
                 sp -= MOVE(BYTE, 1);
@@ -458,30 +457,30 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 break;
             }
             case STACK_FETCH: {
-                word offset = *(word*)(p + ip + 1);
-                word* value = (word*)(stack + MOVE(FULL, offset));
-                *(word*)(stack + sp) = (word)value;
+                full_t offset = *(full_t*)(p + ip + 1);
+                full_t* value = (full_t*)(stack + MOVE(FULL, offset));
+                *(full_t*)(stack + sp) = (full_t)value;
                 sp += MOVE(FULL, 1);
                 ip += MOVE(FULL, 1) + 1;
                 break;
             }
             case BP_FETCH: {
-                word offset = *(word*)(p + ip + 1);
-                word* value = (word*)(stack + bp + MOVE(FULL, offset));
-                *(word*)(stack + sp) = (word)value;
+                full_t offset = *(full_t*)(p + ip + 1);
+                full_t* value = (full_t*)(stack + bp + MOVE(FULL, offset));
+                *(full_t*)(stack + sp) = (full_t)value;
                 sp += MOVE(FULL, 1);
                 ip += MOVE(FULL, 1) + 1;
                 break;
             }
             case SIZE_OF: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
-                *(word*)(stack + sp + MOVE(FULL, -1)) = ALLOC_SIZE(target);
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
+                *(full_t*)(stack + sp + MOVE(FULL, -1)) = ALLOC_SIZE(target);
                 ip++;
                 break;
             }
             case TO_START: {
                 for(short i = 0; i < argument_count; i++) {
-                    *(byte**)(stack + sp + MOVE(FULL, i)) = arguments[i];
+                    *(byte_t**)(stack + sp + MOVE(FULL, i)) = arguments[i];
                 }
                 bp = sp;
                 sp += MOVE(FULL, argument_count);
@@ -489,7 +488,7 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
                 break;
             }
             case INCR_REF: {
-                word* target = *(word**)(stack + sp + MOVE(FULL, -1));
+                full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
                 if (target) {
                     if (ON_HEAP(target)) {
                         INCR_REF_COUNT(target);
@@ -517,8 +516,8 @@ int run(byte* p, word entry_point, byte stack[], byte* arguments[], int argument
 // Call should be: 'inex <command> <file>.ixc arg1? arg2? ...'
 int main(int argc, char** argv) {
 
-    byte trace = false;
-    byte time = false;
+    byte_t trace = false;
+    byte_t time = false;
 
     short cmd_argument_count = 0;
     short flags = 0;
@@ -558,8 +557,8 @@ int main(int argc, char** argv) {
         case I: {
             if (cmd_argument_count != 2) { printf("Failure: Command 'i' requires 1 argument\n"); return -1; }
 
-            byte* file;
-            word file_len;
+            byte_t* file;
+            full_t file_len;
             load_file(cmd_arguments[1], &file, &file_len);
             if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;} 
 
@@ -569,8 +568,8 @@ int main(int argc, char** argv) {
         case DISASS: {
             if (cmd_argument_count != 2) { printf("Failure: Command 'disass' requires 1 argument\n"); return -1; }
 
-            byte* file;
-            word file_len;
+            byte_t* file;
+            full_t file_len;
             load_file(cmd_arguments[1], &file, &file_len);
             if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;}
 
@@ -580,48 +579,48 @@ int main(int argc, char** argv) {
         case RUN: {
             if (cmd_argument_count < 3) { printf("Failure: Command 'run' requires 2 or more arguments\n"); return -1; }
 
-            byte* file;
-            word file_len;
+            byte_t* file;
+            full_t file_len;
             load_file(cmd_arguments[1], &file, &file_len);
             if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;}
 
             //Find the requested entry point
-            word* entry_point_info = find_entry_point(file, cmd_arguments[2]);
+            full_t* entry_point_info = find_entry_point(file, cmd_arguments[2]);
             if (entry_point_info == 0) { printf("Failure: No such entry point: %s\n", cmd_arguments[2]); return -1; }
 
             // Gather entry point information
-            word entry_addr = entry_point_info[0];
+            full_t entry_addr = entry_point_info[0];
             char* argument_info = (char*)(entry_point_info+1);
             char argument_count = argument_info[0];
             if (argument_count != cmd_argument_count-3) { printf("Failure: Argument mismatch\n"); return -1; }
 
-            byte stack[STACKSIZE];
+            byte_t stack[STACKSIZE];
             memory_init(stack);
 
             // Load global variables
-            byte* progresser = file;
+            byte_t* progresser = file;
             find_global_vars_start(progresser, &progresser);
 
-            // byte* glob_var_ptr = progresser;
-            // word glob_var_count = *((word*)glob_var_ptr);
+            // byte_t* glob_var_ptr = progresser;
+            // full_t glob_var_count = *((full_t*)glob_var_ptr);
             // glob_var_ptr += 8;
             int i = 0;
             // while (i < glob_var_count) {
-            //     byte type = *glob_var_ptr;
+            //     byte_t type = *glob_var_ptr;
             //     glob_var_ptr += 1;
             //     switch (type){
             //         case BOOL: {
-            //             byte* alloc = allocate_simple(BYTE);
+            //             byte_t* alloc = allocate_simple(BYTE);
             //             *(alloc+1) = *glob_var_ptr;
             //             glob_var_ptr += MOVE(BYTE, 1);
-            //             *(word*)(stack + MOVE(FULL, i)) = (word)alloc;
+            //             *(full_t*)(stack + MOVE(FULL, i)) = (full_t)alloc;
             //             break;
             //         }
             //         case INT: {
-            //             byte* alloc = allocate_simple(FULL);
-            //             *((word*)(alloc+1)) = *(word*)glob_var_ptr;
+            //             byte_t* alloc = allocate_simple(FULL);
+            //             *((full_t*)(alloc+1)) = *(full_t*)glob_var_ptr;
             //             glob_var_ptr += MOVE(FULL, 1);
-            //             *(word*)(stack + MOVE(FULL, i)) = (word)alloc;
+            //             *(full_t*)(stack + MOVE(FULL, i)) = (full_t)alloc;
             //             break;
             //         }
             //         default:
@@ -633,26 +632,26 @@ int main(int argc, char** argv) {
             find_instruction_start(progresser, &progresser);
 
             // Load given arguments
-            byte* arguments[argument_count];
+            byte_t* arguments[argument_count];
             i = 0;
             while (i < argument_count) {
                 switch (argument_info[i+1]) {
                     case BOOL: {
-                        byte bool_v = parse_bool(cmd_arguments[i+3]);
+                        byte_t bool_v = parse_bool(cmd_arguments[i+3]);
                         if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", cmd_arguments[i+3]); return -1; }
-                        byte* bool_alloc = allocate_simple(BYTE);
+                        byte_t* bool_alloc = allocate_simple(BYTE);
                         *(bool_alloc) = bool_v;
-                        // *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)bool_alloc;
+                        // *(full_t*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (full_t)bool_alloc;
                         arguments[i] = bool_alloc;
                         INCR_REF_COUNT(bool_alloc);
                         break;
                     }
                     case INT: {
-                        word int_v = parse_int(cmd_arguments[i+3]);
+                        full_t int_v = parse_int(cmd_arguments[i+3]);
                         if (int_v == 0 && !(strcmp(cmd_arguments[i+3], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", cmd_arguments[i+3]); return -1; }
-                        byte* int_alloc = allocate_simple(FULL);
-                        *((word*)(int_alloc)) = int_v;
-                        // *(word*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (word)int_alloc;
+                        byte_t* int_alloc = allocate_simple(FULL);
+                        *((full_t*)(int_alloc)) = int_v;
+                        // *(full_t*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (full_t)int_alloc;
                         arguments[i] = int_alloc;
                         INCR_REF_COUNT(int_alloc);
                         break;

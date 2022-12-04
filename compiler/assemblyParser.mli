@@ -34,6 +34,7 @@ type token =
   | ASSIGN_HALF
   | ASSIGN_SHORT
   | ASSIGN_BYTE
+  | REF_ASSIGN
   | FIELD_ASSIGN
   | INT_ADD
   | INT_MUL
@@ -54,6 +55,10 @@ type token =
   | PRINT_BOOL
   | STACK_FETCH
   | BP_FETCH
+  | SIZE_OF
+  | TO_START
+  | REF_FETCH
+  | INCR_REF
   | EOF
 
 val main :
