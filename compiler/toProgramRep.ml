@@ -172,6 +172,7 @@ let rec type_string t =
   match t with
   | T_Bool -> "bool"
   | T_Int -> "int"
+  | T_Char -> "char"
   | T_Array arr_ty -> (type_string arr_ty)^"[]"
   | T_Struct n -> n
   | T_Null -> "null"
@@ -181,6 +182,7 @@ let rec type_equal type1 type2 =
     match (t1, t2) with
     | (T_Int, T_Int) -> true
     | (T_Bool, T_Bool) -> true
+    | (T_Char, T_Char) -> true
     | (T_Array at1, T_Array at2) -> type_equal at1 at2
     | (T_Struct n1, T_Struct n2) when n1 = n2 -> true
     | (T_Null, _) -> true
@@ -191,11 +193,12 @@ let default_value t =
   match t with
   | T_Int -> Value (Int 0)
   | T_Bool -> Value (Bool false)
+  | T_Char -> Value (Char '0')
   | _ -> Reference (Null)
 
 let simple_type t =
   match t with
-    | T_Int | T_Bool -> true
+    | T_Int | T_Bool | T_Char -> true
     | _ -> false
 
 let rec type_assignable_expr expr var_env =
@@ -263,6 +266,7 @@ and type_value val_expr var_env =
   )
   | Bool _ -> (false, T_Bool)
   | Int _ -> (false, T_Int)
+  | Char _ -> (false, T_Char)
   | Lookup (refer) -> type_reference refer var_env
   | NewArray (ty, _) -> (false, T_Array(ty))
   | NewStruct (name, _) -> (false, T_Struct(name))
@@ -296,6 +300,7 @@ let get_globvar_dependencies gvs =
       | ArraySize (refer) -> dependencies_from_assignable (Reference refer) acc
       | Bool _ -> acc
       | Int _ -> acc
+      | Char _ -> acc
       | Lookup (refer) -> dependencies_from_assignable (Reference refer) acc
       | NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
       | NewStruct (_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
@@ -383,6 +388,7 @@ and optimize_value expr var_env =
   | ArraySize _ -> Value(expr)
   | Bool _ -> Value(expr)
   | Int _ -> Value(expr)
+  | Char _ -> Value(expr)
   | Lookup _ -> Value(expr)
   | NewArray _ -> Value(expr)
   | NewStruct (_,_) -> Value(expr)
@@ -439,6 +445,7 @@ and compile_assignable_expr_as_value expr var_env acc =
     match ref_ty with
     | T_Int -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
     | T_Bool -> compile_reference r var_env (FetchFull :: FetchByte :: acc)
+    | T_Char -> compile_reference r var_env (FetchFull :: FetchByte :: acc)
     | T_Array _ -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
     | T_Struct _ -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
     | T_Null -> compile_reference r var_env acc
@@ -449,6 +456,7 @@ and compile_value val_expr var_env acc =
   match val_expr with
   | Bool b -> PlaceBool(b) :: acc
   | Int i -> PlaceInt(i) :: acc
+  | Char c -> PlaceChar(c) :: acc
   | ArraySize refer -> (
     let (_, ref_ty) = type_reference refer var_env in
     match ref_ty with
@@ -460,6 +468,7 @@ and compile_value val_expr var_env acc =
     match ref_ty with
     | T_Int -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Bool -> compile_assignable_expr_as_value (Reference refer) var_env acc
+    | T_Char -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Array ty -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Struct n -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Null -> compile_error ("Direct null pointer dereferencing")
@@ -539,6 +548,7 @@ let compile_arguments params exprs var_env acc =
         | Value _ -> ( match expr_ty with
           | T_Int -> aux pt et (DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignFull :: acc)))
           | T_Bool -> aux pt et (DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignByte :: acc)))
+          | T_Char -> aux pt et (DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignByte :: acc)))
           | T_Array _ -> aux pt et (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
           | T_Struct _ -> aux pt et (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
           | T_Null -> aux pt et (compile_assignable_expr_as_value opteh var_env (acc))
@@ -565,6 +575,7 @@ let rec compile_assignment target assign var_env acc =
   | (VarRef name, Value v) -> ( match assign_type with 
     | T_Int ->  compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignFull :: acc)))
     | T_Bool -> compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignByte :: acc)))
+    | T_Char -> compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignByte :: acc)))
     | T_Array _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
     | T_Struct _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
     | T_Null -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
@@ -572,6 +583,7 @@ let rec compile_assignment target assign var_env acc =
   | (VarRef name, Reference re) -> ( match assign_type with 
     | T_Int -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
     | T_Bool -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
+    | T_Char -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
     | T_Array _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
     | T_Struct _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
     | T_Null -> compile_reference target var_env (compile_reference re var_env (RefAssign :: acc))
@@ -583,6 +595,7 @@ let rec compile_assignment target assign var_env acc =
         | (field_lock,field_ty,index) -> ( match assign_type with
           | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))
           | T_Bool -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))
+          | T_Char -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))
           | T_Array _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
           | T_Struct _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
           | T_Null  -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
@@ -598,6 +611,7 @@ let rec compile_assignment target assign var_env acc =
         | (field_lock, field_ty, index) -> ( match assign_type with
           | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
           | T_Bool -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
+          | T_Char -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
           | T_Array _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
           | T_Struct _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
           | T_Null  -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FieldAssign :: acc)))
@@ -611,6 +625,7 @@ let rec compile_assignment target assign var_env acc =
       | (_,T_Int) -> ( match assign_type with
         | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))))
         | T_Bool -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))))
+        | T_Char -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))))
         | T_Array _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
         | T_Struct _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
         | T_Null -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (FieldAssign :: acc))))
@@ -624,6 +639,7 @@ let rec compile_assignment target assign var_env acc =
       | (_,T_Int) -> ( match assign_type with
         | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
         | T_Bool -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
+        | T_Char -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
         | T_Array _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
         | T_Struct _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
         | T_Null -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FieldAssign :: acc))))
@@ -658,13 +674,21 @@ let compile_unassignable_expr expr env break continue cleanup acc =
     | Some name -> FreeVars(cleanup) :: GoTo(name) :: acc
     | None -> compile_error "No loop to continue in"
   )
-  | Print expr -> (
-    let (_, expr_ty) = type_assignable_expr expr env.var_env in
-    let opte = optimize_assignable_expr expr env.var_env in
-    match expr_ty with
-    | T_Bool ->  compile_assignable_expr_as_value opte env.var_env (PrintBool :: acc)
-    | T_Int -> compile_assignable_expr_as_value opte env.var_env (PrintInt :: acc)
-    | _ -> PlaceBool(false) :: PrintBool :: acc (* This is not as intended! *)
+  | Print exprs -> (
+    let rec aux es acc =
+      match es with
+      | [] -> acc
+      | h::t -> (
+        let (_, expr_ty) = type_assignable_expr h env.var_env in
+        let opte = optimize_assignable_expr h env.var_env in
+        match expr_ty with
+        | T_Bool -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintBool :: acc))
+        | T_Int -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintInt :: acc))
+        | T_Char -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintChar :: acc))
+        | _ -> aux t (PlaceBool(false) :: PrintBool :: acc) (* This is not as intended! *)
+      )
+    in
+    aux (List.rev exprs) acc
   )
 
 let rec compile_declaration dec var_env acc =
@@ -674,6 +698,7 @@ let rec compile_declaration dec var_env acc =
     else match ty with
     | T_Int -> DeclareFull :: IncrRef :: CloneFull :: PlaceInt(0) :: AssignFull :: acc
     | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: PlaceBool(false) :: AssignByte :: acc
+    | T_Char -> DeclareByte :: IncrRef :: CloneFull :: PlaceChar('0') :: AssignByte :: acc
     | T_Array _ -> PlaceInt(0) :: acc
     | T_Struct _ -> PlaceInt(0) :: acc
     | T_Null -> compile_error "Cannot declare the 'null' type"
@@ -687,6 +712,7 @@ let rec compile_declaration dec var_env acc =
     match ty with
     | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
     | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
+    | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
     | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
     | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
     | _ -> compile_error ("Type mismatch on declaration: expected " ^ (type_string ty) ^ ", got " ^ (type_string expr_ty)) 
@@ -699,6 +725,7 @@ let rec compile_declaration dec var_env acc =
     match expr_ty with
     | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
     | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
+    | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
     | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
     | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
     | T_Null -> compile_error "Cannot declare the 'null' type"

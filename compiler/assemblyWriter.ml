@@ -30,6 +30,7 @@ let rec retrieve_labels program c acc =
       | EntryPoint (n, _) -> retrieve_labels t c ((n, c)::acc)
       | IntInstruction _ -> retrieve_labels t (c+9) acc
       | BoolInstruction _ -> retrieve_labels t (c+2) acc
+      | CharInstruction _ -> retrieve_labels t (c+2) acc
       | LabelInstruction _ -> retrieve_labels t (c+9) acc
       | _ -> retrieve_labels t (c+1) acc
     )
@@ -51,10 +52,11 @@ let rec write_entry_point f name addr ts =
     | [] -> ()
     | h::t -> 
       match h with
-      | T_Int -> fprintf f "\x02" ; print_ts t
-      | T_Bool -> fprintf f "\x01" ; print_ts t
-      | T_Array arr_ty -> fprintf f "\x03"; print_ts t
-      | T_Struct str_ty -> fprintf f "\x04"; print_ts t
+      | T_Int -> fprintf f "\x01" ; print_ts t
+      | T_Bool -> fprintf f "\x02" ; print_ts t
+      | T_Char -> fprintf f "\x03" ; print_ts t
+      | T_Array arr_ty -> fprintf f "\x04"; print_ts t
+      | T_Struct str_ty -> fprintf f "\x05"; print_ts t
       | T_Null -> fprintf f "\x00"; print_ts t (* This should be an error *)
   in
   print_ts ts
@@ -67,6 +69,7 @@ let rec write_entry_points f eps addr =
     | EntryPoint (n, ts) -> write_entry_point f n addr ts ; write_entry_points f t addr
     | IntInstruction _ -> write_entry_points f t (addr+9)
     | BoolInstruction _ -> write_entry_points f t (addr+2)
+    | CharInstruction _ -> write_entry_points f t (addr+2)
     | LabelInstruction _ -> write_entry_points f t (addr+9)
     | _ -> write_entry_points f t (addr+1)
 
@@ -106,6 +109,11 @@ let rec write_program_parts f pp labels =
     | BoolInstruction (i, v) -> (
       fprintf f "%c" (Char.chr i);
       if v then fprintf f "\x01" else fprintf f "\x00";
+      write_program_parts f t labels
+    )
+    | CharInstruction (i, c) -> (
+      fprintf f "%c" (Char.chr i);
+      fprintf f "%c" (c);
       write_program_parts f t labels
     )
     | LabelInstruction (i, l) -> (

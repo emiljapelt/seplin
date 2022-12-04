@@ -169,6 +169,13 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                 ip += MOVE(FULL, 1) + 1;
                 break;
             }
+            case PLACE_CHAR: {
+                full_t value = *(byte_t*)(p + ip + 1);
+                *(byte_t*)(stack + sp) = value;
+                sp += MOVE(BYTE, 1);
+                ip += MOVE(BYTE, 1) + 1;
+                break;
+            }
             case CLONE_FULL: {
                 full_t value = *(full_t*)(stack + sp + MOVE(FULL, -1));
                 *(full_t*)(stack + sp) = value;
@@ -443,15 +450,22 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
             // }
             case PRINT_INT: {
                 full_t value = *(full_t*)(stack + sp + MOVE(FULL, -1));
-                printf("%lld\n", value);
+                printf("%lld", value);
                 sp -= MOVE(FULL, 1);
                 ip++;
                 break;
             }
             case PRINT_BOOL: {
-                full_t value = *(byte_t*)(stack + sp + MOVE(BYTE, -1));
-                if (value) printf("true\n");
-                else printf("false\n");
+                byte_t value = *(byte_t*)(stack + sp + MOVE(BYTE, -1));
+                if (value) printf("true");
+                else printf("false");
+                sp -= MOVE(BYTE, 1);
+                ip++;
+                break;
+            }
+            case PRINT_CHAR: {
+                byte_t value = *(byte_t*)(stack + sp + MOVE(BYTE, -1));
+                printf("%c", value);
                 sp -= MOVE(BYTE, 1);
                 ip++;
                 break;
@@ -636,12 +650,20 @@ int main(int argc, char** argv) {
             i = 0;
             while (i < argument_count) {
                 switch (argument_info[i+1]) {
+                    case CHAR: {
+                        byte_t char_v = parse_char(cmd_arguments[i+3]);
+                        if (char_v == -1) { printf("Failure: expected a char, but got: %s\n", cmd_arguments[i+3]); return -1; }
+                        byte_t* char_alloc = allocate_simple(BYTE);
+                        *(char_alloc) = char_v;
+                        arguments[i] = char_alloc;
+                        INCR_REF_COUNT(char_alloc);
+                        break;
+                    }
                     case BOOL: {
                         byte_t bool_v = parse_bool(cmd_arguments[i+3]);
                         if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", cmd_arguments[i+3]); return -1; }
                         byte_t* bool_alloc = allocate_simple(BYTE);
                         *(bool_alloc) = bool_v;
-                        // *(full_t*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (full_t)bool_alloc;
                         arguments[i] = bool_alloc;
                         INCR_REF_COUNT(bool_alloc);
                         break;
@@ -651,13 +673,12 @@ int main(int argc, char** argv) {
                         if (int_v == 0 && !(strcmp(cmd_arguments[i+3], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", cmd_arguments[i+3]); return -1; }
                         byte_t* int_alloc = allocate_simple(FULL);
                         *((full_t*)(int_alloc)) = int_v;
-                        // *(full_t*)(stack + MOVE(FULL, glob_var_count) + MOVE(FULL, i)) = (full_t)int_alloc;
                         arguments[i] = int_alloc;
                         INCR_REF_COUNT(int_alloc);
                         break;
                     }
                     default: ;
-                        printf("Failure: Unknown type");
+                        printf("Failure: Unknown type\n");
                         return -1;
                 }
                 i++;

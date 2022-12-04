@@ -22,7 +22,7 @@ and unassignable_expression =
     | Halt
     | Break
     | Continue
-    | Print of assignable_expression
+    | Print of assignable_expression list
 
 and assignable_expression =
     | Reference of reference
@@ -40,6 +40,7 @@ and value =
     | ArraySize of reference
     | Bool of bool
     | Int of int
+    | Char of char
     | Lookup of reference
     | NewArray of typ * assignable_expression
     | NewStruct of string * assignable_expression list

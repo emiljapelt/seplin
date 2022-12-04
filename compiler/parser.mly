@@ -14,6 +14,8 @@
 %token INT
 %token <bool> CSTBOOL
 %token BOOL
+%token <char> CSTCHAR
+%token CHAR
 %token INTERNAL EXTERNAL
 %token <string> NAME
 %token ASSIGNMENT
@@ -60,6 +62,7 @@ topdec:
 typ:
     INT                 { T_Int }
   | BOOL                { T_Bool }
+  | CHAR                { T_Char }
   | typ LBRAKE RBRAKE   { T_Array $1 }
   | NAME                { T_Struct $1 }
 ;
@@ -89,6 +92,7 @@ reference:
 value:
     CSTBOOL   { Bool $1 }
   | CSTINT    { Int $1 }
+  | CSTCHAR   { Char $1 }
   | assignable_expression LOGIC_AND assignable_expression       { Binary_op ("&&", $1, $3) }
   | assignable_expression LOGIC_OR assignable_expression        { Binary_op ("||", $1, $3) }
   | assignable_expression EQ assignable_expression        { Binary_op ("=", $1, $3) }
@@ -119,7 +123,7 @@ unassignable_expression:
   | HALT                                        { Halt }
   | BREAK                                       { Break }
   | CONTINUE                                    { Continue }
-  | PRINT assignable_expression                 { Print $2 }
+  | PRINT arguments1                            { Print $2 }
 ;
 
 arguments:

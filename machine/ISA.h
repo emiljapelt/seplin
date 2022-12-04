@@ -138,3 +138,7 @@ int string_to_instruction(char* str);
 #define REF_FETCH 0x30
 
 #define INCR_REF 0x31
+
+#define PLACE_CHAR 0x32
+
+#define PRINT_CHAR 0x33

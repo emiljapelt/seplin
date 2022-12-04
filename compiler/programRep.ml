@@ -11,11 +11,13 @@ and program_part =
   | Instruction of int
   | IntInstruction of int * int
   | BoolInstruction of int * bool
+  | CharInstruction of int * char
   | LabelInstruction of int * string
 
 and typ =
   | T_Int
   | T_Bool
+  | T_Char
   | T_Array of typ
   | T_Struct of string
   | T_Null
@@ -73,6 +75,8 @@ type concrete_program_part =
   | ToStart
   | RefFetch
   | IncrRef
+  | PlaceChar of char
+  | PrintChar
 
 let translate concrete_list =
   let rec aux cl acc =
@@ -132,5 +136,7 @@ let translate concrete_list =
     | ToStart -> aux t (Instruction(47)::acc)
     | RefFetch -> aux t (Instruction(48)::acc)
     | IncrRef -> aux t (Instruction(49)::acc)
+    | PlaceChar (c) -> aux t (CharInstruction(50, c)::acc)
+    | PrintChar -> aux t (Instruction(51)::acc)
   )
   in aux concrete_list []

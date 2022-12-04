@@ -43,6 +43,7 @@ void dissas(byte_t* p, full_t file_len) {
     for(int i = 0; i < file_len; i++) {
         char* name_string = instruction_to_string(p[i]);
         switch (p[i]) {
+            case PLACE_CHAR:
             case PLACE_BOOL:
                 printf("%i: %s %x\n", i, name_string, *((byte_t*)(p+i+1)));
                 i+=1;

@@ -3,6 +3,8 @@ type token =
   | INT
   | CSTBOOL of (bool)
   | BOOL
+  | CSTCHAR of (char)
+  | CHAR
   | INTERNAL
   | EXTERNAL
   | NAME of (string)
