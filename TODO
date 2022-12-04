@@ -4,3 +4,4 @@
 - Add printing for structures
 - Cleanup
 - Do some testing
+- Generalize PLACE_* instructions by size
