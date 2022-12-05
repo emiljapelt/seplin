@@ -56,6 +56,7 @@ char* instruction_to_string(int inst) {
         case INCR_REF: return "INCR_REF";
         case PLACE_CHAR: return "PLACE_CHAR";
         case PRINT_CHAR: return "PRINT_CHAR";
+        case GET_INPUT: return "GET_INPUT";
         default: return "?";
     }
 }
@@ -112,5 +113,6 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "INCR_REF") == 0) return INCR_REF;
     if (strcmp(str, "PLACE_CHAR") == 0) return PLACE_CHAR;
     if (strcmp(str, "PRINT_CHAR") == 0) return PRINT_CHAR;
+    if (strcmp(str, "GET_INPUT") == 0) return GET_INPUT;
     return -1;
 }

@@ -274,6 +274,7 @@ and type_value val_expr var_env =
     | T_Array _ -> (false, T_Int)
     | _ -> compile_error "Array size of non-array variable"
   )
+  | GetInput ty -> (false, ty)
   | Bool _ -> (false, T_Bool)
   | Int _ -> (false, T_Int)
   | Char _ -> (false, T_Char)
@@ -311,6 +312,7 @@ let get_globvar_dependencies gvs =
       | Bool _ -> acc
       | Int _ -> acc
       | Char _ -> acc
+      | GetInput _ -> acc
       | Lookup (refer) -> dependencies_from_assignable (Reference refer) acc
       | NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
       | NewStruct (_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
@@ -396,6 +398,7 @@ and optimize_value expr var_env =
     | _ -> opte
   )
   | ArraySize _ -> Value(expr)
+  | GetInput _ -> Value(expr)
   | Bool _ -> Value(expr)
   | Int _ -> Value(expr)
   | Char _ -> Value(expr)
@@ -473,6 +476,10 @@ and compile_value val_expr var_env acc =
     | T_Array _ -> compile_reference refer var_env  (FetchFull :: SizeOf :: acc)
     | _ -> compile_error "Array size only makes sense for arrays"
   )
+  | GetInput ty -> ( match type_index ty with
+    | -1 -> compile_error "Unsupported GetInput variant"
+    | x -> GetInput(x) :: acc
+  )
   | Lookup refer -> (
     let (_, ref_ty) = type_reference refer var_env in
     match ref_ty with
@@ -527,6 +534,8 @@ and compile_value val_expr var_env acc =
       | ("=", _, _, Reference(Null), Reference(r)) -> compile_reference r var_env (FetchFull :: PlaceInt(0) :: IntEq :: acc)
       | ("=", T_Bool, T_Bool, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (BoolEq :: acc))
       | ("=", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntEq :: acc))
+      | ("!=", _, _, Reference(r), Reference(Null)) -> compile_reference r var_env (FetchFull :: PlaceInt(0) :: IntEq :: BoolNot :: acc)
+      | ("!=", _, _, Reference(Null), Reference(r)) -> compile_reference r var_env (FetchFull :: PlaceInt(0) :: IntEq :: BoolNot :: acc)
       | ("!=", T_Bool, T_Bool, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (BoolEq :: BoolNot :: acc))
       | ("!=", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntEq :: BoolNot :: acc))
       | ("<=", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntLt :: BoolNot :: acc))

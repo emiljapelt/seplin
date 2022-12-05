@@ -1,0 +1,39 @@
+
+external test() {
+    
+    if (#bool) print -1,'\n';
+    else print 1,'\n';
+
+}
+
+struct char_link(c: char, next: char_link);
+
+internal get_string(result: char[]) {
+    l: char_link;
+    while(true) {
+        ch ::= #char;
+        if (ch = '\n') {
+            lenght: int;
+            link_length(l, lenght);
+            result := new char[lenght];
+            while(!(l = null)) {
+                lenght -:= 1;
+                result[lenght] := l.c;
+                l := l.next;
+            }
+            stop;
+        }
+        else {
+            l := new char_link(ch, l);
+        }
+    }
+}
+
+internal link_length(l: char_link, result: int) {
+    result := 0;
+    temp ::= l;
+    while(!(temp = null)) {
+        result +:= 1;
+        temp := temp.next;
+    }
+}

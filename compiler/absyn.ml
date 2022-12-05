@@ -38,6 +38,7 @@ and value =
     | Binary_op of string * assignable_expression * assignable_expression
     | Unary_op of string * assignable_expression
     | ArraySize of reference
+    | GetInput of typ
     | Bool of bool
     | Int of int
     | Char of char

@@ -50,6 +50,7 @@ type token =
   | NULL
   | NEW
   | PRINT
+  | HASH
 
 val main :
   (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> Absyn.topdecs

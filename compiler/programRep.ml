@@ -22,6 +22,13 @@ and typ =
   | T_Struct of string
   | T_Null
 
+let type_index ty =
+  match ty with
+  | T_Int -> 1
+  | T_Bool -> 2
+  | T_Char -> 3
+  | _ -> -1
+
 type concrete_program_part =
   | CEntryPoint of string * typ list
   | CLabel of string
@@ -77,6 +84,7 @@ type concrete_program_part =
   | IncrRef
   | PlaceChar of char
   | PrintChar
+  | GetInput of int
 
 let translate concrete_list =
   let rec aux cl acc =
@@ -138,5 +146,6 @@ let translate concrete_list =
     | IncrRef -> aux t (Instruction(49)::acc)
     | PlaceChar (c) -> aux t (CharInstruction(50, c)::acc)
     | PrintChar -> aux t (Instruction(51)::acc)
+    | GetInput (i) -> aux t (IntInstruction(52, i)::acc)
   )
   in aux concrete_list []

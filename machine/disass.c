@@ -48,6 +48,7 @@ void dissas(byte_t* p, full_t file_len) {
                 printf("%i: %s %x\n", i, name_string, *((byte_t*)(p+i+1)));
                 i+=1;
                 break;
+            case GET_INPUT:
             case CALL:
             case GOTO:
             case IF_TRUE:

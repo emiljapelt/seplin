@@ -28,7 +28,7 @@
 %token WHILE UNTIL FOR REPEAT
 %token BREAK CONTINUE
 %token LOCKED STRUCT VAR NULL NEW
-%token PRINT
+%token PRINT HASH
 
 %right ASSIGNMENT
 %left ELSE
@@ -36,6 +36,7 @@
 %left GT LT GTEQ LTEQ
 %left PLUS MINUS LOGIC_OR
 %left TIMES LOGIC_AND
+%right HASH
 %nonassoc NOT
 
 %start main
@@ -107,6 +108,7 @@ value:
   | MINUS assignable_expression                           { Binary_op ("-", Value (Int 0), $2) }
   | NOT assignable_expression                             { Unary_op ("!", $2) }
   | PIPE reference PIPE                                   { ArraySize $2 }
+  | HASH typ                                              { GetInput $2 }
   | VALUE reference                                       { Lookup $2 }
   | NEW typ LBRAKE assignable_expression RBRAKE           { NewArray ($2, $4) }
   | NEW NAME LPAR arguments RPAR                          { NewStruct ($2, $4) }

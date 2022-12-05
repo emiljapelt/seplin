@@ -142,3 +142,5 @@ int string_to_instruction(char* str);
 #define PLACE_CHAR 0x32
 
 #define PRINT_CHAR 0x33
+
+#define GET_INPUT 0x34

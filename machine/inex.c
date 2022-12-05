@@ -78,6 +78,18 @@ void print_help() {
     printf("%s", message);
 }
 
+void read_input(unsigned int max_size, char** ret) {
+    char buffer[max_size + 1];
+    char ch = 0;
+    unsigned int count = 0;
+    while(ch != '\n' && count < max_size) {
+        ch = getchar();
+        buffer[count++] = ch;
+    } 
+    buffer[count-1] = '\0';
+    *ret = buffer;
+}
+
 int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int argument_count, byte_t trace, byte_t time) {    
     ufull_t ip = 0;
     ufull_t sp = 0;
@@ -515,6 +527,45 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                     }
                 }
                 ip++;
+                break;
+            }
+            case GET_INPUT: {
+                ufull_t typ = *(ufull_t*)(p + ip + 1);
+
+                switch (typ) {
+                    case BOOL: {
+                        char* bool_buffer;
+                        read_input(10, &bool_buffer);
+                        byte_t bool_value = parse_bool(bool_buffer);
+                        if (bool_value == -1) { printf("Failure: Expected a 'bool' but got: %s\n", bool_buffer); return -1; }
+                        *(byte_t*)(stack + sp) = bool_value;
+                        sp += MOVE(BYTE, 1);
+                        break;
+                    }
+                    case CHAR: {
+                        char* char_buffer;
+                        read_input(3, &char_buffer);
+                        byte_t char_value = parse_char(char_buffer);
+                        if (char_value == -1) { printf("Failure: Expected a 'char' but got: %s\n", char_buffer); return -1; }
+                        *(byte_t*)(stack + sp) = char_value;
+                        sp += MOVE(BYTE, 1);
+                        break;
+                    }
+                    case INT: {
+                        char* int_buffer;
+                        read_input(20, &int_buffer);
+                        ufull_t int_value = parse_int(int_buffer);
+                        // Needs a check
+                        *(ufull_t*)(stack + sp) = int_value;
+                        sp += MOVE(FULL, 1);
+                        break;
+                    }
+                    default: 
+                        printf("Failure: Unsupported GET_INPUT type");
+                        return -1;
+                }
+
+                ip += MOVE(FULL, 1) + 1;
                 break;
             }
             default: {
