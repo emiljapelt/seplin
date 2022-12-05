@@ -96,6 +96,16 @@ let struct_exists (name: string) structs =
   | Some _ -> true
   | None -> false
 
+let addFreeVars amount acc =
+  match (amount, acc) with
+  | (0, _) -> acc
+  | (1, FreeVar :: accr) -> FreeVars(2) :: accr
+  | (1, FreeVars(y) :: accr) -> FreeVars(y+1) :: accr
+  | (1, _) -> FreeVar :: acc
+  | (x, FreeVar :: accr) -> FreeVars(x+1) :: accr 
+  | (x, FreeVars(y) :: accr) -> FreeVars(x+y) :: accr 
+  | (x, _) -> FreeVars(x) :: acc
+
 
 
 (* Scanning *)
@@ -665,13 +675,13 @@ let compile_unassignable_expr expr env break continue cleanup acc =
   | Break -> (
     match break with
     | Some name when cleanup = 0 -> GoTo(name) :: acc
-    | Some name -> FreeVars(cleanup) :: GoTo(name) :: acc
+    | Some name -> addFreeVars cleanup (GoTo(name) :: acc)
     | None -> compile_error "No loop to break out of"
   )
   | Continue -> (
     match continue with
     | Some name when cleanup = 0 -> GoTo(name) :: acc
-    | Some name -> FreeVars(cleanup) :: GoTo(name) :: acc
+    | Some name -> addFreeVars cleanup (GoTo(name) :: acc)
     | None -> compile_error "No loop to continue in"
   )
   | Print exprs -> (
@@ -769,7 +779,7 @@ and compile_stmt stmt env break continue cleanup acc =
   | Block (sod_list) -> (
     let decs = count_decl sod_list in
     if decs = 0 then compile_sod_list sod_list env break continue cleanup acc
-    else compile_sod_list sod_list env break continue cleanup (FreeVars(decs) :: acc)
+    else compile_sod_list sod_list env break continue cleanup (addFreeVars decs acc)
   )
   | Expression (expr) -> compile_unassignable_expr expr env break continue cleanup acc
 
