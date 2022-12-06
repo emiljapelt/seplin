@@ -62,7 +62,7 @@ type concrete_program_part =
   | IntAdd
   | IntMul
   | IntSub
-  | IntEq
+  | FullEq
   | IntLt
   | BoolEq
   | BoolNot
@@ -85,6 +85,9 @@ type concrete_program_part =
   | PlaceChar of char
   | PrintChar
   | GetInput of int
+  | HalfEq
+  | ShortEq
+  | ByteEq
 
 let translate concrete_list =
   let rec aux cl acc =
@@ -124,7 +127,7 @@ let translate concrete_list =
     | IntAdd -> aux t (Instruction(27)::acc)
     | IntMul -> aux t (Instruction(28)::acc)
     | IntSub -> aux t (Instruction(29)::acc)
-    | IntEq -> aux t (Instruction(30)::acc)
+    | FullEq -> aux t (Instruction(30)::acc)
     | IntLt -> aux t (Instruction(31)::acc)
     | BoolEq -> aux t (Instruction(32)::acc)
     | BoolNot -> aux t (Instruction(33)::acc)
@@ -147,5 +150,8 @@ let translate concrete_list =
     | PlaceChar (c) -> aux t (CharInstruction(50, c)::acc)
     | PrintChar -> aux t (Instruction(51)::acc)
     | GetInput (i) -> aux t (IntInstruction(52, i)::acc)
+    | HalfEq -> aux t (Instruction(53)::acc)
+    | ShortEq -> aux t (Instruction(54)::acc)
+    | ByteEq -> aux t (Instruction(55)::acc)
   )
   in aux concrete_list []

@@ -1,8 +1,11 @@
 
 external test() {
     
-    if (#bool) print -1,'\n';
-    else print 1,'\n';
+   str: char[];
+   get_string(str);
+   print '\n';
+   print_string(str);
+   print '\n';
 
 }
 
@@ -16,7 +19,7 @@ internal get_string(result: char[]) {
             lenght: int;
             link_length(l, lenght);
             result := new char[lenght];
-            while(!(l = null)) {
+            while(l != null) {
                 lenght -:= 1;
                 result[lenght] := l.c;
                 l := l.next;
@@ -32,8 +35,14 @@ internal get_string(result: char[]) {
 internal link_length(l: char_link, result: int) {
     result := 0;
     temp ::= l;
-    while(!(temp = null)) {
+    while(temp != null) {
         result +:= 1;
         temp := temp.next;
+    }
+}
+
+internal print_string(str: char[]) {
+    for(i ::= 0; i < |str|; i +:= 1) {
+        print str[i];
     }
 }

@@ -2,4 +2,7 @@ external test(x: int, c: char) {
     print 'H','e','l','l','o',' ','w','o','r','l','d','!','\n';
     repeat(x) print c;
     print '\n';
+
+    print ('a' = 'a'),'\n';
+    print ('\n' = '\n'),'\n';
 }

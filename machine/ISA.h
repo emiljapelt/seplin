@@ -73,7 +73,7 @@ int string_to_instruction(char* str);
 // Subtract the integer values 'x' and 'y', removing them from the stack, and placing the result on the stack.
 // [s,x,y,_ => s,(x-y),_]
 
-#define INT_EQ 0x1e
+#define FULL_EQ 0x1e
 // Checks if the integer values 'x' and 'y' are equal, removing them from the stack, and placing the resulting boolean on the stack.
 // [s,x,y,_ => s,(x=y),_]
 
@@ -144,3 +144,7 @@ int string_to_instruction(char* str);
 #define PRINT_CHAR 0x33
 
 #define GET_INPUT 0x34
+
+#define HALF_EQ 0x35
+#define SHORT_EQ 0x36
+#define BYTE_EQ 0x37

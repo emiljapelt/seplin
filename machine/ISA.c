@@ -34,7 +34,7 @@ char* instruction_to_string(int inst) {
         case INT_ADD: return "INT_ADD";
         case INT_MUL: return "INT_MUL";
         case INT_SUB: return "INT_SUB";
-        case INT_EQ: return "INT_EQ";
+        case FULL_EQ: return "FULL_EQ";
         case INT_LT: return "INT_LT";
         case BOOL_EQ: return "BOOL_EQ";
         case BOOL_NOT: return "BOOL_NOT";
@@ -57,6 +57,9 @@ char* instruction_to_string(int inst) {
         case PLACE_CHAR: return "PLACE_CHAR";
         case PRINT_CHAR: return "PRINT_CHAR";
         case GET_INPUT: return "GET_INPUT";
+        case HALF_EQ: return "HALF_EQ";
+        case SHORT_EQ: return "SHORT_EQ";
+        case BYTE_EQ: return "BYTE_EQ";
         default: return "?";
     }
 }
@@ -91,7 +94,7 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "INT_ADD") == 0) return INT_ADD;
     if (strcmp(str, "INT_MUL") == 0) return INT_MUL;
     if (strcmp(str, "INT_SUB") == 0) return INT_SUB;
-    if (strcmp(str, "INT_EQ") == 0) return INT_EQ;
+    if (strcmp(str, "FULL_EQ") == 0) return FULL_EQ;
     if (strcmp(str, "INT_LT") == 0) return INT_LT;
     if (strcmp(str, "BOOL_EQ") == 0) return BOOL_EQ;
     if (strcmp(str, "BOOL_NOT") == 0) return BOOL_NOT;
@@ -113,6 +116,8 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "INCR_REF") == 0) return INCR_REF;
     if (strcmp(str, "PLACE_CHAR") == 0) return PLACE_CHAR;
     if (strcmp(str, "PRINT_CHAR") == 0) return PRINT_CHAR;
-    if (strcmp(str, "GET_INPUT") == 0) return GET_INPUT;
+    if (strcmp(str, "HALF_EQ") == 0) return HALF_EQ;
+    if (strcmp(str, "SHORT_EQ") == 0) return SHORT_EQ;
+    if (strcmp(str, "BYTE_EQ") == 0) return BYTE_EQ;
     return -1;
 }

@@ -14,7 +14,7 @@ external linked(count: int) {
     while(!empty) {
         element: int;
         pop_l(stk, element);
-        print element;
+        print element, '\n';
         is_empty_l(stk, empty);
     }
 }
@@ -54,7 +54,7 @@ external array(count: int) {
     while(!empty) {
         element: int;
         pop_a(stk, element);
-        print element;
+        print element, '\n';
         is_empty_a(stk, empty);
     }
 }

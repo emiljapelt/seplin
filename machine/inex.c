@@ -375,9 +375,33 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                 ip++;
                 break;
             }
-            case INT_EQ: {
+            case FULL_EQ: {
                 byte_t eq = (*(full_t*)(stack + sp + MOVE(FULL, -1))) == (*(full_t*)(stack + sp + MOVE(FULL, -2)));
                 sp -= MOVE(FULL, 2);
+                *(byte_t*)(stack + sp) = eq; 
+                sp += MOVE(BYTE, 1);
+                ip++;
+                break;
+            }
+            case HALF_EQ: {
+                byte_t eq = (*(half_t*)(stack + sp + MOVE(HALF, -1))) == (*(half_t*)(stack + sp + MOVE(HALF, -2)));
+                sp -= MOVE(HALF, 2);
+                *(byte_t*)(stack + sp) = eq; 
+                sp += MOVE(BYTE, 1);
+                ip++;
+                break;
+            }
+            case SHORT_EQ: {
+                byte_t eq = (*(short_t*)(stack + sp + MOVE(SHORT, -1))) == (*(short_t*)(stack + sp + MOVE(SHORT, -2)));
+                sp -= MOVE(SHORT, 2);
+                *(byte_t*)(stack + sp) = eq; 
+                sp += MOVE(BYTE, 1);
+                ip++;
+                break;
+            }
+            case BYTE_EQ: {
+                byte_t eq = (*(byte_t*)(stack + sp + MOVE(BYTE, -1))) == (*(byte_t*)(stack + sp + MOVE(BYTE, -2)));
+                sp -= MOVE(BYTE, 2);
                 *(byte_t*)(stack + sp) = eq; 
                 sp += MOVE(BYTE, 1);
                 ip++;

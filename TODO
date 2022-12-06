@@ -5,5 +5,3 @@
 - Cleanup
 - Do some testing
 - Generalize PLACE_* instructions by size
-- Generalize EQ instructions by size (But keep BOOL_EQ)
-- Implement operations on chars, '=' and '!='
