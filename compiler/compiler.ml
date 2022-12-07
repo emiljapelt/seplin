@@ -3,8 +3,44 @@ open ToProgramRep
 open Str
 open Exceptions
 
-let input = Sys.argv.(1)
-let output = Sys.argv.(2)
+type input_type =
+| IX
+| IXA
+
+let resolve_input () =
+  try (
+    let input = Sys.argv.(1) in
+    if not (Sys.file_exists input) then compile_error "Input file does not exist"
+    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.ix$|}) input 0 then (input, IX)
+    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.ixa$|}) input 0 then (input, IXA)
+    else compile_error "Invalid input file extension"
+  ) with
+  | Invalid_argument _ -> compile_error "No file given to compile"
+  | ex -> raise ex
+
+let (input, in_type) = resolve_input ()
+
+let resolve_output i =
+  try (
+    let output = Sys.argv.(2) in
+    if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*$|}) output 0 then  (* Directory *) (
+      Printf.printf "1";
+      output ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".ixc"
+    )
+    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$|}) output 0 then (* File with extension*) (
+      Printf.printf "2";
+      output
+    )
+    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+$|}) output 0 then (* File without extension *) (
+      Printf.printf "3";
+      output ^ ".ixc"
+    )
+    else compile_error "Invalid output destination"
+  ) with
+  | Invalid_argument _ -> "./" ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".ixc"
+  | ex -> raise ex
+
+let output = resolve_output input
 
 let print_line ls l =
   Printf.printf "%i |%s\n" l (List.nth ls (l-1))
@@ -45,7 +81,6 @@ let compile () =
   )
   | Compile_error msg -> Printf.printf "%s\n" msg
 
-let () = 
-  if Str.string_match (regexp {|.+\.ixa$|}) input 0 then compileAssembly ()
-  else if Str.string_match (regexp {|.+\.ix$|}) input 0 then compile ()
-  else Printf.printf "File type not supported"
+let () = match in_type with
+  | IX -> compile ()
+  | IXA -> compileAssembly ()

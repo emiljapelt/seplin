@@ -514,20 +514,21 @@ and compile_value val_expr var_env acc =
         match optha with
         | Value _ -> (
           match ha_ty with
-          | T_Int -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr optha var_env (AssignFull :: FieldAssign :: acc))
-          | T_Bool -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr optha var_env (AssignByte :: FieldAssign :: acc))
-          | _ -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (IncrRef :: FieldAssign :: acc))
+          | T_Int -> aux ta tf (c-1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr optha var_env (AssignFull :: FieldAssign :: acc))
+          | T_Char -> aux ta tf (c-1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr optha var_env (AssignByte :: FieldAssign :: acc))
+          | T_Bool -> aux ta tf (c-1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr optha var_env (AssignByte :: FieldAssign :: acc))
+          | _ -> aux ta tf (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (IncrRef :: FieldAssign :: acc))
         )
         | Reference r -> (
           match r with
-          | Null -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (FieldAssign :: acc))
-          | _ -> aux ta tf (c+1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
+          | Null -> aux ta tf (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (FieldAssign :: acc))
+          | _ -> aux ta tf (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
         )
       )
       | (_,_) -> compile_error ("Struct argument count mismatch")
     in
     match lookup_struct name var_env.structs with
-    | Some params -> PlaceInt(List.length params) :: DeclareStruct :: IncrRef :: (aux args params 0 acc)
+    | Some params -> PlaceInt(List.length params) :: DeclareStruct :: IncrRef :: (aux (List.rev args) (List.rev params) ((List.length params)-1) acc)
     | None -> compile_error ("No such struct: " ^ name)
   )
   | Binary_op (op, e1, e2) -> (

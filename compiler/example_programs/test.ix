@@ -1,8 +1,38 @@
-external test(x: int, c: char) {
-    print 'H','e','l','l','o',' ','w','o','r','l','d','!','\n';
-    repeat(x) print c;
-    print '\n';
 
-    print ('a' = 'a'),'\n';
-    print ('\n' = '\n'),'\n';
+
+external test0() {
+    x ::= #char;
+
+    print x;
+}
+
+external test1() {
+    xs ::= new char[2];
+
+    x1 ::= #char;
+    xs[0] := x1;
+    x2 ::= #char;
+    xs[1] := x2;
+
+    print xs[0];
+    print xs[1];
+}
+
+struct pair(fst: char, snd: char);
+
+external test2() {
+    xs ::= new pair(#char, #char);
+
+    print xs.fst;
+    print xs.snd;
+}
+
+external test3() {
+    xs ::= new pair(null,null);
+
+    xs.fst := #char;
+    xs.snd := #char;
+
+    print xs.fst;
+    print xs.snd;
 }

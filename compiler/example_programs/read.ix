@@ -16,10 +16,14 @@ internal get_string(result: char[]) {
     while(true) {
         ch ::= #char;
         if (ch = '\n') {
+
+            print_link(l);
+
             lenght: int;
             link_length(l, lenght);
             result := new char[lenght];
-            while(l != null) {
+            if (l = null) print true;
+            while(null != l) {
                 lenght -:= 1;
                 result[lenght] := l.c;
                 l := l.next;
@@ -27,7 +31,7 @@ internal get_string(result: char[]) {
             stop;
         }
         else {
-            l := new char_link(ch, l);
+            l := new char_link($ch, l);
         }
     }
 }
@@ -39,6 +43,12 @@ internal link_length(l: char_link, result: int) {
         result +:= 1;
         temp := temp.next;
     }
+}
+
+internal print_link(l: locked char_link) {
+    if (l = null) stop; 
+    print l.c;
+    print_link(l.next);
 }
 
 internal print_string(str: char[]) {
