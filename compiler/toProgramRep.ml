@@ -106,7 +106,17 @@ let addFreeVars amount acc =
   | (x, FreeVars(y) :: accr) -> FreeVars(x+y) :: accr 
   | (x, _) -> FreeVars(x) :: acc
 
+let addStop acc =
+  match acc with
+  | CStop::acc1 -> acc
+  | CHalt::acc1 -> CStop :: acc1
+  | _ -> CStop :: acc
 
+let addHalt acc =
+  match acc with
+  | CHalt::acc1 -> acc
+  | CStop::acc1 -> CHalt :: acc1
+  | _ -> CHalt :: acc
 
 (* Scanning *)
 let count_decl stmt_dec_list =
@@ -528,7 +538,7 @@ and compile_value val_expr var_env acc =
       | (_,_) -> compile_error ("Struct argument count mismatch")
     in
     match lookup_struct name var_env.structs with
-    | Some params -> PlaceInt(List.length params) :: DeclareStruct :: IncrRef :: (aux (List.rev args) (List.rev params) ((List.length params)-1) acc)
+    | Some params -> PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev params) ((List.length params)-1) acc)
     | None -> compile_error ("No such struct: " ^ name)
   )
   | Binary_op (op, e1, e2) -> (
@@ -626,7 +636,7 @@ let rec compile_assignment target assign var_env acc =
           | T_Char -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))
           | T_Array _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
           | T_Struct _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
-          | T_Null  -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
+          | T_Null  -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (FieldAssign :: acc)))
         )
       )
     )
@@ -688,8 +698,8 @@ let compile_unassignable_expr expr env break continue cleanup acc =
     )
     | Some (ps) -> compile_error (n ^ " requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
   )
-  | Stop -> CStop :: acc
-  | Halt -> CHalt :: acc
+  | Stop -> addStop(acc)
+  | Halt -> addHalt(acc)
   | Break -> (
     match break with
     | Some name when cleanup = 0 -> GoTo(name) :: acc
@@ -813,7 +823,7 @@ let compile topdecs =
     | [] -> acc
     | h::t -> match h with
       | Routine (accmod, n, params, stmt) -> 
-        aux t ((routine_head accmod n params)::(compile_stmt stmt ({ var_env = ({ locals = (List.rev params); globals = globvars; structs = structs;}); routine_env = routines; }) None None 0 (CStop :: acc)))
+        aux t ((routine_head accmod n params)::(compile_stmt stmt ({ var_env = ({ locals = (List.rev params); globals = globvars; structs = structs;}); routine_env = routines; }) None None 0 (addStop(acc))))
       | _ -> aux t acc
   in
   match topdecs with
