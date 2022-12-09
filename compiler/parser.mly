@@ -136,6 +136,7 @@ arguments:
 arguments1:
     assignable_expression                     { [$1] }
   | assignable_expression COMMA arguments1    { $1 :: $3 }
+  | error { syntax_error "Error in arguments" ((symbol_start ())) }
 ;
 
 stmtOrDecSeq:
@@ -203,6 +204,7 @@ params:
 params1:
     param                  { [$1] }
   | param COMMA params1    { $1 :: $3 }
+  | error { syntax_error "Error in parameter declaration" ((symbol_start ())) }
 ;
 
 param:

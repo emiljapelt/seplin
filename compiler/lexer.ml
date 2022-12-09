@@ -28,9 +28,9 @@
 
   let line_num = ref 0
   
-  let char_of_string s = match s with
+  let char_of_string s lexbuf = match s with
   | "\'\\n\'" -> '\n'
-  | _ when s.[1] = '\\' -> syntax_error ("Unknown escape character: " ^ s) !line_num
+  | _ when s.[1] = '\\' -> syntax_error ("Unknown escape character: " ^ s) (Lexing.lexeme_start lexbuf)
   | _ -> s.[1]
 
 # 37 "lexer.ml"
@@ -410,7 +410,7 @@ let
 # 411 "lexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
 # 39 "lexer.mll"
-                                 ( CSTCHAR (char_of_string lxm) )
+                                 ( CSTCHAR (char_of_string lxm lexbuf) )
 # 415 "lexer.ml"
 
   | 4 ->
@@ -567,7 +567,7 @@ let
 
   | 33 ->
 # 72 "lexer.mll"
-                      ( syntax_error "Unknown token" !line_num )
+                      ( syntax_error "Unknown token" (Lexing.lexeme_start lexbuf) )
 # 572 "lexer.ml"
 
   | 34 ->

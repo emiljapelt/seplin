@@ -27,16 +27,16 @@
 
   let line_num = ref 0
   
-  let char_of_string s = match s with
+  let char_of_string s lexbuf = match s with
   | "\'\\n\'" -> '\n'
-  | _ when s.[1] = '\\' -> syntax_error ("Unknown escape character: " ^ s) !line_num
+  | _ when s.[1] = '\\' -> syntax_error ("Unknown escape character: " ^ s) (Lexing.lexeme_start lexbuf)
   | _ -> s.[1]
 }
 rule lex = parse
         [' ' '\t' '\r']        { lex lexbuf }
     |   '\n'        { incr line_num; lex lexbuf }
     |   ['0'-'9']+ as lxm { CSTINT (int_of_string lxm) }
-    |   ''' ['\\']? _ ''' as lxm { CSTCHAR (char_of_string lxm) }
+    |   ''' ['\\']? _ ''' as lxm { CSTCHAR (char_of_string lxm lexbuf) }
     |   "true"            { CSTBOOL true }
     |   "false"           { CSTBOOL false }
     |   ['A'-'Z' 'a'-'z' '''] ['A'-'Z' 'a'-'z' '0'-'9' '_'] * as id
@@ -69,5 +69,5 @@ rule lex = parse
     |   ';'           { SEMI }
     |   ':'           { COLON }
     |   '#'           { HASH }
-    |   _             { syntax_error "Unknown token" !line_num }
+    |   _             { syntax_error "Unknown token" (Lexing.lexeme_start lexbuf) }
     |   eof           { EOF }

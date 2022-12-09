@@ -1,13 +1,9 @@
-struct carry(value: int);
 
 external test() {
-    c ::= new carry(0);
-    inner(c);
-    inner($c);
+    x ::= 2;
+    inner(1, 2);
 }
 
-internal inner(c: carry) {
-    halt;
-    stop;
-    stop;
+internal inner(a: int, b: int) {
+    print true;
 }
