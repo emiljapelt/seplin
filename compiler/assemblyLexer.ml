@@ -66,7 +66,7 @@
                             "INCR_REF",         INCR_REF;
                         ]
 
-    let line_num = ref 1
+    let line_num = ref 0
 
 # 72 "assemblyLexer.ml"
 let __ocaml_lex_tables = {
@@ -580,7 +580,7 @@ let
 # 79 "assemblyLexer.mll"
                 ( try
                     Hashtbl.find meta_table id
-                  with Not_found -> syntax_error ("Unknown meta symbol \'" ^ id ^ "\'") line_num)
+                  with Not_found -> syntax_error ("Unknown meta symbol \'" ^ id ^ "\'") !line_num)
 # 585 "assemblyLexer.ml"
 
   | 8 ->
@@ -592,7 +592,7 @@ let
 # 83 "assemblyLexer.mll"
                 ( try
                     Hashtbl.find instruction_table id
-                  with Not_found -> syntax_error ("Unknown instruction \'" ^ id ^ "\'") line_num )
+                  with Not_found -> syntax_error ("Unknown instruction \'" ^ id ^ "\'") !line_num )
 # 597 "assemblyLexer.ml"
 
   | 9 ->
@@ -607,7 +607,7 @@ let
 
   | 10 ->
 # 87 "assemblyLexer.mll"
-                        ( syntax_error "Unknown token" line_num)
+                        ( syntax_error "Unknown token" !line_num)
 # 612 "assemblyLexer.ml"
 
   | 11 ->

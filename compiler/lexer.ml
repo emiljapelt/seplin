@@ -26,11 +26,11 @@
                         "halt", HALT;
                         "print", PRINT]
 
-  let line_num = ref 1
+  let line_num = ref 0
   
   let char_of_string s = match s with
   | "\'\\n\'" -> '\n'
-  | _ when s.[1] = '\\' -> syntax_error ("Unknown escape character: "^ (String.make 1 s.[2])) line_num
+  | _ when s.[1] = '\\' -> syntax_error ("Unknown escape character: " ^ s) !line_num
   | _ -> s.[1]
 
 # 37 "lexer.ml"
@@ -567,7 +567,7 @@ let
 
   | 33 ->
 # 72 "lexer.mll"
-                      ( syntax_error "Unknown token" line_num )
+                      ( syntax_error "Unknown token" !line_num )
 # 572 "lexer.ml"
 
   | 34 ->

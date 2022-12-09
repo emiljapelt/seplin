@@ -25,11 +25,11 @@
                         "halt", HALT;
                         "print", PRINT]
 
-  let line_num = ref 1
+  let line_num = ref 0
   
   let char_of_string s = match s with
   | "\'\\n\'" -> '\n'
-  | _ when s.[1] = '\\' -> syntax_error ("Unknown escape character: "^ (String.make 1 s.[2])) line_num
+  | _ when s.[1] = '\\' -> syntax_error ("Unknown escape character: " ^ s) !line_num
   | _ -> s.[1]
 }
 rule lex = parse
@@ -69,5 +69,5 @@ rule lex = parse
     |   ';'           { SEMI }
     |   ':'           { COLON }
     |   '#'           { HASH }
-    |   _             { syntax_error "Unknown token" line_num }
+    |   _             { syntax_error "Unknown token" !line_num }
     |   eof           { EOF }

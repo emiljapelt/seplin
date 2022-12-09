@@ -40,44 +40,25 @@ let resolve_output i =
 let output = resolve_output input
 
 let print_line ls l =
-  Printf.printf "%i |%s\n" l (List.nth ls (l-1))
+  Printf.printf "%i | %s\n" (l+1) (List.nth ls l)
 
-let compileAssembly () = 
+let compile get_program =
   let file = open_in input in
   let content = really_input_string (file) (in_channel_length file) in
   let () = close_in_noerr file in
   try (
-    let program = AssemblyParser.main AssemblyLexer.lex (Lexing.from_string content) in
-    AssemblyWriter.write program output
+    AssemblyWriter.write (get_program content) output
   ) with
   | Syntax_error (msg, l) -> (
-    let () = Printf.printf "%s on line %i:\n" msg l in
+    let () = Printf.printf "%s, on line %i:\n" msg (l+1) in
     let lines = String.split_on_char '\n' content in
     let printer =  print_line lines in match l with
     | 1 -> printer 0 ; printer 1
-    | n when n = List.length lines -> printer (n-1) ; printer (n-2)
-    | _ ->  printer (l-1) ; printer l ; printer (l+1) 
-  )
-  | Compile_error msg -> Printf.printf "%s\n" msg
-
-let compile () =
-  let file = open_in input in
-  let content = really_input_string (file) (in_channel_length file) in
-  let () = close_in_noerr file in
-  try (
-    let program = ToProgramRep.compile(Parser.main Lexer.lex (Lexing.from_string content)) in
-    AssemblyWriter.write program output
-  ) with
-  | Syntax_error (msg, l) -> (
-    let () = Printf.printf "%s on line %i:\n" msg l in
-    let lines = String.split_on_char '\n' content in
-    let printer =  print_line lines in match l with
-    | 1 -> printer 0 ; printer 1
-    | n when n = List.length lines -> printer (n-1) ; printer (n-2)
+    | n when n = (List.length lines)-1 -> printer (n-1) ; printer (n)
     | _ ->  printer (l-1) ; printer l ; printer (l+1) 
   )
   | Compile_error msg -> Printf.printf "%s\n" msg
 
 let () = match in_type with
-  | IX -> compile ()
-  | IXA -> compileAssembly ()
+  | IX -> compile (fun content -> ToProgramRep.compile(Parser.main Lexer.lex (Lexing.from_string content)))
+  | IXA -> compile (fun content -> AssemblyParser.main AssemblyLexer.lex (Lexing.from_string content))
