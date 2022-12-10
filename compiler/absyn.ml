@@ -12,8 +12,8 @@ and declaration =
     | VarDeclaration of bool * string * assignable_expression
 
 and statement_or_declaration =
-    | Statement of statement
-    | Declaration of declaration
+    | Statement of statement * int
+    | Declaration of declaration * int
 
 and unassignable_expression =
     | Assign of reference * assignable_expression

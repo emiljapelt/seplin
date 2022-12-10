@@ -73,8 +73,8 @@ block:
 ;
 
 chain:
-    DOT NAME LPAR arguments RPAR { [Statement (Expression (Call($2, $4)))] }
-  | DOT NAME LPAR arguments RPAR chain { (Statement (Expression (Call ($2, $4)))) :: $6 }
+    DOT NAME LPAR arguments RPAR { [Statement (Expression (Call($2, $4)), (symbol_start ()))] }
+  | DOT NAME LPAR arguments RPAR chain { (Statement (Expression (Call ($2, $4)), (symbol_start ()))) :: $6 }
 ;
 
 assignable_expression:
@@ -136,17 +136,17 @@ arguments:
 arguments1:
     assignable_expression                     { [$1] }
   | assignable_expression COMMA arguments1    { $1 :: $3 }
-  | error { syntax_error "Error in arguments" ((symbol_start ())) }
+  | error { raise_offset_error "Error in arguments" ((symbol_start ())) }
 ;
 
 stmtOrDecSeq:
                                { [] }
-  | stmtOrDec stmtOrDecSeq     { $1 :: $2}
+  | stmtOrDec stmtOrDecSeq     { $1 :: $2 }
 ;
 
 stmtOrDec:
-    stmt                                                     { Statement $1 }
-  | dec                                                      { Declaration $1 }
+    stmt                                                     { Statement ($1, (symbol_start ())) }
+  | dec                                                      { Declaration ($1, (symbol_start ())) }
 ;
 
 dec:
@@ -167,31 +167,31 @@ stmt:
   | IF LPAR assignable_expression RPAR stmt                  { If ($3, $5, Block []) }
   | WHILE LPAR assignable_expression RPAR stmt               { While ($3, $5) }
   | UNTIL LPAR assignable_expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec assignable_expression SEMI unassignable_expression RPAR stmt    { Block([Declaration($3); Statement(While($4, Block([Statement($8); Statement(Expression($6));])));]) }
+  | FOR LPAR dec assignable_expression SEMI unassignable_expression RPAR stmt    { Block([Declaration($3, (symbol_start ())); Statement(While($4, Block([Statement($8, (symbol_start ())); Statement(Expression($6), (symbol_start ()));])), (symbol_start ()));]) }
   | REPEAT LPAR value RPAR stmt { 
     let var_name = new_var () in
     Block([
-      Declaration(TypeDeclaration(false, T_Int, var_name)); 
+      Declaration(TypeDeclaration(false, T_Int, var_name), (symbol_start ())); 
       Statement(While(Value(Binary_op("<", Reference(VarRef var_name), Value $3)), 
         Block([
-          Statement($5); 
-          Statement(Expression(Assign(VarRef(var_name), Value(Binary_op("+", Value(Int 1), Reference(VarRef var_name))))));
+          Statement($5, (symbol_start ())); 
+          Statement(Expression(Assign(VarRef(var_name), Value(Binary_op("+", Value(Int 1), Reference(VarRef var_name))))), (symbol_start ()));
         ])
-      ));
+      ), (symbol_start ()));
     ]) 
   }
   | REPEAT LPAR reference RPAR stmt { 
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(false, T_Int, limit_name, Value(Lookup($3)))); 
-      Declaration(TypeDeclaration(false, T_Int, count_name)); 
+      Declaration(AssignDeclaration(false, T_Int, limit_name, Value(Lookup($3))), (symbol_start ())); 
+      Declaration(TypeDeclaration(false, T_Int, count_name), (symbol_start ())); 
       Statement(While(Value(Binary_op("<", Reference(VarRef count_name), Reference(VarRef limit_name))), 
         Block([
-          Statement($5); 
-          Statement(Expression(Assign(VarRef count_name, Value(Binary_op("+", Value(Int 1), Reference(VarRef count_name))))));
+          Statement($5, (symbol_start ())); 
+          Statement(Expression(Assign(VarRef count_name, Value(Binary_op("+", Value(Int 1), Reference(VarRef count_name))))), (symbol_start ()));
         ])
-      ));
+      ), (symbol_start ()));
     ]) 
   }
 ;
@@ -204,7 +204,7 @@ params:
 params1:
     param                  { [$1] }
   | param COMMA params1    { $1 :: $3 }
-  | error { syntax_error "Error in parameter declaration" ((symbol_start ())) }
+  | error { raise_offset_error "Error in parameter declaration" ((symbol_start ())) }
 ;
 
 param:

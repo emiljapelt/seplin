@@ -632,7 +632,7 @@ let yyact = [|
     let _4 = (Parsing.peek_val __caml_parser_env 1 : 'arguments) in
     Obj.repr(
 # 76 "parser.mly"
-                                 ( [Statement (Expression (Call(_2, _4)))] )
+                                 ( [Statement (Expression (Call(_2, _4)), (symbol_start ()))] )
 # 637 "parser.ml"
                : 'chain))
 ; (fun __caml_parser_env ->
@@ -641,7 +641,7 @@ let yyact = [|
     let _6 = (Parsing.peek_val __caml_parser_env 0 : 'chain) in
     Obj.repr(
 # 77 "parser.mly"
-                                       ( (Statement (Expression (Call (_2, _4)))) :: _6 )
+                                       ( (Statement (Expression (Call (_2, _4)), (symbol_start ()))) :: _6 )
 # 646 "parser.ml"
                : 'chain))
 ; (fun __caml_parser_env ->
@@ -964,7 +964,7 @@ let yyact = [|
 ; (fun __caml_parser_env ->
     Obj.repr(
 # 139 "parser.mly"
-          ( syntax_error "Error in arguments" ((symbol_start ())) )
+          ( raise_offset_error "Error in arguments" ((symbol_start ())) )
 # 969 "parser.ml"
                : 'arguments1))
 ; (fun __caml_parser_env ->
@@ -978,21 +978,21 @@ let yyact = [|
     let _2 = (Parsing.peek_val __caml_parser_env 0 : 'stmtOrDecSeq) in
     Obj.repr(
 # 144 "parser.mly"
-                               ( _1 :: _2)
+                               ( _1 :: _2 )
 # 983 "parser.ml"
                : 'stmtOrDecSeq))
 ; (fun __caml_parser_env ->
     let _1 = (Parsing.peek_val __caml_parser_env 0 : 'stmt) in
     Obj.repr(
 # 148 "parser.mly"
-                                                             ( Statement _1 )
+                                                             ( Statement (_1, (symbol_start ())) )
 # 990 "parser.ml"
                : 'stmtOrDec))
 ; (fun __caml_parser_env ->
     let _1 = (Parsing.peek_val __caml_parser_env 0 : 'dec) in
     Obj.repr(
 # 149 "parser.mly"
-                                                             ( Declaration _1 )
+                                                             ( Declaration (_1, (symbol_start ())) )
 # 997 "parser.ml"
                : 'stmtOrDec))
 ; (fun __caml_parser_env ->
@@ -1115,7 +1115,7 @@ let yyact = [|
     let _8 = (Parsing.peek_val __caml_parser_env 0 : 'stmt) in
     Obj.repr(
 # 170 "parser.mly"
-                                                                                 ( Block([Declaration(_3); Statement(While(_4, Block([Statement(_8); Statement(Expression(_6));])));]) )
+                                                                                 ( Block([Declaration(_3, (symbol_start ())); Statement(While(_4, Block([Statement(_8, (symbol_start ())); Statement(Expression(_6), (symbol_start ()));])), (symbol_start ()));]) )
 # 1120 "parser.ml"
                : 'stmt))
 ; (fun __caml_parser_env ->
@@ -1126,13 +1126,13 @@ let yyact = [|
                                 ( 
     let var_name = new_var () in
     Block([
-      Declaration(TypeDeclaration(false, T_Int, var_name)); 
+      Declaration(TypeDeclaration(false, T_Int, var_name), (symbol_start ())); 
       Statement(While(Value(Binary_op("<", Reference(VarRef var_name), Value _3)), 
         Block([
-          Statement(_5); 
-          Statement(Expression(Assign(VarRef(var_name), Value(Binary_op("+", Value(Int 1), Reference(VarRef var_name))))));
+          Statement(_5, (symbol_start ())); 
+          Statement(Expression(Assign(VarRef(var_name), Value(Binary_op("+", Value(Int 1), Reference(VarRef var_name))))), (symbol_start ()));
         ])
-      ));
+      ), (symbol_start ()));
     ]) 
   )
 # 1139 "parser.ml"
@@ -1146,14 +1146,14 @@ let yyact = [|
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(false, T_Int, limit_name, Value(Lookup(_3)))); 
-      Declaration(TypeDeclaration(false, T_Int, count_name)); 
+      Declaration(AssignDeclaration(false, T_Int, limit_name, Value(Lookup(_3))), (symbol_start ())); 
+      Declaration(TypeDeclaration(false, T_Int, count_name), (symbol_start ())); 
       Statement(While(Value(Binary_op("<", Reference(VarRef count_name), Reference(VarRef limit_name))), 
         Block([
-          Statement(_5); 
-          Statement(Expression(Assign(VarRef count_name, Value(Binary_op("+", Value(Int 1), Reference(VarRef count_name))))));
+          Statement(_5, (symbol_start ())); 
+          Statement(Expression(Assign(VarRef count_name, Value(Binary_op("+", Value(Int 1), Reference(VarRef count_name))))), (symbol_start ()));
         ])
-      ));
+      ), (symbol_start ()));
     ]) 
   )
 # 1160 "parser.ml"
@@ -1189,7 +1189,7 @@ let yyact = [|
 ; (fun __caml_parser_env ->
     Obj.repr(
 # 207 "parser.mly"
-          ( syntax_error "Error in parameter declaration" ((symbol_start ())) )
+          ( raise_offset_error "Error in parameter declaration" ((symbol_start ())) )
 # 1194 "parser.ml"
                : 'params1))
 ; (fun __caml_parser_env ->

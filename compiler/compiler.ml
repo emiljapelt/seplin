@@ -10,12 +10,12 @@ type input_type =
 let resolve_input () =
   try (
     let input = Sys.argv.(1) in
-    if not (Sys.file_exists input) then compile_error "Input file does not exist"
+    if not (Sys.file_exists input) then raise_error "Input file does not exist"
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.ix$|}) input 0 then (input, IX)
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.ixa$|}) input 0 then (input, IXA)
-    else compile_error "Invalid input file extension"
+    else raise_error "Invalid input file extension"
   ) with
-  | Invalid_argument _ -> compile_error "No file given to compile"
+  | Invalid_argument _ -> raise_error "No file given to compile"
   | ex -> raise ex
 
 let resolve_output i =
@@ -30,7 +30,7 @@ let resolve_output i =
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+$|}) output 0 then (* File without extension *) (
       output ^ ".ixc"
     )
-    else compile_error "Invalid output destination"
+    else raise_error "Invalid output destination"
   ) with
   | Invalid_argument _ -> "./" ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".ixc"
   | ex -> raise ex
@@ -57,7 +57,7 @@ let () = try (
   | IX -> AssemblyWriter.write (ToProgramRep.compile(Parser.main Lexer.lex (Lexing.from_string content))) output
   | IXA -> AssemblyWriter.write (AssemblyParser.main AssemblyLexer.lex (Lexing.from_string content)) output
 ) with
-| Syntax_error (msg, offset) -> (
+| Offset_error (msg, offset) -> (
   let lines = String.split_on_char '\n' content in
   let line_num = offset_to_line offset lines in
   let () = Printf.printf "%s, on line %i:\n" msg (line_num+1) in
@@ -66,4 +66,4 @@ let () = try (
   | n when n = (List.length lines)-1 -> printer (n-1) ; printer (n)
   | _ ->  printer (line_num-1) ; printer line_num ; printer (line_num+1) 
 )
-| Compile_error msg -> Printf.printf "%s\n" msg
+| Error msg -> Printf.printf "%s\n" msg

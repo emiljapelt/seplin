@@ -1,9 +1,9 @@
 
 external test() {
-    x ::= 2;
-    inner(1, 2);
+    inner(1, 2, 3);
 }
 
 internal inner(a: int, b: int) {
-    print true;
+    print a;
+    print b;
 }

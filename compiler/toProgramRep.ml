@@ -55,7 +55,7 @@ let lookup_struct (name: string) structs =
 let struct_field field params =
   let rec aux ps c =
     match ps with
-    | [] -> compile_error ("No such field, " ^ field)
+    | [] -> raise_error ("No such field, " ^ field)
     | (l,ty,n)::t -> if n = field then (l,ty,c) else aux t (c+1)
   in
   aux params 0
@@ -66,7 +66,7 @@ let var_locked (name: string) var_env =
     | None -> 
       match lookup_globvar name var_env.globals with
       | Some (_,_,gl) -> gl
-      | None -> compile_error ("No such variable " ^ name)
+      | None -> raise_error ("No such variable " ^ name)
 
 let var_type (name: string) var_env = 
   match lookup_localvar name var_env.locals with
@@ -74,7 +74,7 @@ let var_type (name: string) var_env =
   | None -> 
     match lookup_globvar name var_env.globals with
     | Some (_,gty,_) -> gty
-    | None -> compile_error ("No such variable " ^ name)
+    | None -> raise_error ("No such variable " ^ name)
 
 let globvar_exists (name: string) globvars =
   match lookup_globvar name globvars with
@@ -123,7 +123,7 @@ let count_decl stmt_dec_list =
   let rec aux sdl c =
     match sdl with
     | [] -> c
-    | (Declaration dec)::t -> (
+    | (Declaration (dec, _))::t -> (
       match dec with
       | TypeDeclaration _ -> aux t (c+1)
       | AssignDeclaration _ -> aux t (c+1)
@@ -140,14 +140,14 @@ let get_globvars (tds : topdecs) =
     | [] -> acc
     | (GlobalDeclaration dec)::t -> ( match dec with
       | TypeDeclaration (lock,ty,name) -> ( 
-        if globvar_exists name acc then compile_error ("Duplicate global variable name: " ^ name)
+        if globvar_exists name acc then raise_error ("Duplicate global variable name: " ^ name)
         else aux t ((name, count, lock, ty, dec)::acc) (count+1)
       )
       | AssignDeclaration (lock,ty,name,expr) -> ( 
-        if globvar_exists name acc then compile_error ("Duplicate global variable name: " ^ name)
+        if globvar_exists name acc then raise_error ("Duplicate global variable name: " ^ name)
         else aux t ((name, count, lock, ty, dec)::acc) (count+1)
       )
-      | VarDeclaration (lock,name,expr) -> compile_error "var is not supported for global variables"
+      | VarDeclaration (lock,name,expr) -> raise_error "var is not supported for global variables"
     )
     | _::t -> aux t acc count
   in match tds with 
@@ -161,7 +161,7 @@ let get_routines (tds : topdecs) =
     | h::t -> (
       match h with
       | Routine (accmod, name, params, stmt) -> (
-        if routine_exists name acc then compile_error ("Duplicate routine name: " ^ name)
+        if routine_exists name acc then raise_error ("Duplicate routine name: " ^ name)
         else aux t ((name, params)::acc)
         )
       | _ -> aux t acc
@@ -177,7 +177,7 @@ let get_structs (tds : topdecs) =
     | h::t -> (
       match h with
       | Struct (name, params) -> (
-        if struct_exists name acc then compile_error ("Duplicate struct name: " ^ name)
+        if struct_exists name acc then raise_error ("Duplicate struct name: " ^ name)
         else aux t ((name, params)::acc)
         )
       | _ -> aux t acc
@@ -237,15 +237,15 @@ and type_reference ref_expr var_env =
         let (field_lock, field_ty,_) = struct_field field fields in
         (lock || field_lock, field_ty)
       )
-      | None -> compile_error ("No such struct: " ^ str_name)
+      | None -> raise_error ("No such struct: " ^ str_name)
     )
-    | _ -> compile_error ("Field access on non-struct variable")
+    | _ -> raise_error ("Field access on non-struct variable")
   )
   | ArrayRef (refer, expr) -> (
     let (lock, ty) =  type_reference refer var_env in
     match ty with 
     | T_Array array_typ -> (lock, array_typ)
-    | _ -> compile_error ("Array access on non-array variable")
+    | _ -> raise_error ("Array access on non-array variable")
   )
   | Null -> (false, T_Null)
 
@@ -274,19 +274,19 @@ and type_value val_expr var_env =
     | ("+", T_Int, T_Int) -> (false, T_Int)
     | ("-", T_Int, T_Int) -> (false, T_Int)
     | ("*", T_Int, T_Int) -> (false, T_Int)
-    | _ -> compile_error "Unknown binary operator, or type mismatch"
+    | _ -> raise_error "Unknown binary operator, or type mismatch"
   )
   | Unary_op (op, expr) -> (
     let (lock, ty) = type_assignable_expr expr var_env in
     match (op, ty) with
     | ("!", T_Bool) -> (false, T_Bool)
-    | _ -> compile_error "Unknown unary operator, or type mismatch"
+    | _ -> raise_error "Unknown unary operator, or type mismatch"
   )
   | ArraySize (refer) ->  (
     let (lock, ty) = type_reference refer var_env in
     match ty with
     | T_Array _ -> (false, T_Int)
-    | _ -> compile_error "Array size of non-array variable"
+    | _ -> raise_error "Array size of non-array variable"
   )
   | GetInput ty -> (false, ty)
   | Bool _ -> (false, T_Bool)
@@ -349,7 +349,7 @@ let order_dep_globvars dep_gvs =
   let rec aux dep_globvars count prev_count remain acc =
     match dep_globvars with
     | [] when List.length remain = 0 -> acc
-    | [] when count = prev_count -> compile_error "Cannot resolve an ordering of the global variables"
+    | [] when count = prev_count -> raise_error "Cannot resolve an ordering of the global variables"
     | [] -> aux remain count count [] acc
     | h::t -> ( match h with
       | ((name,cnt,lock,ty,dec), deps) -> (
@@ -435,7 +435,7 @@ let fetch_var_index (name: string) globvars localvars =
   | None -> 
     match lookup_globvar name globvars with
     | Some (gc,_,_) -> StackFetch(gc)
-    | None -> compile_error ("No such variable " ^ name)
+    | None -> raise_error ("No such variable " ^ name)
 
 let rec compile_assignable_expr expr var_env acc =
   match expr with
@@ -454,16 +454,16 @@ and compile_reference ref_expr var_env acc =
         let (_, _, index) = struct_field field params in
         compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: acc)
       )
-      | None -> compile_error ("No such struct: " ^ name)
+      | None -> raise_error ("No such struct: " ^ name)
     )
-    | _ -> compile_error ("Struct field lookup type failure")
+    | _ -> raise_error ("Struct field lookup type failure")
   )
   | ArrayRef (refer, index) -> (
     let (_, ref_ty) = type_reference refer var_env in
     let (_, idx_ty) = type_assignable_expr index var_env in
     match (ref_ty, idx_ty) with
     | (T_Array (_), T_Int) -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: acc)))
-    | _ -> compile_error ("Array lookup type failure")
+    | _ -> raise_error ("Array lookup type failure")
   )
   | Null -> PlaceInt(0) :: acc
 
@@ -490,10 +490,10 @@ and compile_value val_expr var_env acc =
     let (_, ref_ty) = type_reference refer var_env in
     match ref_ty with
     | T_Array _ -> compile_reference refer var_env  (FetchFull :: SizeOf :: acc)
-    | _ -> compile_error "Array size only makes sense for arrays"
+    | _ -> raise_error "Array size only makes sense for arrays"
   )
   | GetInput ty -> ( match type_index ty with
-    | -1 -> compile_error "Unsupported GetInput variant"
+    | -1 -> raise_error "Unsupported GetInput variant"
     | x -> GetInput(x) :: acc
   )
   | Lookup refer -> (
@@ -504,13 +504,13 @@ and compile_value val_expr var_env acc =
     | T_Char -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Array ty -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Struct n -> compile_assignable_expr_as_value (Reference refer) var_env acc
-    | T_Null -> compile_error ("Direct null pointer dereferencing")
+    | T_Null -> raise_error ("Direct null pointer dereferencing")
   )
   | NewArray (arr_ty, size_expr) -> (
     let (_, s_ty) = type_assignable_expr size_expr var_env in
     match s_ty with
     | T_Int -> compile_assignable_expr_as_value (optimize_assignable_expr size_expr var_env) var_env (DeclareStruct :: IncrRef :: acc)
-    | _ -> compile_error ("Init array with non-int size")
+    | _ -> raise_error ("Init array with non-int size")
   )
   | NewStruct (name, args) -> (
     let rec aux ags fields c acc =
@@ -518,8 +518,8 @@ and compile_value val_expr var_env acc =
       | ([], []) -> acc
       | (ha::ta, (field_lock,field_ty,_)::tf) -> (
         let (ha_lock, ha_ty) = type_assignable_expr ha var_env in
-        if not (type_equal field_ty ha_ty) then compile_error ("Struct argument type mismatch")
-        else if ha_lock && (not field_lock) then compile_error "Cannot give a locked variable as a parameter that is not locked"
+        if not (type_equal field_ty ha_ty) then raise_error ("Struct argument type mismatch")
+        else if ha_lock && (not field_lock) then raise_error "Cannot give a locked variable as a parameter that is not locked"
         else let optha = optimize_assignable_expr ha var_env in
         match optha with
         | Value _ -> (
@@ -535,11 +535,11 @@ and compile_value val_expr var_env acc =
           | _ -> aux ta tf (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
         )
       )
-      | (_,_) -> compile_error ("Struct argument count mismatch")
+      | (_,_) -> raise_error ("Struct argument count mismatch")
     in
     match lookup_struct name var_env.structs with
     | Some params -> PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev params) ((List.length params)-1) acc)
-    | None -> compile_error ("No such struct: " ^ name)
+    | None -> raise_error ("No such struct: " ^ name)
   )
   | Binary_op (op, e1, e2) -> (
       let (_, t1) = type_assignable_expr e1 var_env in
@@ -564,52 +564,51 @@ and compile_value val_expr var_env acc =
       | ("+", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntAdd :: acc))
       | ("-", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e2 var_env (compile_assignable_expr_as_value e1 var_env (IntSub :: acc))
       | ("*", T_Int, T_Int, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (IntMul :: acc))
-      | _ -> compile_error "Unknown binary operator, or type mismatch"
+      | _ -> raise_error "Unknown binary operator, or type mismatch"
     )
   | Unary_op (op, e) -> (
     let (_, t) = type_assignable_expr e var_env in
     match (op, t, e) with
     | ("!", T_Bool, _) -> compile_assignable_expr_as_value e var_env (BoolNot :: acc)
-    | _ -> compile_error "Unknown unary operator, or type mismatch"
+    | _ -> raise_error "Unknown unary operator, or type mismatch"
   )
 
-let compile_arguments params exprs var_env acc =
-  let rec aux ps es acc =
-    match (ps, es) with
-    | ([],[]) -> acc
-    | ((plock, pty, pname)::pt,eh::et) -> (
+let compile_arguments args var_env acc =
+  let rec aux ars acc =
+    match ars with
+    | ([]) -> acc
+    | (((plock, pty, pname),eh)::t) -> (
         let (expr_lock, expr_ty) = type_assignable_expr eh var_env in
-        if not (type_equal pty expr_ty) then compile_error ("Type mismatch on call: expected " ^ (type_string pty) ^ ", got " ^ (type_string expr_ty)) 
-        else if expr_lock && (not plock) then compile_error "Cannot give a locked variable as a parameter that is not locked"
+        if not (type_equal pty expr_ty) then raise_error ("Type mismatch on call: expected " ^ (type_string pty) ^ ", got " ^ (type_string expr_ty)) 
+        else if expr_lock && (not plock) then raise_error "Cannot give a locked variable as a parameter that is not locked"
         else let opteh = optimize_assignable_expr eh var_env in
         match opteh with
         | Value _ -> ( match expr_ty with
-          | T_Int -> aux pt et (DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignFull :: acc)))
-          | T_Bool -> aux pt et (DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignByte :: acc)))
-          | T_Char -> aux pt et (DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignByte :: acc)))
-          | T_Array _ -> aux pt et (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
-          | T_Struct _ -> aux pt et (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
-          | T_Null -> aux pt et (compile_assignable_expr_as_value opteh var_env (acc))
+          | T_Int -> aux t (DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignFull :: acc)))
+          | T_Bool -> aux t (DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignByte :: acc)))
+          | T_Char -> aux t (DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignByte :: acc)))
+          | T_Array _ -> aux t (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
+          | T_Struct _ -> aux t (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
+          | T_Null -> aux t (compile_assignable_expr_as_value opteh var_env (acc))
         )
         | Reference r -> ( match r with
-          | VarRef _ -> aux pt et (compile_reference r var_env (IncrRef :: acc)) 
-          | StructRef _ -> aux pt et (compile_reference r var_env (FetchFull :: IncrRef :: acc)) 
-          | ArrayRef _ -> aux pt et (compile_reference r var_env (FetchFull :: IncrRef :: acc)) 
-          | Null -> aux pt et (compile_reference r var_env acc) 
+          | VarRef _ -> aux t (compile_reference r var_env (IncrRef :: acc)) 
+          | StructRef _ -> aux t (compile_reference r var_env (FetchFull :: IncrRef :: acc)) 
+          | ArrayRef _ -> aux t (compile_reference r var_env (FetchFull :: IncrRef :: acc)) 
+          | Null -> aux t (compile_reference r var_env acc) 
         )
       )
-    | _ -> compile_error "Insufficient arguments in call"
   in
-  aux (List.rev params) (List.rev exprs) acc
+  aux (List.rev args) acc
 
 let rec compile_assignment target assign var_env acc =
   let (target_lock, target_type) = type_reference target var_env in
   let (assign_lock, assign_type) = type_assignable_expr assign var_env in 
-  if target_lock then compile_error "Cannot assign to a locked variable"
-  else if assign_lock then compile_error "Cannot assign a locked variable, to another variable"
-  else if not (type_equal target_type assign_type) then compile_error ("Type mismatch in assignment, expected '"^(type_string target_type)^"' but got '" ^(type_string assign_type)^ "'")
+  if target_lock then raise_error "Assignment to a locked variable"
+  else if assign_lock then raise_error "Cannot assign a locked variable, to another variable"
+  else if not (type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(type_string target_type)^"' but got '" ^(type_string assign_type)^ "'")
   else match (target, assign) with
-  | (Null, _) -> compile_error "Cannot assign to null"
+  | (Null, _) -> raise_error "Assignment to null"
   | (VarRef name, Value v) -> ( match assign_type with 
     | T_Int ->  compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignFull :: acc)))
     | T_Bool -> compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignByte :: acc)))
@@ -628,7 +627,7 @@ let rec compile_assignment target assign var_env acc =
   )
   | (StructRef(refer, field), Value v) -> ( match type_reference refer var_env with
     | (_,T_Struct str_name) -> ( match lookup_struct str_name var_env.structs with
-      | None -> compile_error ("Could not find struct: " ^ str_name)
+      | None -> raise_error ("Could not find struct: " ^ str_name)
       | Some fields -> ( match struct_field field fields with
         | (field_lock,field_ty,index) -> ( match assign_type with
           | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))
@@ -640,11 +639,11 @@ let rec compile_assignment target assign var_env acc =
         )
       )
     )
-    | (_,_) -> compile_error "Struct assignment to non-struct" 
+    | (_,_) -> raise_error "Struct assignment to non-struct" 
   )
   | (StructRef(refer, field), Reference re) -> ( match type_reference refer var_env with
     | (_,T_Struct str_name) -> ( match lookup_struct str_name var_env.structs with
-      | None -> compile_error ("Could not find struct: " ^ str_name)
+      | None -> raise_error ("Could not find struct: " ^ str_name)
       | Some fields -> ( match struct_field field fields with
         | (field_lock, field_ty, index) -> ( match assign_type with
           | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
@@ -656,7 +655,7 @@ let rec compile_assignment target assign var_env acc =
         )
       )
     )
-    | (_,_) -> compile_error "Struct assignment to non-struct" 
+    | (_,_) -> raise_error "Struct assignment to non-struct" 
   )
   | (ArrayRef(refer, index), Value v) -> ( match type_reference refer var_env with
     | (_,T_Array arr_ty) -> ( match type_assignable_expr index var_env with
@@ -668,9 +667,9 @@ let rec compile_assignment target assign var_env acc =
         | T_Struct _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
         | T_Null -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (FieldAssign :: acc))))
       )
-      | (_,_) -> compile_error "Array index must be an 'int'"
+      | (_,_) -> raise_error "Array index must be of type 'int'"
     )
-    | (_,_) -> compile_error "Array assignment to non-array" 
+    | (_,_) -> raise_error "Array assignment to non-array" 
   )
   | (ArrayRef(refer, index), Reference re) -> ( match type_reference refer var_env with
     | (_,T_Array arr_ty) -> ( match type_assignable_expr index var_env with 
@@ -682,9 +681,9 @@ let rec compile_assignment target assign var_env acc =
         | T_Struct _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
         | T_Null -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FieldAssign :: acc))))
       )
-      | (_,_) -> compile_error "Array index must be an 'int'"
+      | (_,_) -> raise_error "Array index must be of type 'int'"
     )
-    | (_,_) -> compile_error "Array assignment to non-array" 
+    | (_,_) -> raise_error "Array assignment to non-array" 
   )
 
 let compile_unassignable_expr expr env break continue cleanup acc =
@@ -692,11 +691,11 @@ let compile_unassignable_expr expr env break continue cleanup acc =
   | Assign (target, aexpr) -> compile_assignment target (optimize_assignable_expr aexpr env.var_env) env.var_env acc
   | Call (n, aexprs) -> (
     match lookup_routine n env.routine_env with
-    | None -> compile_error ("No such routine: " ^ n)
+    | None -> raise_error ("Call to undefined routine: " ^ n)
     | Some (ps) when (List.length ps) = (List.length aexprs) -> (
-      (compile_arguments ps aexprs env.var_env (PlaceInt(List.length ps) :: Call(n) :: acc))
+      (compile_arguments (List.combine ps aexprs) env.var_env (PlaceInt(List.length ps) :: Call(n) :: acc))
     )
-    | Some (ps) -> compile_error (n ^ " requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
+    | Some (ps) -> raise_error (n ^ "(...) requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
   )
   | Stop -> addStop(acc)
   | Halt -> addHalt(acc)
@@ -704,13 +703,13 @@ let compile_unassignable_expr expr env break continue cleanup acc =
     match break with
     | Some name when cleanup = 0 -> GoTo(name) :: acc
     | Some name -> addFreeVars cleanup (GoTo(name) :: acc)
-    | None -> compile_error "No loop to break out of"
+    | None -> raise_error "No loop to break out of"
   )
   | Continue -> (
     match continue with
     | Some name when cleanup = 0 -> GoTo(name) :: acc
     | Some name -> addFreeVars cleanup (GoTo(name) :: acc)
-    | None -> compile_error "No loop to continue in"
+    | None -> raise_error "No loop to continue in"
   )
   | Print exprs -> (
     let rec aux es acc =
@@ -732,20 +731,20 @@ let compile_unassignable_expr expr env break continue cleanup acc =
 let rec compile_declaration dec var_env acc =
   match dec with
   | TypeDeclaration (l, ty, n) -> (
-    if localvar_exists n var_env.locals then compile_error ("Duplicate variable name: " ^ n)
+    if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
     else match ty with
     | T_Int -> DeclareFull :: IncrRef :: CloneFull :: PlaceInt(0) :: AssignFull :: acc
     | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: PlaceBool(false) :: AssignByte :: acc
     | T_Char -> DeclareByte :: IncrRef :: CloneFull :: PlaceChar('0') :: AssignByte :: acc
     | T_Array _ -> PlaceInt(0) :: acc
     | T_Struct _ -> PlaceInt(0) :: acc
-    | T_Null -> compile_error "Cannot declare the 'null' type"
+    | T_Null -> raise_error "Cannot declare the 'null' type"
   )
   | AssignDeclaration (l, ty, n, expr) -> (
-    if localvar_exists n var_env.locals then compile_error ("Duplicate variable name: " ^ n)
+    if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
     else let (expr_lock, expr_ty) = type_assignable_expr expr var_env in 
-    if expr_lock && (not l) then compile_error "Cannot "
-    else if not (type_equal ty expr_ty) then compile_error "Type mismatch in assignment"
+    if expr_lock && (not l) then raise_error "Cannot assign a locked variable to a non-locked variable"
+    else if not (type_equal ty expr_ty) then raise_error ("Type mismatch on declaration: expected '" ^ (type_string ty) ^ "', got '" ^ (type_string expr_ty) ^ "'") 
     else let opte = optimize_assignable_expr expr var_env in
     match ty with
     | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
@@ -753,12 +752,12 @@ let rec compile_declaration dec var_env acc =
     | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
     | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
     | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-    | _ -> compile_error ("Type mismatch on declaration: expected " ^ (type_string ty) ^ ", got " ^ (type_string expr_ty)) 
+    | T_Null -> compile_assignable_expr opte var_env acc
   )
   | VarDeclaration (l, n, expr) -> (
-    if localvar_exists n var_env.locals then compile_error ("Duplicate variable name: " ^ n)
+    if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
     else let (expr_lock, expr_ty) = type_assignable_expr expr var_env in
-    if expr_lock && (not l) then compile_error "Cannot -" 
+    if expr_lock && (not l) then raise_error "Cannot assign a locked variable to a non-locked variable"
     else let opte = optimize_assignable_expr expr var_env in
     match expr_ty with
     | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
@@ -766,7 +765,7 @@ let rec compile_declaration dec var_env acc =
     | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
     | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
     | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-    | T_Null -> compile_error "Cannot declare the 'null' type"
+    | T_Null -> raise_error "Cannot infere a type from 'null'"
   )
 
 let update_locals env dec =
@@ -783,8 +782,20 @@ let rec compile_sod_list sod_list env break continue cleanup acc =
   | [] -> acc
   | h::t -> (
     match h with
-    | Statement stmt -> compile_stmt stmt env break continue cleanup (compile_sod_list t env break continue cleanup (acc))
-    | Declaration dec -> compile_declaration dec env.var_env (compile_sod_list t (update_locals env dec) break continue (cleanup+1) acc)
+    | Statement (stmt, offset) -> (try (
+      compile_stmt stmt env break continue cleanup (compile_sod_list t env break continue cleanup (acc))
+    ) with
+      | Error msg -> raise_offset_error msg offset
+      | Offset_error (msg, offset) -> raise_offset_error msg offset
+      | e -> raise e
+    )
+    | Declaration (dec, offset) -> (try (
+      compile_declaration dec env.var_env (compile_sod_list t (update_locals env dec) break continue (cleanup+1) acc)
+    ) with
+      | Error msg -> raise_offset_error msg offset
+      | Offset_error (msg, offset) -> raise_offset_error msg offset
+      | e -> raise e
+    )
   )
 
 and compile_stmt stmt env break continue cleanup acc =
@@ -793,7 +804,7 @@ and compile_stmt stmt env break continue cleanup acc =
     let label_true = new_label () in
     let label_stop = new_label () in
     let (_, t) = type_assignable_expr expr env.var_env in
-    if t != T_Bool then compile_error "Conditional requires 'bool'"
+    if t != T_Bool then raise_error "Condition not of type 'bool'"
     else compile_assignable_expr_as_value expr env.var_env (IfTrue(label_true) :: (compile_stmt s2 env break continue cleanup (GoTo(label_stop) :: CLabel(label_true) :: (compile_stmt s1 env break continue cleanup (CLabel(label_stop) :: acc)))))
   )
   | While (expr, s) -> (
@@ -801,7 +812,7 @@ and compile_stmt stmt env break continue cleanup acc =
     let label_start = new_label () in
     let label_stop = new_label () in
     let (_, t) = type_assignable_expr expr env.var_env in
-    if t != T_Bool then compile_error "Conditional requires 'bool'"
+    if t != T_Bool then raise_error "Condition not of type 'bool'"
     else GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_assignable_expr_as_value expr env.var_env (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
   )
   | Block (sod_list) -> (
@@ -812,7 +823,7 @@ and compile_stmt stmt env break continue cleanup acc =
   | Expression (expr) -> compile_unassignable_expr expr env break continue cleanup acc
 
 let compile_globalvars globvars structs acc =
-  compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration dec) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; }); routine_env = []; }) None None 0 acc
+  compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; }); routine_env = []; }) None None 0 acc
 
 let compile topdecs =
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in

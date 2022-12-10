@@ -64,12 +64,9 @@
                             "REF_FETCH",        REF_FETCH;
                             "INCR_REF",         INCR_REF;
                         ]
-
-    let line_num = ref 0
 }
 rule lex = parse
-        [' ' '\t' '\r']                         { lex lexbuf }
-    |   '\n'                                    { incr line_num; lex lexbuf }
+        [' ' '\t' '\r' '\n']                         { lex lexbuf }
     |   ['-']?['0'-'9']+ as lxm                 { CST_INT (int_of_string lxm) }
     | "true"                                    { CST_BOOL true }
     | "false"                                   { CST_BOOL false }
@@ -78,11 +75,11 @@ rule lex = parse
     |   ['#'] ['A'-'Z'] * as id 
                 { try
                     Hashtbl.find meta_table id
-                  with Not_found -> syntax_error ("Unknown meta symbol \'" ^ id ^ "\'") !line_num}
+                  with Not_found -> raise_offset_error ("Unknown meta symbol \'" ^ id ^ "\'") (Lexing.lexeme_start lexbuf) }
     |   ['A'-'Z'] ['A'-'Z' '_' ] * as id
                 { try
                     Hashtbl.find instruction_table id
-                  with Not_found -> syntax_error ("Unknown instruction \'" ^ id ^ "\'") !line_num }
+                  with Not_found -> raise_offset_error ("Unknown instruction \'" ^ id ^ "\'") (Lexing.lexeme_start lexbuf) }
     |   ['A'-'Z' 'a'-'z' '#'] ['A'-'Z' 'a'-'z' '0'-'9' '_' ] * as name   { NAME name }
-    | _                 { syntax_error "Unknown token" !line_num}
+    | _                 { raise_offset_error "Unknown token" (Lexing.lexeme_start lexbuf) }
     | eof               { EOF }
