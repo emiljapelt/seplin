@@ -14,7 +14,7 @@ struct_info:
 8[struct_count:sc]
 sc{
   *[c][0]
-  8[fields:f]
+  [fields:f]
   f{
     {type_info}
   }  

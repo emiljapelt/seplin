@@ -59,7 +59,7 @@ let get_index list prop =
 (* Writers *)
 
 let rec write_type_info file lock ty structs =
-  if lock then fprintf file "\x00" else fprintf file "\x01" ;
+  if lock then fprintf file "\x01" else fprintf file "\x00" ;
   match ty with
   | T_Int -> fprintf file "\x00" ; fprintf file "%c" (Char.chr (ProgramRep.type_index T_Int))
   | T_Bool -> fprintf file "\x00" ; fprintf file "%c" (Char.chr (ProgramRep.type_index T_Bool))
@@ -85,18 +85,21 @@ let rec write_entry_point_info file name addr args structs =
   in
   print_args args
 
-let rec write_entry_points file pps addr structs =
+let rec write_entry_points file pps structs =
   write_word file (Int64.of_int (count_entry_points pps)) ;
-  match pps with
-  | [] -> ()
-  | h::t -> match h with
-    | Label _ -> write_entry_points file t addr structs
-    | EntryPoint (name, args) -> write_entry_point_info file name addr args structs ; write_entry_points file t addr structs
-    | IntInstruction _ -> write_entry_points file t (addr+9) structs
-    | BoolInstruction _ -> write_entry_points file t (addr+2) structs
-    | CharInstruction _ -> write_entry_points file t (addr+2) structs
-    | LabelInstruction _ -> write_entry_points file t (addr+9) structs
-    | _ -> write_entry_points file t (addr+1) structs
+  let rec aux parts addr =
+    match parts with
+    | [] -> ()
+    | h::t -> match h with
+      | Label _ -> aux t addr
+      | EntryPoint (name, args) -> write_entry_point_info file name addr args structs ; aux t addr
+      | IntInstruction _ -> aux t (addr+9)
+      | BoolInstruction _ -> aux t (addr+2)
+      | CharInstruction _ -> aux t (addr+2)
+      | LabelInstruction _ -> aux t (addr+9)
+      | _ -> aux t (addr+1)
+  in
+  aux pps 0
 
 
 
@@ -112,7 +115,7 @@ let rec write_global_vars file gvs structs =
 
 
 let rec write_struct_info file name fields structs =
-  fprintf file "%s%c" name '\x00'; write_word file (Int64.of_int (List.length structs)) ;
+  fprintf file "%s%c" name '\x00'; fprintf file "%c" (Char.chr (List.length structs)) ;
   let rec aux fs =
     match fs with
     | [] -> ()
@@ -179,6 +182,6 @@ let write program dest =
   let output = open_out dest in
   let () = write_structs output structs in
   let () = write_global_vars output global_vars structs in
-  let () = write_entry_points output program_parts 0 structs in
+  let () = write_entry_points output program_parts structs in
   let () = write_program_parts output program_parts labels in
   close_out output
