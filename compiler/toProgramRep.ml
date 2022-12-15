@@ -169,7 +169,7 @@ let get_routines (tds : topdecs) =
   in match tds with
   | Topdecs l -> aux l []
 
-(*    list of: string * (bool, typ * string) list   *)
+(*    list of: string * (bool * typ * string) list   *)
 let get_structs (tds : topdecs) =
   let rec aux topdecs acc =
     match topdecs with
@@ -360,6 +360,8 @@ let order_dep_globvars dep_gvs =
   in
   List.rev (aux dep_gvs 0 0 [] [])
 
+let gather_globvar_info gvs =
+  List.map (fun (name,count,lock,ty,dec) -> (lock, ty, name)) gvs
 
 
 (*** Optimizing functions ***)
@@ -427,7 +429,7 @@ and optimize_value expr var_env =
 let routine_head accmod name params =
   match accmod with
   | Internal -> CLabel(name)
-  | External -> CEntryPoint(name, List.map (fun (l,t,n) -> t) params)
+  | External -> CEntryPoint(name, List.map (fun (lock,ty,_) -> (lock,ty)) params)
 
 let fetch_var_index (name: string) globvars localvars = 
   match lookup_localvar name localvars with
@@ -838,4 +840,4 @@ let compile topdecs =
       | _ -> aux t acc
   in
   match topdecs with
-  | Topdecs tds -> Program([], ProgramRep.translate(compile_globalvars globvars structs (ToStart :: (aux tds []))))
+  | Topdecs tds -> Program(structs, (gather_globvar_info globvars), ProgramRep.translate(compile_globalvars globvars structs (ToStart :: (aux tds []))))

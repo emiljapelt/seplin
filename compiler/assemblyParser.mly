@@ -68,19 +68,7 @@
 %%
 
 main:
-      GLOBAL_SECTION global_section SECTION_END PROGRAM_SECTION program_section SECTION_END EOF  { Program ($2, $5) }
-    | PROGRAM_SECTION program_section SECTION_END GLOBAL_SECTION global_section SECTION_END EOF { Program ($5, $2) }
-    | PROGRAM_SECTION program_section SECTION_END EOF  { Program ([], $2) }
-;
-
-global_section:
-    global_variables { $1 }
-;
-
-global_variables:
-        {[]}
-    | INT CST_INT global_variables { (G_Int $2) :: $3 }
-    | BOOL CST_BOOL global_variables { (G_Bool $2) :: $3 }
+    PROGRAM_SECTION program_section SECTION_END EOF  { Program ([], [], $2) }
 ;
 
 program_section:
@@ -141,19 +129,10 @@ program:
     | TO_START program { Instruction(47) :: $2 }
     | REF_FETCH program { Instruction(48) :: $2 }
     | INCR_REF program { Instruction(49) :: $2 }
-    
-    
-    
-    
-    
-    
-    
-    
-    
 ;
 
 type_list:
         {[]}
-    | INT type_list { T_Int :: $2}
-    | BOOL type_list { T_Bool :: $2}
+    | INT type_list { (false, T_Int) :: $2 }
+    | BOOL type_list { (false, T_Bool) :: $2 }
 ;

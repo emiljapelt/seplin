@@ -1,12 +1,8 @@
 type program =
-  | Program of global_var list * program_part list
-
-and global_var =
-  | G_Int of int
-  | G_Bool of bool
+  | Program of (string * (bool * typ * string) list) list * (bool * typ * string) list * program_part list
 
 and program_part =
-  | EntryPoint of string * typ list
+  | EntryPoint of string * (bool * typ) list
   | Label of string
   | Instruction of int
   | IntInstruction of int * int
@@ -30,7 +26,7 @@ let type_index ty =
   | _ -> -1
 
 type concrete_program_part =
-  | CEntryPoint of string * typ list
+  | CEntryPoint of string * (bool * typ) list
   | CLabel of string
   | CHalt
   | CStop
