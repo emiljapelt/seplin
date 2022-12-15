@@ -767,7 +767,7 @@ int main(int argc, char** argv) {
             int return_code = run(progresser, entry_addr, stack, arguments, argument_count, trace, time);
 
             if (time) 
-                printf("Total execution time: %fs\n", (((double)(clock() - ticks))/CLOCKS_PER_SEC));
+                printf("Total cpu time: %fs\n", (((double)(clock() - ticks))/CLOCKS_PER_SEC));
                 
             return return_code;
         }
