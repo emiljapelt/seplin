@@ -5,7 +5,6 @@
 
 #include "ISA.h"
 #include "types.h"
-#include "disass.h"
 #include "memory.h"
 #include "file_analysis.h"
 #include "commands.h"
@@ -557,7 +556,16 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                 ufull_t typ = *(ufull_t*)(p + ip + 1);
 
                 switch (typ) {
-                    case BOOL: {
+                    case 0: {
+                        char* int_buffer;
+                        read_input(20, &int_buffer);
+                        ufull_t int_value = parse_int(int_buffer);
+                        // Needs a check
+                        *(ufull_t*)(stack + sp) = int_value;
+                        sp += MOVE(FULL, 1);
+                        break;
+                    }
+                    case 1: {
                         char* bool_buffer;
                         read_input(10, &bool_buffer);
                         byte_t bool_value = parse_bool(bool_buffer);
@@ -566,22 +574,13 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                         sp += MOVE(BYTE, 1);
                         break;
                     }
-                    case CHAR: {
+                    case 2: {
                         char* char_buffer;
                         read_input(3, &char_buffer);
                         byte_t char_value = parse_char(char_buffer);
                         if (char_value == -1) { printf("Failure: Expected a 'char' but got: %s\n", char_buffer); return -1; }
                         *(byte_t*)(stack + sp) = char_value;
                         sp += MOVE(BYTE, 1);
-                        break;
-                    }
-                    case INT: {
-                        char* int_buffer;
-                        read_input(20, &int_buffer);
-                        ufull_t int_value = parse_int(int_buffer);
-                        // Needs a check
-                        *(ufull_t*)(stack + sp) = int_value;
-                        sp += MOVE(FULL, 1);
                         break;
                     }
                     default: 
@@ -649,9 +648,15 @@ int main(int argc, char** argv) {
             byte_t* file;
             full_t file_len;
             load_file(cmd_arguments[1], &file, &file_len);
-            if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;} 
+            if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;}
+            struct file_segments segments = find_segments(file);
 
-            print_entry_points(file);
+            printf("Structs:\n");
+            print_structs(segments.struct_segment);
+            printf("Global variables:\n");
+            print_global_vars(segments.global_var_segment, segments.struct_segment);
+            printf("Entry points:\n");
+            print_entry_points(segments.entry_point_segment, segments.struct_segment);
             return 0;
         }
         case DISASS: {
@@ -661,8 +666,16 @@ int main(int argc, char** argv) {
             full_t file_len;
             load_file(cmd_arguments[1], &file, &file_len);
             if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;}
+            struct file_segments segments = find_segments(file);
 
-            dissas(file, file_len);
+            printf("Structs:\n");
+            print_structs(segments.struct_segment);
+            printf("Global variables:\n");
+            print_global_vars(segments.global_var_segment, segments.struct_segment);
+            printf("Entry points:\n");
+            print_entry_points(segments.entry_point_segment, segments.struct_segment);
+            printf("Instructions:\n");
+            dissas(file, segments.instructions_segment, file_len);
             return 0;
         }
         case RUN: {
@@ -673,87 +686,67 @@ int main(int argc, char** argv) {
             load_file(cmd_arguments[1], &file, &file_len);
             if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;}
 
-            //Find the requested entry point
-            full_t* entry_point_info = find_entry_point(file, cmd_arguments[2]);
-            if (entry_point_info == 0) { printf("Failure: No such entry point: %s\n", cmd_arguments[2]); return -1; }
+            struct file_segments segments = find_segments(file);
 
-            // Gather entry point information
-            full_t entry_addr = entry_point_info[0];
-            char* argument_info = (char*)(entry_point_info+1);
-            char argument_count = argument_info[0];
-            if (argument_count != cmd_argument_count-3) { printf("Failure: Argument mismatch\n"); return -1; }
+            //Find the requested entry point
+            struct entry_point_info entry_point = find_entry_point(segments.entry_point_segment, cmd_arguments[2]);
+            if (entry_point.found == false) { printf("Failure: No such entry point: %s\n", cmd_arguments[2]); return -1; }
+            if (entry_point.argument_count != cmd_argument_count-3) { printf("Failure: Argument mismatch\n"); return -1; }
 
             byte_t stack[STACKSIZE];
             memory_init(stack);
 
-            // Load global variables
-            byte_t* progresser = file;
-            find_global_vars_start(progresser, &progresser);
-
-            // byte_t* glob_var_ptr = progresser;
-            // full_t glob_var_count = *((full_t*)glob_var_ptr);
-            // glob_var_ptr += 8;
-            int i = 0;
-            // while (i < glob_var_count) {
-            //     byte_t type = *glob_var_ptr;
-            //     glob_var_ptr += 1;
-            //     switch (type){
-            //         case BOOL: {
-            //             byte_t* alloc = allocate_simple(BYTE);
-            //             *(alloc+1) = *glob_var_ptr;
-            //             glob_var_ptr += MOVE(BYTE, 1);
-            //             *(full_t*)(stack + MOVE(FULL, i)) = (full_t)alloc;
-            //             break;
-            //         }
-            //         case INT: {
-            //             byte_t* alloc = allocate_simple(FULL);
-            //             *((full_t*)(alloc+1)) = *(full_t*)glob_var_ptr;
-            //             glob_var_ptr += MOVE(FULL, 1);
-            //             *(full_t*)(stack + MOVE(FULL, i)) = (full_t)alloc;
-            //             break;
-            //         }
-            //         default:
-            //             break;
-            //     }
-            //     i++;
-            // }
-
-            find_instruction_start(progresser, &progresser);
-
             // Load given arguments
-            byte_t* arguments[argument_count];
-            i = 0;
-            while (i < argument_count) {
-                switch (argument_info[i+1]) {
-                    case CHAR: {
-                        byte_t char_v = parse_char(cmd_arguments[i+3]);
-                        if (char_v == -1) { printf("Failure: expected a char, but got: %s\n", cmd_arguments[i+3]); return -1; }
-                        byte_t* char_alloc = allocate_simple(BYTE);
-                        *(char_alloc) = char_v;
-                        arguments[i] = char_alloc;
-                        INCR_REF_COUNT(char_alloc);
+            int i = 0;
+            byte_t* arguments[entry_point.argument_count];
+            while (i < entry_point.argument_count) {
+                byte_t locked_var = *entry_point.argument_types;
+                entry_point.argument_types += 1;
+                switch (*entry_point.argument_types) {
+                    case 0: // simple
+                        entry_point.argument_types += 1;
+                        switch (*entry_point.argument_types) {
+                            case 0: { // int
+                                entry_point.argument_types += 1;
+                                full_t int_v = parse_int(cmd_arguments[i+3]);
+                                if (int_v == 0 && !(strcmp(cmd_arguments[i+3], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", cmd_arguments[i+3]); return -1; }
+                                byte_t* int_alloc = allocate_simple(FULL);
+                                *((full_t*)(int_alloc)) = int_v;
+                                arguments[i] = int_alloc;
+                                INCR_REF_COUNT(int_alloc);
+                                break;
+                            }
+                            case 1: { // bool
+                                entry_point.argument_types += 1;
+                                byte_t bool_v = parse_bool(cmd_arguments[i+3]);
+                                if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", cmd_arguments[i+3]); return -1; }
+                                byte_t* bool_alloc = allocate_simple(BYTE);
+                                *(bool_alloc) = bool_v;
+                                arguments[i] = bool_alloc;
+                                INCR_REF_COUNT(bool_alloc);
+                                break;
+                            }
+                            case 2: { // char
+                                entry_point.argument_types += 1;
+                                byte_t char_v = parse_char(cmd_arguments[i+3]);
+                                if (char_v == -1) { printf("Failure: expected a char, but got: %s\n", cmd_arguments[i+3]); return -1; }
+                                byte_t* char_alloc = allocate_simple(BYTE);
+                                *(char_alloc) = char_v;
+                                arguments[i] = char_alloc;
+                                INCR_REF_COUNT(char_alloc);
+                                break;
+                            }
+                            default:
+                                printf("Unknown simple type\n");
+                                return -1;
+                        }
                         break;
-                    }
-                    case BOOL: {
-                        byte_t bool_v = parse_bool(cmd_arguments[i+3]);
-                        if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", cmd_arguments[i+3]); return -1; }
-                        byte_t* bool_alloc = allocate_simple(BYTE);
-                        *(bool_alloc) = bool_v;
-                        arguments[i] = bool_alloc;
-                        INCR_REF_COUNT(bool_alloc);
-                        break;
-                    }
-                    case INT: {
-                        full_t int_v = parse_int(cmd_arguments[i+3]);
-                        if (int_v == 0 && !(strcmp(cmd_arguments[i+3], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", cmd_arguments[i+3]); return -1; }
-                        byte_t* int_alloc = allocate_simple(FULL);
-                        *((full_t*)(int_alloc)) = int_v;
-                        arguments[i] = int_alloc;
-                        INCR_REF_COUNT(int_alloc);
-                        break;
-                    }
-                    default: ;
-                        printf("Failure: Unknown type\n");
+                    case 1: // array
+                    case 2: // struct
+                        printf("INEX does not support array and struct as commandline arguments\n");
+                        return -1;
+                    default:
+                        printf("Unknown type type\n");
                         return -1;
                 }
                 i++;
@@ -762,9 +755,17 @@ int main(int argc, char** argv) {
             clock_t ticks;
             if (time) ticks = clock();
             if (trace) 
-                printf("Running %s @ instruction #%lld...\n\n", cmd_arguments[2], entry_addr);
+                printf("Running %s @ instruction #%lld...\n\n", cmd_arguments[2], entry_point.instruction_addr);
 
-            int return_code = run(progresser, entry_addr, stack, arguments, argument_count, trace, time);
+            int return_code = run(
+                segments.instructions_segment, 
+                entry_point.instruction_addr, 
+                stack, 
+                arguments, 
+                entry_point.argument_count, 
+                trace, 
+                time
+            );
 
             if (time) 
                 printf("Total cpu time: %fs\n", (((double)(clock() - ticks))/CLOCKS_PER_SEC));

@@ -20,9 +20,9 @@ and typ =
 
 let type_index ty =
   match ty with
-  | T_Int -> 1
-  | T_Bool -> 2
-  | T_Char -> 3
+  | T_Int -> 0
+  | T_Bool -> 1
+  | T_Char -> 2
   | _ -> -1
 
 type concrete_program_part =

@@ -81,7 +81,7 @@ let rec write_entry_point_info file name addr args structs =
   let rec print_args a = 
     match a with
     | [] -> ()
-    | (lock,ty)::t -> write_type_info file lock ty structs
+    | (lock,ty)::t -> write_type_info file lock ty structs ; print_args t
   in
   print_args args
 
@@ -108,18 +108,21 @@ let rec write_global_var_info file name lock ty structs =
 
 let rec write_global_vars file gvs structs =
   write_word file (Int64.of_int (List.length gvs)) ;
-  match gvs with
-  | [] -> ()
-  | (lock,ty,name)::t -> write_global_var_info file name lock ty structs
+  let rec aux gs = 
+    match gs with
+    | [] -> ()
+    | (lock,ty,name)::t -> write_global_var_info file name lock ty structs ; aux t
+  in
+  aux gvs
 
 
 
 let rec write_struct_info file name fields structs =
-  fprintf file "%s%c" name '\x00'; fprintf file "%c" (Char.chr (List.length structs)) ;
+  fprintf file "%s%c" name '\x00'; fprintf file "%c" (Char.chr (List.length fields)) ;
   let rec aux fs =
     match fs with
     | [] -> ()
-    | (lock,ty,_)::t -> write_type_info file lock ty structs
+    | (lock,ty,_)::t -> write_type_info file lock ty structs ; aux t
   in
   aux fields
 
