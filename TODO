@@ -1,7 +1,17 @@
 - Make VM support 32bit systems, using preprosession directives to define type size and header manipulators
-- More data types
-- Make better error for compiler
-- Add printing for structures
-- Cleanup
-- Do some testing
+- More data types (float, string, etc. )
+- Refine error printing for the compiler
+- Rework binary files, to this:
+    - Types:
+        - simple: 1[0x01]1[simple_index]
+        - array: 1[0x02]*{type}
+        - struct: 1[0x03]8[field_count:fc]fc{type}
+    - Ordering:
+        - Struct info: *[name]8[field_count:fc]fc[type]
+        - Global variable info: *[name]{type}
+        - Entry points: *[name]8[inst_addr]8[arg_count:ac]ac[type]
+        - Instruction list
+- Add default printing for structures
+- Cleanup the codebase
+- Do some automated testing
 - Generalize PLACE_* instructions by size
