@@ -1,5 +1,9 @@
 - Make VM support 32bit systems, using preprosession directives to define type size and header manipulators
 - More data types (float, string, etc. )
+    - use Quarter instead of Short
+    - consider how to specify types in source code
+        - float, h_float, uh_float, u_int, uq_int
+        - float, half float, unsigned half float, unsigned int, unsigned quarter int
 - Refine error printing for the compiler
 - Rework binary files, to this:
     - Types:
@@ -15,3 +19,5 @@
 - Cleanup the codebase
 - Do some automated testing
 - Generalize PLACE_* instructions by size
+
+
