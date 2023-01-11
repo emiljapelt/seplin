@@ -743,6 +743,7 @@ int main(int argc, char** argv) {
                         break;
                     case 1: // array
                     case 2: // struct
+                    case 3: // generic
                         printf("INEX does not support array and struct as commandline arguments\n");
                         return -1;
                     default:

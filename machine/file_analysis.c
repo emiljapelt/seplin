@@ -23,6 +23,9 @@ int type_rep_size(byte_t* file) {
         case 2: // struct
             size += 9;
             break;
+        case 3:
+            size += 2;
+            break;
     }
     return size;
 }
@@ -155,6 +158,11 @@ void print_type(byte_t* ptr, byte_t* struct_seg) {
                 idx--;
             }
             printf("%s", struct_seg);
+            break;
+        case 3: // generic
+            ptr += 1;
+            printf("%c", *ptr);
+            ptr += 1;
             break;
     }
 }

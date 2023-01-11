@@ -1,5 +1,5 @@
 type program =
-  | Program of (string * (bool * typ * string) list) list * (bool * typ * string) list * program_part list
+  | Program of (string * char list * (bool * typ * string) list) list * (bool * typ * string) list * program_part list
 
 and program_part =
   | EntryPoint of string * (bool * typ) list
@@ -15,8 +15,9 @@ and typ =
   | T_Bool
   | T_Char
   | T_Array of typ
-  | T_Struct of string
+  | T_Struct of string * typ list
   | T_Null
+  | T_Generic of char
 
 let type_index ty =
   match ty with

@@ -1,0 +1,78 @@
+external main() {
+    main1();
+    main2();
+    main3();
+}
+
+struct tuple<T>(fst: T, snd: T);
+
+external main1(){
+
+    nums : tuple<int> := new tuple<int>(2, 3);
+
+    print nums.fst, '\n';
+    print nums.snd, '\n';
+
+    nums.snd := 20;
+    
+    sum: int;
+    sum_tuple(nums, sum);
+    print sum, '\n';
+
+    chars ::= new tuple<char>('a', 'b');
+
+    print chars.fst, '\n';
+    print chars.snd, '\n';
+
+
+    wild ::= new tuple<tuple<int>>(new tuple<int>(1,2), new tuple<int>(3,4));
+
+    print wild.fst.fst, '\n';
+    print wild.fst.snd, '\n';
+    print wild.snd.fst, '\n';
+    print wild.snd.snd, '\n';
+}
+
+internal sum_tuple(t: tuple<int>, result: int) {
+    result := t.fst + t.snd;
+}
+
+
+
+struct list<T>(head: T, tail: list<T>);
+
+external main2() {
+
+    l ::= new list<int>(1, new list<int>(2,null));
+
+    print_int_list(l);
+
+    print '\n';
+    append(5, l);
+    append(124, l);
+
+    print_int_list(l);
+
+}
+
+internal append(v: int, target: list<int>) {
+    target := new list<int>($v, target);
+}
+
+internal print_int_list(target: locked list<int>) {
+    if (target = null) stop;
+    print target.head, '\n';
+    print_int_list(target.tail);
+}
+
+
+
+external main3() {
+
+    l : int[] := [1,2,3];
+
+    print l[0], '\n';
+    print l[1], '\n';
+    print l[2], '\n';
+
+}

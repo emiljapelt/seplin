@@ -44,12 +44,13 @@ and value =
     | Char of char
     | Lookup of reference
     | NewArray of typ * assignable_expression
-    | NewStruct of string * assignable_expression list
+    | ArrayLiteral of assignable_expression list
+    | NewStruct of string * typ list * assignable_expression list
 
 and top_declaration =
     | Routine of access_mod * string * (bool * typ * string) list * statement
     | GlobalDeclaration of declaration
-    | Struct of string * ((bool * typ * string) list)
+    | Struct of string * char list * ((bool * typ * string) list)
 
 and access_mod =
     | Internal

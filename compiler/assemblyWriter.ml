@@ -65,12 +65,13 @@ let rec write_type_info file lock ty structs =
   | T_Bool -> fprintf file "\x00" ; fprintf file "%c" (Char.chr (ProgramRep.type_index T_Bool))
   | T_Char -> fprintf file "\x00" ; fprintf file "%c" (Char.chr (ProgramRep.type_index T_Char))
   | T_Array arr_ty -> fprintf file "\x01" ; write_type_info file false arr_ty structs
-  | T_Struct str_name -> (
-    match get_index structs (fun (name, fields) -> str_name = name) with
+  | T_Struct (str_name, typ_vars) -> (
+    match get_index structs (fun (name, typ_vars, fields) -> str_name = name) with
     | None -> failwith "struct not found while writing binary"
     | Some i -> fprintf file "\x02" ; write_word file (Int64.of_int i)
   )
   | T_Null -> failwith ("writing null type")
+  | T_Generic c -> fprintf file "\x03%c" c
 
 
 
@@ -117,7 +118,7 @@ let rec write_global_vars file gvs structs =
 
 
 
-let rec write_struct_info file name fields structs =
+let rec write_struct_info file name typ_vars fields structs =
   fprintf file "%s%c" name '\x00'; fprintf file "%c" (Char.chr (List.length fields)) ;
   let rec aux fs =
     match fs with
@@ -131,7 +132,7 @@ let write_structs file structs =
   let rec aux strs =
     match strs with
     | [] -> ()
-    | (name,fields)::t -> write_struct_info file name fields structs ; aux t
+    | (name,typ_vars,fields)::t -> write_struct_info file name typ_vars fields structs ; aux t
   in
   aux structs
 
