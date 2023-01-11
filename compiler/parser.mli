@@ -8,6 +8,7 @@ type token =
   | INTERNAL
   | EXTERNAL
   | NAME of (string)
+  | TYPE_VAR of (char)
   | ASSIGNMENT
   | LPAR
   | RPAR

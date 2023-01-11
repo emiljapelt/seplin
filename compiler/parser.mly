@@ -18,6 +18,7 @@
 %token CHAR
 %token INTERNAL EXTERNAL
 %token <string> NAME
+%token <char> TYPE_VAR
 %token ASSIGNMENT
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
 %token STOP HALT
@@ -55,9 +56,18 @@ topdec:
     dec { GlobalDeclaration $1 }
   | INTERNAL NAME LPAR params RPAR block           { Routine (Internal, $2, $4, $6) }
   | EXTERNAL NAME LPAR params RPAR block           { Routine (External, $2, $4, $6) }
-  | INTERNAL NAME LPAR params RPAR chain           { Routine (Internal, $2, $4, Block $6) }
-  | EXTERNAL NAME LPAR params RPAR chain           { Routine (External, $2, $4, Block $6) }
-  | STRUCT NAME LPAR params RPAR SEMI              { Struct ($2, $4) }
+  | STRUCT NAME LPAR params RPAR SEMI              { Struct ($2, [], $4) }
+  | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI              { Struct ($2, $4, $7) }
+;
+
+typ_vars:
+    TYPE_VAR                { [$1] }
+  | TYPE_VAR COMMA typ_vars { $1 :: $3 }
+;
+
+typ_args:
+    typ                 { [$1] }
+  | typ COMMA typ_args  { $1 :: $3 }
 ;
 
 typ:
@@ -65,16 +75,13 @@ typ:
   | BOOL                { T_Bool }
   | CHAR                { T_Char }
   | typ LBRAKE RBRAKE   { T_Array $1 }
-  | NAME                { T_Struct $1 }
+  | NAME                { T_Struct ($1, []) }
+  | NAME LT typ_args GT { T_Struct ($1, $3) }
+  | TYPE_VAR            { T_Generic $1 }
 ;
 
 block:
   LBRACE stmtOrDecSeq RBRACE    { Block $2 }
-;
-
-chain:
-    DOT NAME LPAR arguments RPAR { [Statement (Expression (Call($2, $4)), (symbol_start ()))] }
-  | DOT NAME LPAR arguments RPAR chain { (Statement (Expression (Call ($2, $4)), (symbol_start ()))) :: $6 }
 ;
 
 assignable_expression:
@@ -111,7 +118,9 @@ value:
   | HASH typ                                              { GetInput $2 }
   | VALUE reference                                       { Lookup $2 }
   | NEW typ LBRAKE assignable_expression RBRAKE           { NewArray ($2, $4) }
-  | NEW NAME LPAR arguments RPAR                          { NewStruct ($2, $4) }
+  | LBRAKE arguments RBRAKE                               { ArrayLiteral $2 }
+  | NEW NAME LPAR arguments RPAR                          { NewStruct ($2, [], $4) }
+  | NEW NAME LT typ_args GT LPAR arguments RPAR           { NewStruct ($2, $4, $7) }
 ;
 
 unassignable_expression:

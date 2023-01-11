@@ -36,6 +36,7 @@ rule lex = parse
     |   ''' ['\\']? _ ''' as lxm { CSTCHAR (char_of_string lxm lexbuf) }
     |   "true"            { CSTBOOL true }
     |   "false"           { CSTBOOL false }
+    |   ['A'-'Z'] as lxm { TYPE_VAR (lxm) }
     |   ['A'-'Z' 'a'-'z' '''] ['A'-'Z' 'a'-'z' '0'-'9' '_'] * as id
                 { try
                     Hashtbl.find keyword_table id
