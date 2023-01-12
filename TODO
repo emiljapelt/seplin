@@ -14,3 +14,6 @@
 - Generalize PLACE_* instructions by size
 
 
+- Implement generics inference
+    - structs
+    - routines
