@@ -11,7 +11,7 @@ type variable_environment = {
 
 type environment = { 
   var_env: variable_environment;
-  routine_env: (string * (bool * typ * string) list) list; 
+  routine_env: (string * char list * (bool * typ * string) list) list; 
 }
 
 type label_generator = { mutable next : int }
@@ -24,7 +24,7 @@ let lookup_routine (name: string) routines =
   let rec aux li =
     match li with
     | [] -> None
-    | (n,ps)::t -> if n = name then Some(ps) else aux t
+    | (n,tvs,ps)::t -> if n = name then Some(tvs,ps) else aux t
   in
   aux routines
 
@@ -153,16 +153,16 @@ let get_globvars (tds : topdecs) =
   in match tds with 
   | Topdecs l -> aux l [] 0
 
-(*    list of: string * access_mod * (bool * typ * string) list * statement    *)
+(*    list of: string * access_mod * char list * (bool * typ * string) list * statement    *)
 let get_routines (tds : topdecs) =
   let rec aux topdecs acc =
     match topdecs with
     | [] -> acc
     | h::t -> (
       match h with
-      | Routine (accmod, name, params, stmt) -> (
+      | Routine (accmod, name, typ_vars, params, stmt) -> (
         if routine_exists name acc then raise_error ("Duplicate routine name: " ^ name)
-        else aux t ((name, params)::acc)
+        else aux t ((name, typ_vars, params)::acc)
         )
       | _ -> aux t acc
     )
@@ -194,7 +194,7 @@ let rec type_string t =
   | T_Int -> "int"
   | T_Char -> "char"
   | T_Array arr_ty -> (type_string arr_ty)^"[]"
-  | T_Struct(n,typ_args) -> n ^ "<" ^ (List.fold_right (fun e acc -> (type_string e) ^ ", " ^ acc ) typ_args "") ^ ">"
+  | T_Struct(n,typ_args) -> n ^ "<" ^ (String.concat ","  (List.map (fun e -> (type_string e)) typ_args)) ^ ">"
   | T_Null -> "null"
   | T_Generic c -> String.make 1 c
 
@@ -207,6 +207,7 @@ let rec type_equal type1 type2 =
     | (T_Array at1, T_Array at2) -> type_equal at1 at2
     | (T_Struct(n1,ta1), T_Struct(n2, ta2)) when n1 = n2 && (List.length ta1) = (List.length ta2) -> true && (List.fold_right (fun e acc -> (type_equal (fst e) (snd e)) && acc) (List.combine ta1 ta2) true)
     | (T_Null, _) -> true
+    | (T_Generic c1, T_Generic c2) -> c1 = c2
     | _ -> false
   in aux type1 type2 || aux type2 type1
 
@@ -523,7 +524,7 @@ and compile_assignable_expr_as_value expr var_env acc =
     | T_Array _ -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
     | T_Struct _ -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
     | T_Null -> compile_reference r var_env acc
-    | T_Generic _ -> raise_error "Generic variables not yet supported"
+    | T_Generic _ -> raise_error "Generic variables not yet supported, 1"
   )
   | _ -> compile_assignable_expr expr var_env acc
 
@@ -551,7 +552,7 @@ and compile_value val_expr var_env acc =
     | T_Array ty -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Struct(n, _) -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Null -> raise_error ("Direct null pointer dereferencing")
-    | T_Generic _ -> raise_error "Generic variables not yet supported"
+    | T_Generic _ -> raise_error "Cannot make a value lookup on a generic variable"
   )
   | NewArray (arr_ty, size_expr) -> (
     let (_, s_ty) = type_assignable_expr size_expr var_env in
@@ -660,7 +661,7 @@ let compile_arguments args var_env acc =
           | T_Array _ -> aux t (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
           | T_Struct _ -> aux t (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
           | T_Null -> aux t (compile_assignable_expr_as_value opteh var_env (acc))
-          | T_Generic _ -> raise_error "Generic variables not yet supported"
+          | T_Generic _ -> raise_error "Generic variables not yet supported, in call arguments"
         )
         | Reference r -> ( match r with
           | VarRef _ -> aux t (compile_reference r var_env (IncrRef :: acc)) 
@@ -687,7 +688,7 @@ let rec compile_assignment target assign var_env acc =
     | T_Array _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
     | T_Struct _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
     | T_Null -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
-    | T_Generic _ -> raise_error "Generic variables not yet supported"
+    | T_Generic _ -> raise_error "Generic variables not yet supported, 2"
   )
   | (VarRef name, Reference re) -> ( match assign_type with 
     | T_Int -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
@@ -696,7 +697,7 @@ let rec compile_assignment target assign var_env acc =
     | T_Array _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
     | T_Struct _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
     | T_Null -> compile_reference target var_env (compile_reference re var_env (RefAssign :: acc))
-    | T_Generic _ -> raise_error "Generic variables not yet supported"
+    | T_Generic _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
   )
   | (StructRef(refer, field), Value v) -> ( match type_reference refer var_env with
     | (_,T_Struct (str_name, typ_args)) -> ( match lookup_struct str_name var_env.structs with
@@ -766,13 +767,14 @@ let rec compile_assignment target assign var_env acc =
 let compile_unassignable_expr expr env break continue cleanup acc =
   match expr with
   | Assign (target, aexpr) -> compile_assignment target (optimize_assignable_expr aexpr env.var_env) env.var_env acc
-  | Call (n, aexprs) -> (
+  | Call (n, typ_args, aexprs) -> (
     match lookup_routine n env.routine_env with
     | None -> raise_error ("Call to undefined routine: " ^ n)
-    | Some (ps) when (List.length ps) = (List.length aexprs) -> (
-      (compile_arguments (List.combine ps aexprs) env.var_env (PlaceInt(List.length ps) :: Call(n) :: acc))
+    | Some (tvs,ps) -> (
+      if List.length tvs != List.length typ_args then raise_error (n ^ "(...) requires " ^ (Int.to_string (List.length tvs)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
+      else if List.length ps != List.length aexprs then raise_error (n ^ "(...) requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
+      else (compile_arguments (List.combine (replace_generics ps tvs typ_args env.var_env.structs) aexprs) env.var_env (PlaceInt(List.length ps) :: Call(n) :: acc))
     )
-    | Some (ps) -> raise_error (n ^ "(...) requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
   )
   | Stop -> addStop(acc)
   | Halt -> addHalt(acc)
@@ -866,7 +868,7 @@ let rec compile_sod_list sod_list env break continue cleanup acc =
       compile_stmt stmt env break continue cleanup (compile_sod_list t env break continue cleanup (acc))
     ) with
       | Error msg -> raise_offset_error msg offset
-      | Offset_error (msg, offset) -> raise_offset_error msg offset
+      (* | Offset_error (msg, offset) -> raise_offset_error msg offset *)
       | e -> raise e
     )
     | Declaration (dec, offset) -> (try (
@@ -913,7 +915,7 @@ let compile topdecs =
     match tds with
     | [] -> acc
     | h::t -> match h with
-      | Routine (accmod, n, params, stmt) -> 
+      | Routine (accmod, n, typ_vars, params, stmt) -> 
         aux t ((routine_head accmod n params)::(compile_stmt stmt ({ var_env = ({ locals = (List.rev params); globals = globvars; structs = structs;}); routine_env = routines; }) None None 0 (addStop(acc))))
       | _ -> aux t acc
   in
