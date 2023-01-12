@@ -17,7 +17,7 @@ and statement_or_declaration =
 
 and unassignable_expression =
     | Assign of reference * assignable_expression
-    | Call of string * assignable_expression list
+    | Call of string * typ list * assignable_expression list
     | Stop
     | Halt
     | Break
@@ -48,7 +48,7 @@ and value =
     | NewStruct of string * typ list * assignable_expression list
 
 and top_declaration =
-    | Routine of access_mod * string * (bool * typ * string) list * statement
+    | Routine of access_mod * string * char list * (bool * typ * string) list * statement
     | GlobalDeclaration of declaration
     | Struct of string * char list * ((bool * typ * string) list)
 

@@ -54,10 +54,12 @@ topdecs:
 
 topdec:
     dec { GlobalDeclaration $1 }
-  | INTERNAL NAME LPAR params RPAR block           { Routine (Internal, $2, $4, $6) }
-  | EXTERNAL NAME LPAR params RPAR block           { Routine (External, $2, $4, $6) }
-  | STRUCT NAME LPAR params RPAR SEMI              { Struct ($2, [], $4) }
-  | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI              { Struct ($2, $4, $7) }
+  | INTERNAL NAME LPAR params RPAR block                  { Routine (Internal, $2, [], $4, $6) }
+  | INTERNAL NAME LT typ_vars GT LPAR params RPAR block   { Routine (Internal, $2, $4, $7, $9) }
+  | EXTERNAL NAME LPAR params RPAR block                  { Routine (External, $2, [], $4, $6) }
+  | EXTERNAL NAME LT typ_vars GT LPAR params RPAR block   { Routine (External, $2, $4, $7, $9) }
+  | STRUCT NAME LPAR params RPAR SEMI                     { Struct ($2, [], $4) }
+  | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI      { Struct ($2, $4, $7) }
 ;
 
 typ_vars:
@@ -129,7 +131,8 @@ unassignable_expression:
   | reference MINUS ASSIGNMENT assignable_expression { Assign ($1, Value(Binary_op("-", Reference $1, $4))) }
   | reference TIMES ASSIGNMENT assignable_expression { Assign ($1, Value(Binary_op("*", Reference $1, $4))) }
   | reference NOT ASSIGNMENT assignable_expression   { Assign ($1, Value(Unary_op("!", $4))) }
-  | NAME LPAR arguments RPAR                    { Call ($1, $3) }
+  | NAME LPAR arguments RPAR                    { Call ($1, [], $3) }
+  | NAME LT typ_args GT LPAR arguments RPAR     { Call ($1, $3, $6) }
   | STOP                                        { Stop }
   | HALT                                        { Halt }
   | BREAK                                       { Break }

@@ -1,0 +1,52 @@
+struct list<T>(head: T, tail: list<T>);
+
+
+external main() {
+
+    l1: list<int>;
+    init<int>(1, l1);
+
+    print l1.head,'\n';
+
+    push<int>(2, l1);
+
+    print l1.head,'\n';
+
+    push<int>(3, l1);
+
+    print l1.head,'\n';
+
+
+    l2: list<char>;
+    init<char>('a', l2);
+
+    print l2.head,'\n';
+
+    push<char>('b', l2);
+
+    print l2.head,'\n';
+
+    push<char>('c', l2);
+
+    print l2.head,'\n';
+
+}
+
+
+
+internal init<T>(e: T, out: list<T>) {
+    out := new list<T>(e, null);
+}
+
+internal push<T>(e: T, lst: list<T>) {
+    lst := new list<T>(e, lst);
+}
+
+internal peek<T>(lst: list<T>, out: T) {
+    out := lst.head;
+}
+
+internal pop<T>(lst: list<T>, out: T) {
+    out := lst.head;
+    lst := lst.tail;
+}

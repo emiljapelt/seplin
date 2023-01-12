@@ -69,10 +69,22 @@ internal print_int_list(target: locked list<int>) {
 
 external main3() {
 
-    l : int[] := [1,2,3];
+    l : int[][] := [
+        [1,2,3],
+        [2,3,4],
+        [3,4,5]
+    ];
 
-    print l[0], '\n';
-    print l[1], '\n';
-    print l[2], '\n';
+    print_int_array(l[0]);
+    print_int_array(l[1]);
+    print_int_array(l[2]);
 
 }
+
+internal print_int_array(target: locked int[]) {
+    for(i ::= 0; i < |target|; i +:= 1) {
+        print target[i], ' ';
+    }
+    print '\n';
+}
+
