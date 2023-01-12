@@ -253,11 +253,12 @@ let rec replace_generics lst typ_vars typ_args structs =
     | T_Struct(str_name, ta) -> T_Struct(str_name, List.map (fun e -> replace e) ta)
     | e -> e
   in
-  let rec aux element =
+  let aux element =
     match element with
     | (lock, ty, name) -> (lock, replace ty, name)
   in
   List.map (fun e -> aux e) lst
+  
 
 let rec type_assignable_expr expr var_env =
   match expr with
@@ -607,8 +608,18 @@ and compile_value val_expr var_env acc =
     in
     match lookup_struct name var_env.structs with
     | Some (typ_vars, params) -> (
-      if (List.length typ_args) != (List.length typ_vars) then raise_error ("Amount of type arguments does not match required amount") 
-      else PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args var_env.structs)) ((List.length params)-1) acc)
+      if (List.length typ_vars > 0) then ( (* Generic *)
+        if (List.length typ_args = 0) then (
+          raise_error "Generic inference is not supported yet"
+        )
+        else if (List.length typ_args) = (List.length typ_vars) then (
+          PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args var_env.structs)) ((List.length params)-1) acc)
+        )
+        else raise_error ("Amount of type arguments does not match required amount") 
+      )
+      else ( (* Not generic *)
+        PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev params) ((List.length params)-1) acc)
+      ) 
     )
     | None -> raise_error ("No such struct: " ^ name)
   )
