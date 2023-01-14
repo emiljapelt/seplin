@@ -12,8 +12,16 @@
 - Cleanup the codebase
 - Do some automated testing
 - Generalize PLACE_* instructions by size
-
-
-- Implement generics inference
-    - structs
-    - routines
+- Implement generics inference for struct construction and routine calls
+    - Would strengthen generics
+- Implement generic type resolution
+    - Some thing like: "if (T is int) { ... } "
+    - Would strengthen type composition
+- Implement HOR (Higher-order-routines)
+    - Some thing like: "internal map<T,U>(target: T[], rt: _(T,U))"
+    - Where "_(T,U)" is some routine taking arguments (T,U)
+    - Would strengthen generics, but might be weird to work with.
+- Implement file inclusion
+    - Some thing like "include ./helpers/list.ix;"
+    - Includes the source code from the specified file, "." being this files location.
+    - Requires recursive inclusive, name space scoping based on files and keeping track of which files have already been included (no multi compilations)
