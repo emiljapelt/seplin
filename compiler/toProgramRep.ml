@@ -236,30 +236,7 @@ let simple_type t =
   match t with
     | T_Int | T_Bool | T_Char -> true
     | _ -> false
-
-let resolve_generic c typ_vars typ_args = 
-  let rec aux lst = 
-    match lst with
-    | [] -> failwith "Could not resolve generic index"
-    | (v,a)::t -> if v = c then a else aux t
-  in
-  aux (List.combine typ_vars typ_args)
-
-let rec replace_generics lst typ_vars typ_args structs = 
-  let rec replace element = 
-    match element with
-    | T_Generic(c) -> resolve_generic c typ_vars typ_args
-    | T_Array(sub) -> T_Array(replace sub)
-    | T_Struct(str_name, ta) -> T_Struct(str_name, List.map (fun e -> replace e) ta)
-    | e -> e
-  in
-  let aux element =
-    match element with
-    | (lock, ty, name) -> (lock, replace ty, name)
-  in
-  List.map (fun e -> aux e) lst
   
-
 let rec type_assignable_expr expr var_env =
   match expr with
   | Reference ref_expr -> type_reference ref_expr var_env
@@ -337,8 +314,67 @@ and type_value val_expr var_env =
   | Lookup (refer) -> type_reference refer var_env
   | NewArray (ty, _) -> (false, T_Array(ty))
   | ArrayLiteral elements -> (match type_array_literal (List.map (fun e -> type_assignable_expr e var_env) elements) with (lo,ety) -> (lo, T_Array(ety)))
-  | NewStruct (name, typ_args, _) -> (false, T_Struct(name, typ_args))
+  | NewStruct (name, typ_args, args) -> ( match lookup_struct name var_env.structs with
+    | Some (typ_vars, params) -> (
+      if (List.length typ_vars > 0) then ( (* Generic *)
+        if (List.length typ_args = 0) then (
+          let typ_args = infere_generics typ_vars params args var_env in
+          (false, T_Struct(name, typ_args))
+        )
+        else if (List.length typ_args) = (List.length typ_vars) then (
+          (false, T_Struct(name, typ_args))
+        )
+        else raise_error ("Amount of type arguments does not match required amount") 
+      )
+      else (false, T_Struct(name, typ_args)) (* Not generic *)
+    )
+    | None -> raise_error ("No such struct: " ^ name)
+  )
 
+  and resolve_generic c typ_vars typ_args = 
+    let rec aux lst = 
+      match lst with
+      | [] -> failwith "Could not resolve generic index"
+      | (v,a)::t -> if v = c then a else aux t
+    in
+    aux (List.combine typ_vars typ_args)
+  
+  and replace_generics lst typ_vars typ_args structs = 
+    let rec replace element = 
+      match element with
+      | T_Generic(c) -> resolve_generic c typ_vars typ_args
+      | T_Array(sub) -> T_Array(replace sub)
+      | T_Struct(str_name, ta) -> T_Struct(str_name, List.map (fun e -> replace e) ta)
+      | e -> e
+    in
+    let aux element =
+      match element with
+      | (lock, ty, name) -> (lock, replace ty, name)
+    in
+    List.map (fun e -> aux e) lst
+    
+  and infere_generic c param_tys arg_tys =
+    let rec aux pt et =
+      match (pt, et ) with
+      | (T_Generic g, _) -> if g = c then Some(et) else None
+      | (T_Array(sub_t), T_Array(sub_et)) -> aux sub_t sub_et
+      | (T_Struct(name_t, param1), T_Struct(name_et, param2)) -> infere_generic c param1 param2
+      | _ -> failwith "What?"
+    in match (param_tys, arg_tys) with
+    | (param_t::tp, arg_t::ta) -> ( match aux param_t arg_t with
+      | None -> infere_generic c tp ta
+      | Some(t) -> Some(t)
+    )
+    | _ -> None
+  
+  and infere_generics typ_vars params args var_env =
+    let param_tys = List.map (fun p -> match p with (_,t,_) -> t ) params in
+    let arg_tys = List.map (fun a -> match type_assignable_expr a var_env with (_,t) -> t) args in
+    List.map (fun tv -> (
+      match infere_generic tv param_tys arg_tys with
+      | Some(t) -> t
+      | None -> T_Null
+    )) typ_vars
 
 
 (* Labels *)
@@ -610,7 +646,9 @@ and compile_value val_expr var_env acc =
     | Some (typ_vars, params) -> (
       if (List.length typ_vars > 0) then ( (* Generic *)
         if (List.length typ_args = 0) then (
-          raise_error "Generic inference is not supported yet"
+          (* raise_error "Generic inference is not supported yet" *)
+          let typ_args = infere_generics typ_vars params args var_env in
+          PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args var_env.structs)) ((List.length params)-1) acc)
         )
         else if (List.length typ_args) = (List.length typ_vars) then (
           PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args var_env.structs)) ((List.length params)-1) acc)
