@@ -212,18 +212,18 @@ let rec type_equal type1 type2 =
   in aux type1 type2 || aux type2 type1
 
 let type_array_literal lst =
-  let rec aux_type ty li =
+  let rec aux_type ty lo li =
     match li with
-    | [] -> ty
+    | [] -> (lo,ty)
     | (lock,h)::t -> (
       if not (type_equal h ty) then raise_error "Array literal containing expressions of differing types"
-      else if lock then raise_error "Array literal cannot contain locked elements yet"
-      else aux_type ty t
+      else if lock then aux_type ty true t
+      else aux_type ty lo t
     )
   in
   match lst with 
-  | [] -> T_Null
-  | (lock,h)::t -> aux_type h t
+  | [] -> (false, T_Null)
+  | (lock,h)::t -> aux_type h lock t
 
 let default_value t =
   match t with
@@ -336,7 +336,7 @@ and type_value val_expr var_env =
   | Char _ -> (false, T_Char)
   | Lookup (refer) -> type_reference refer var_env
   | NewArray (ty, _) -> (false, T_Array(ty))
-  | ArrayLiteral elements -> (false, T_Array(type_array_literal (List.map (fun e -> type_assignable_expr e var_env) elements)))
+  | ArrayLiteral elements -> (match type_array_literal (List.map (fun e -> type_assignable_expr e var_env) elements) with (lo,ety) -> (lo, T_Array(ety)))
   | NewStruct (name, typ_args, _) -> (false, T_Struct(name, typ_args))
 
 
@@ -562,7 +562,7 @@ and compile_value val_expr var_env acc =
     | _ -> raise_error ("Init array with non-int size")
   )
   | ArrayLiteral elements -> (
-    let ty = type_array_literal (List.map (fun e -> type_assignable_expr e var_env) elements) in
+    let (lo,ty) = type_array_literal (List.map (fun e -> type_assignable_expr e var_env) elements) in
     let rec aux es c acc =
       match es with
       | [] -> acc
@@ -812,7 +812,7 @@ let compile_unassignable_expr expr env break continue cleanup acc =
         | T_Bool -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintBool :: acc))
         | T_Int -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintInt :: acc))
         | T_Char -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintChar :: acc))
-        | _ -> aux t (PlaceBool(false) :: PrintBool :: acc) (* This is not as intended! *)
+        | _ -> compile_assignable_expr_as_value opte env.var_env acc ; aux t (PlaceBool(false) :: PrintBool :: acc) (* This is not as intended! *)
       )
     in
     aux (List.rev exprs) acc
@@ -837,28 +837,36 @@ let rec compile_declaration dec var_env acc =
     if expr_lock && (not l) then raise_error "Cannot assign a locked variable to a non-locked variable"
     else if not (type_equal ty expr_ty) then raise_error ("Type mismatch on declaration: expected '" ^ (type_string ty) ^ "', got '" ^ (type_string expr_ty) ^ "'") 
     else let opte = optimize_assignable_expr expr var_env in
-    match ty with
-    | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
-    | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
-    | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
-    | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-    | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-    | T_Null -> compile_assignable_expr opte var_env acc
-    | T_Generic _ -> raise_error "Declaring variables of generic type is not supported yet"
+    match expr with
+    | Reference _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
+    | Value _ -> (
+      match ty with
+      | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
+      | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
+      | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
+      | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
+      | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
+      | T_Null -> compile_assignable_expr opte var_env acc
+      | T_Generic _ -> raise_error "Declaring variables of generic type is not supported yet"
+    )
   )
   | VarDeclaration (l, n, expr) -> (
     if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
     else let (expr_lock, expr_ty) = type_assignable_expr expr var_env in
     if expr_lock && (not l) then raise_error "Cannot assign a locked variable to a non-locked variable"
     else let opte = optimize_assignable_expr expr var_env in
-    match expr_ty with
-    | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
-    | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
-    | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
-    | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-    | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-    | T_Null -> raise_error "Cannot infere a type from 'null'"
-    | T_Generic _ -> raise_error "Cannot infere a type form a type variable"
+    match expr with
+    | Reference _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
+    | Value _ -> (
+      match expr_ty with
+      | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
+      | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
+      | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
+      | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
+      | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
+      | T_Null -> raise_error "Cannot infere a type from 'null'"
+      | T_Generic _ -> raise_error "Declaring variables of generic type is not supported yet"
+    )
   )
 
 let update_locals env dec =

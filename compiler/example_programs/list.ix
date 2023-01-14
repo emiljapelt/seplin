@@ -1,6 +1,5 @@
 struct list<T>(head: T, tail: list<T>);
 
-
 external main() {
 
     l1: list<int>;
@@ -30,6 +29,19 @@ external main() {
 
     print l2.head,'\n';
 
+
+    l3: list<int>;
+
+    push_two<int>(1, 2, l3);
+    
+    print l3.head,'\n';
+    print l3.tail.head,'\n';
+
+}
+
+internal push_two<T>(a: T, b: T, lst: list<T>) {
+    push<T>(a, lst);
+    push<T>(b, lst);
 }
 
 
