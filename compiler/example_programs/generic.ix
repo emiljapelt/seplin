@@ -4,11 +4,11 @@ external main() {
     main3();
 }
 
-struct tuple<T>(fst: T, snd: T);
+struct tuple<T,U>(fst: T, snd: U);
 
 external main1(){
 
-    nums : tuple<int> := new tuple<int>(2, 3);
+    nums : tuple<int,int> := new tuple(2, 3);
 
     print nums.fst, '\n';
     print nums.snd, '\n';
@@ -19,13 +19,13 @@ external main1(){
     sum_tuple(nums, sum);
     print sum, '\n';
 
-    chars ::= new tuple<char>('a', 'b');
+    chars ::= new tuple<char,char>('a', 'b');
 
     print chars.fst, '\n';
     print chars.snd, '\n';
 
 
-    wild ::= new tuple<tuple<int>>(new tuple<int>(1,2), new tuple<int>(3,4));
+    wild ::= new tuple<tuple<int,int>, tuple<int,int>>(new tuple<int,int>(1,2), new tuple<int,int>(3,4));
 
     print wild.fst.fst, '\n';
     print wild.fst.snd, '\n';
@@ -33,7 +33,7 @@ external main1(){
     print wild.snd.snd, '\n';
 }
 
-internal sum_tuple(t: tuple<int>, result: int) {
+internal sum_tuple(t: tuple<int,int>, result: int) {
     result := t.fst + t.snd;
 }
 
