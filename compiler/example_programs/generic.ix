@@ -8,7 +8,7 @@ struct tuple<T,U>(fst: T, snd: U);
 
 external main1(){
 
-    nums : tuple<int,int> := new tuple(2, 3);
+    nums ::= new tuple(2, 3);
 
     print nums.fst, '\n';
     print nums.snd, '\n';
