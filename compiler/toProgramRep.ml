@@ -356,10 +356,11 @@ and type_value val_expr var_env =
   and infere_generic c param_tys arg_tys =
     let rec aux pt et =
       match (pt, et ) with
+      | (_, T_Null) -> None
       | (T_Generic g, _) -> if g = c then Some(et) else None
       | (T_Array(sub_t), T_Array(sub_et)) -> aux sub_t sub_et
-      | (T_Struct(name_t, param1), T_Struct(name_et, param2)) -> infere_generic c param1 param2
-      | _ -> failwith "What?"
+      | (T_Struct(name_t, param1), T_Struct(name_et, param2)) when name_t = name_et -> infere_generic c param1 param2
+      | _ -> raise_error "Parameter/Argument structure mismatch in generic inference"
     in match (param_tys, arg_tys) with
     | (param_t::tp, arg_t::ta) -> ( match aux param_t arg_t with
       | None -> infere_generic c tp ta
@@ -373,7 +374,7 @@ and type_value val_expr var_env =
     List.map (fun tv -> (
       match infere_generic tv param_tys arg_tys with
       | Some(t) -> t
-      | None -> T_Null
+      | None -> raise_error "Could not infere a type for all type variables"
     )) typ_vars
 
 
@@ -816,13 +817,22 @@ let rec compile_assignment target assign var_env acc =
 let compile_unassignable_expr expr env break continue cleanup acc =
   match expr with
   | Assign (target, aexpr) -> compile_assignment target (optimize_assignable_expr aexpr env.var_env) env.var_env acc
-  | Call (n, typ_args, aexprs) -> (
-    match lookup_routine n env.routine_env with
-    | None -> raise_error ("Call to undefined routine: " ^ n)
-    | Some (tvs,ps) -> (
-      if List.length tvs != List.length typ_args then raise_error (n ^ "(...) requires " ^ (Int.to_string (List.length tvs)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
-      else if List.length ps != List.length aexprs then raise_error (n ^ "(...) requires " ^ (Int.to_string (List.length ps)) ^ " arguments, but was given " ^  (Int.to_string (List.length aexprs)))
-      else (compile_arguments (List.combine (replace_generics ps tvs typ_args env.var_env.structs) aexprs) env.var_env (PlaceInt(List.length ps) :: Call(n) :: acc))
+  | Call (name, typ_args, args) -> (
+    match lookup_routine name env.routine_env with
+    | None -> raise_error ("Call to undefined routine: " ^ name)
+    | Some (typ_vars,params) -> (
+      if List.length params != List.length args then raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length params)) ^ " arguments, but was given " ^  (Int.to_string (List.length args)))
+      else if List.length typ_vars > 0 then (
+        if List.length typ_args = 0 then (
+          let typ_args = infere_generics typ_vars params args env.var_env in
+          compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
+        )
+        else if List.length typ_vars = List.length typ_args then (
+          compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
+        )
+        else raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length typ_vars)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
+      )
+      else compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
     )
   )
   | Stop -> addStop(acc)
