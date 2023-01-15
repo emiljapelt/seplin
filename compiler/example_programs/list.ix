@@ -6,13 +6,9 @@ external main() {
     init<int>(1, l1);
 
     print l1.head,'\n';
-
     push<int>(2, l1);
-
     print l1.head,'\n';
-
     push<int>(3, l1);
-
     print l1.head,'\n';
 
 
@@ -20,30 +16,19 @@ external main() {
     init<char>('a', l2);
 
     print l2.head,'\n';
-
-    push<char>('b', l2);
-
+    push('b', l2);
     print l2.head,'\n';
-
     push<char>('c', l2);
-
     print l2.head,'\n';
 
 
     l3: list<int>;
+    from_array([1,2,3], l3);
 
-    push_two<int>(1, 2, l3);
-    
-    print l3.head,'\n';
-    print l3.tail.head,'\n';
-
+    print l3.head, '\n';
+    print l3.tail.head, '\n';
+    print l3.tail.tail.head, '\n';
 }
-
-internal push_two<T>(a: T, b: T, lst: list<T>) {
-    push<T>(a, lst);
-    push<T>(b, lst);
-}
-
 
 
 internal init<T>(e: T, out: list<T>) {
@@ -61,4 +46,12 @@ internal peek<T>(lst: list<T>, out: T) {
 internal pop<T>(lst: list<T>, out: T) {
     out := lst.head;
     lst := lst.tail;
+}
+
+internal from_array<T>(a: T[], out: list<T>) {
+    out := null;
+
+    for(i ::= 0; i < |a|; i +:= 1) {
+        out := new list(a[i], out);
+    }
 }
