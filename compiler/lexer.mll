@@ -32,6 +32,7 @@
 }
 rule lex = parse
         [' ' '\t' '\r' '\n']        { lex lexbuf }
+    |   "//" [^ '\n' '\r']* ('\n' | '\r')       { lex lexbuf }
     |   ['0'-'9']+ as lxm { CSTINT (int_of_string lxm) }
     |   ''' ['\\']? _ ''' as lxm { CSTCHAR (char_of_string lxm lexbuf) }
     |   "true"            { CSTBOOL true }
