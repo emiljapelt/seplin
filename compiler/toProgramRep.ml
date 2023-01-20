@@ -860,7 +860,7 @@ let compile_unassignable_expr expr env break continue cleanup acc =
         | T_Bool -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintBool :: acc))
         | T_Int -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintInt :: acc))
         | T_Char -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintChar :: acc))
-        | _ -> compile_assignable_expr_as_value opte env.var_env acc ; aux t (PlaceBool(false) :: PrintBool :: acc) (* This is not as intended! *)
+        | _ -> aux t (compile_assignable_expr opte env.var_env (PrintInt :: acc))
       )
     in
     aux (List.rev exprs) acc
