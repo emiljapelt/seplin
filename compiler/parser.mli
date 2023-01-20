@@ -47,7 +47,6 @@ type token =
   | CONTINUE
   | LOCKED
   | STRUCT
-  | VAR
   | NULL
   | NEW
   | PRINT

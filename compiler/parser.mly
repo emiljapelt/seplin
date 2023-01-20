@@ -28,7 +28,7 @@
 %token IF ELSE
 %token WHILE UNTIL FOR REPEAT
 %token BREAK CONTINUE
-%token LOCKED STRUCT VAR NULL NEW
+%token LOCKED STRUCT NULL NEW
 %token PRINT HASH
 
 %right ASSIGNMENT
@@ -166,8 +166,6 @@ dec:
   | NAME COLON LOCKED typ SEMI                               { TypeDeclaration (true, $4, $1) }
   | NAME COLON typ ASSIGNMENT assignable_expression SEMI     { AssignDeclaration (false, $3, $1, $5) }
   | NAME COLON LOCKED typ ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, $4, $1, $6) }
-  | NAME COLON VAR ASSIGNMENT assignable_expression SEMI           { VarDeclaration (false, $1, $5) }
-  | NAME COLON LOCKED VAR ASSIGNMENT assignable_expression SEMI    { VarDeclaration (true, $1, $6) }
   | NAME COLON ASSIGNMENT assignable_expression SEMI           { VarDeclaration (false, $1, $4) }
   | NAME COLON LOCKED ASSIGNMENT assignable_expression SEMI    { VarDeclaration (true, $1, $5) }
 ;

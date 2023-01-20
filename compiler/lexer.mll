@@ -12,7 +12,6 @@
                         "new", NEW;
                         "null", NULL;
                         "locked", LOCKED;
-                        "var", VAR;
                         "if", IF;
                         "else", ELSE;
                         "while", WHILE;
