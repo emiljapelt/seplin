@@ -8,6 +8,8 @@ type token =
   | INTERNAL
   | EXTERNAL
   | NAME of (string)
+  | INCLUDE
+  | PATH of (string)
   | TYPE_VAR of (char)
   | ASSIGNMENT
   | LPAR
