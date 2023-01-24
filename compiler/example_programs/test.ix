@@ -1,14 +1,23 @@
 
-include ./stack.ix;
+include ../library/collections/stack.ix;
+include ../library/collections/tuple.ix;
 
 external test() {
+    stack1: stack<int>;
+    from_array([1,2,3], stack1);
+    stack2: stack<char>;
+    from_array(['a','b','c'], stack2);
 
-    stk ::= new stack(1, new stack(2, null));
-
-    inner(stk.head, stk.tail.head);
+    stack3: stack<tuple<int,char>>;
+    zip(stack1,stack2,stack3);
+    
+    printer(stack3);
 }
 
-internal inner(a: int, b: int) {
-    print a;
-    print b;
+internal printer(s: stack<tuple<int,char>>) {
+    s1 ::= s;
+    until(s1 = null) {
+        print s1.head.fst, s1.head.snd, '\n';
+        s1 := s1.tail;
+    }
 }

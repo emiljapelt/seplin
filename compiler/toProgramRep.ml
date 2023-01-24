@@ -252,9 +252,7 @@ and type_reference ref_expr var_env =
       | Some (typ_vars, fields) -> (
         let resolved_fields = replace_generics fields typ_vars typ_args var_env.structs in
         let (field_lock, field_ty,_) = struct_field field resolved_fields in
-        match field_ty with
-        | T_Generic c -> (lock || field_lock, resolve_generic c typ_vars typ_args)
-        | _ -> (lock || field_lock, field_ty)
+        (lock || field_lock, field_ty)
       )
       | None -> raise_error ("No such struct: " ^ str_name)
     )
@@ -647,7 +645,6 @@ and compile_value val_expr var_env acc =
     | Some (typ_vars, params) -> (
       if (List.length typ_vars > 0) then ( (* Generic *)
         if (List.length typ_args = 0) then (
-          (* raise_error "Generic inference is not supported yet" *)
           let typ_args = infere_generics typ_vars params args var_env in
           PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args var_env.structs)) ((List.length params)-1) acc)
         )
@@ -974,22 +971,40 @@ and compile_stmt stmt env break continue cleanup acc =
 let compile_globalvars globvars structs acc =
   compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; }); routine_env = []; }) None None 0 acc
 
-let inclusion base_path topdecs parse read_file = 
-  let rec aux tds acc =
+let compress_path path =
+  let rec compress parts acc =
+    match parts with
+    | [] -> List.rev acc
+    | h::t when h = "." -> compress t (acc)
+    | h1::h2::t when h2 = ".." -> compress t acc
+    | h::t -> compress t (h::acc) 
+  in
+  String.concat "/" (compress (String.split_on_char '/' path) [])
+
+let total_path path =
+  if path.[0] = '.' then Sys.getcwd () ^ "/" ^ path
+  else path
+
+
+let inclusion topdecs base_path parse read_file = 
+  let rec aux base_path tds included acc =
     match tds with
     | (Include path)::t -> (
-      let path = if path.[0] = '.' then (String.sub base_path 0 ((String.rindex base_path '/')+1) ^ path) else path in
-      match parse (read_file path) with
-      | Topdecs tds' -> aux t (List.rev_append (aux tds' []) acc)
+      let path = compress_path (if path.[0] = '.' then (String.sub base_path 0 ((String.rindex base_path '/')+1) ^ path) else path) in
+      match List.find_opt (fun p -> p = path) included with
+      | Some _ -> aux base_path t included acc
+      | None -> ( match parse (read_file path) with
+        | Topdecs tds' -> aux base_path t (path::included) (List.rev_append (aux path tds' (path::included) []) acc)
+      )
     )
-    | h::t -> aux t (h::acc)
+    | h::t -> aux base_path t included (h::acc)
     | [] -> acc
   in
   match topdecs with
-  | Topdecs tds -> Topdecs (aux tds [])
+  | Topdecs tds -> Topdecs (aux base_path tds [compress_path base_path] [])
 
 let compile path parse read_file =
-  let topdecs = inclusion path (parse (read_file path)) parse read_file in
+  let topdecs = inclusion (parse (read_file path)) (total_path path) parse read_file in
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
   let routines = get_routines topdecs in
   let structs = get_structs topdecs in
