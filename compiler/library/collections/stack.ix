@@ -1,9 +1,5 @@
 struct stack<T>(head: T, tail: stack<T>);
 
-internal init<T>(e: T, out: stack<T>) {
-    out := new stack<T>(e, null);
-}
-
 internal push<T>(e: T, lst: stack<T>) {
     lst := new stack<T>(e, lst);
 }
