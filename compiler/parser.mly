@@ -18,6 +18,8 @@
 %token CHAR
 %token INTERNAL EXTERNAL
 %token <string> NAME
+%token INCLUDE
+%token <string> PATH
 %token <char> TYPE_VAR
 %token ASSIGNMENT
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
@@ -60,6 +62,7 @@ topdec:
   | EXTERNAL NAME LT typ_vars GT LPAR params RPAR block   { Routine (External, $2, $4, $7, $9) }
   | STRUCT NAME LPAR params RPAR SEMI                     { Struct ($2, [], $4) }
   | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI      { Struct ($2, $4, $7) }
+  | INCLUDE PATH SEMI                                     { Include $2 }
 ;
 
 typ_vars:

@@ -9,6 +9,7 @@
                         "internal", INTERNAL;
                         "external", EXTERNAL;
                         "struct", STRUCT;
+                        "include", INCLUDE;
                         "new", NEW;
                         "null", NULL;
                         "locked", LOCKED;
@@ -41,6 +42,7 @@ rule lex = parse
                 { try
                     Hashtbl.find keyword_table id
                   with Not_found -> NAME id }
+    |   ('.' '.'?)? ('/' ('.' '.'? | ['A'-'Z' 'a'-'z' '0'-'9' '_']+))* '/' ['A'-'Z' 'a'-'z' '0'-'9' '_' '.']+ ".ix" as path { PATH path }
     |   '+'           { PLUS }
     |   '*'           { TIMES }
     |   '-'           { MINUS }

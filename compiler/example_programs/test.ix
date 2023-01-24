@@ -1,6 +1,11 @@
 
+include ./stack.ix;
+
 external test() {
-    inner(1, 2, 3);
+
+    stk ::= new stack(1, new stack(2, null));
+
+    inner(stk.head, stk.tail.head);
 }
 
 internal inner(a: int, b: int) {

@@ -47,18 +47,21 @@ let offset_to_line o ls =
   aux o ls 0
 
 
+let read_file path =
+  let file = open_in path in
+  let content = really_input_string (file) (in_channel_length file) in
+  let () = close_in_noerr file in
+  content
+    
 let (input, in_type) = resolve_input ()
 let output = resolve_output input
-let file = open_in input
-let content = really_input_string (file) (in_channel_length file)
-let () = close_in_noerr file
 let () = try (
   match in_type with
-  | IX -> AssemblyWriter.write (ToProgramRep.compile(Parser.main Lexer.lex (Lexing.from_string content))) output
-  | IXA -> AssemblyWriter.write (AssemblyParser.main AssemblyLexer.lex (Lexing.from_string content)) output
+  | IX -> AssemblyWriter.write (ToProgramRep.compile input (fun src -> Parser.main Lexer.lex (Lexing.from_string src)) read_file) output
+  | IXA -> AssemblyWriter.write (AssemblyParser.main AssemblyLexer.lex (Lexing.from_string (read_file input))) output
 ) with
 | Offset_error (msg, offset) -> (
-  let lines = String.split_on_char '\n' content in
+  let lines = String.split_on_char '\n' (read_file input) in
   let line_num = offset_to_line offset lines in
   let () = Printf.printf "%s, on line %i:\n" msg (line_num+1) in
   let printer =  print_line lines in match line_num with

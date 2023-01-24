@@ -974,7 +974,22 @@ and compile_stmt stmt env break continue cleanup acc =
 let compile_globalvars globvars structs acc =
   compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; }); routine_env = []; }) None None 0 acc
 
-let compile topdecs =
+let inclusion base_path topdecs parse read_file = 
+  let rec aux tds acc =
+    match tds with
+    | (Include path)::t -> (
+      let path = if path.[0] = '.' then (String.sub base_path 0 ((String.rindex base_path '/')+1) ^ path) else path in
+      match parse (read_file path) with
+      | Topdecs tds' -> aux t (List.rev_append (aux tds' []) acc)
+    )
+    | h::t -> aux t (h::acc)
+    | [] -> acc
+  in
+  match topdecs with
+  | Topdecs tds -> Topdecs (aux tds [])
+
+let compile path parse read_file =
+  let topdecs = inclusion path (parse (read_file path)) parse read_file in
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
   let routines = get_routines topdecs in
   let structs = get_structs topdecs in
