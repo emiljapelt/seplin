@@ -8,7 +8,7 @@ internal zip<T,U>(stack1: stack<T>, stack2: stack<U>, out: stack<tuple<T,U>>) {
     s2 ::= stack2;
     out := null;
     until((s1 = null) || (s2 = null)) {
-        out := new stack(new tuple(s1.head, s2.head), out); // Runtime error here
+        out := new stack(new tuple(s1.head, s2.head), out);
         s1 := s1.tail;
         s2 := s2.tail;
     }

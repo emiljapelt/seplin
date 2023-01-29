@@ -64,9 +64,22 @@
                             "REF_FETCH",        REF_FETCH;
                             "INCR_REF",         INCR_REF;
                         ]
+    let incr_linenum lexbuf = 
+        let pos = lexbuf.Lexing.lex_curr_p in
+        lexbuf.Lexing.lex_curr_p <- { pos with
+            Lexing.pos_lnum = pos.Lexing.pos_lnum + 1;
+            Lexing.pos_bol = pos.Lexing.pos_cnum;
+        }
+
+    let set_filename filename lexbuf =
+        let pos = lexbuf.Lexing.lex_curr_p in
+        lexbuf.Lexing.lex_curr_p <- { pos with
+            Lexing.pos_fname = filename;
+        }
 }
 rule lex = parse
-        [' ' '\t' '\r' '\n']                         { lex lexbuf }
+        [' ' '\t']               { lex lexbuf }
+    |   ('\r''\n' | '\n')        { incr_linenum lexbuf ; lex lexbuf }
     |   ['-']?['0'-'9']+ as lxm                 { CST_INT (int_of_string lxm) }
     | "true"                                    { CST_BOOL true }
     | "false"                                   { CST_BOOL false }
@@ -75,11 +88,14 @@ rule lex = parse
     |   ['#'] ['A'-'Z'] * as id 
                 { try
                     Hashtbl.find meta_table id
-                  with Not_found -> raise_offset_error ("Unknown meta symbol \'" ^ id ^ "\'") (Lexing.lexeme_start lexbuf) }
+                  with Not_found -> raise_line_error ("Unknown meta symbol \'" ^ id ^ "\'") ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum) }
     |   ['A'-'Z'] ['A'-'Z' '_' ] * as id
                 { try
                     Hashtbl.find instruction_table id
-                  with Not_found -> raise_offset_error ("Unknown instruction \'" ^ id ^ "\'") (Lexing.lexeme_start lexbuf) }
+                  with Not_found -> raise_line_error ("Unknown instruction \'" ^ id ^ "\'") ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum) }
     |   ['A'-'Z' 'a'-'z' '#'] ['A'-'Z' 'a'-'z' '0'-'9' '_' ] * as name   { NAME name }
-    | _                 { raise_offset_error "Unknown token" (Lexing.lexeme_start lexbuf) }
+    | _                 { raise_line_error "Unknown token" ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum) }
     | eof               { EOF }
+
+and start filename = parse
+    ""  { set_filename filename lexbuf ; lex lexbuf }

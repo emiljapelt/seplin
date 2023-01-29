@@ -123,7 +123,7 @@ let count_decl stmt_dec_list =
   let rec aux sdl c =
     match sdl with
     | [] -> c
-    | (Declaration (dec, _))::t -> (
+    | (Declaration (dec, _, _))::t -> (
       match dec with
       | TypeDeclaration _ -> aux t (c+1)
       | AssignDeclaration _ -> aux t (c+1)
@@ -309,7 +309,7 @@ and type_value val_expr var_env =
   | Bool _ -> (false, T_Bool)
   | Int _ -> (false, T_Int)
   | Char _ -> (false, T_Char)
-  | Lookup (refer) -> type_reference refer var_env
+  | ValueOf (refer) -> type_reference refer var_env
   | NewArray (ty, _) -> (false, T_Array(ty))
   | ArrayLiteral elements -> (match type_array_literal (List.map (fun e -> type_assignable_expr e var_env) elements) with (lo,ety) -> (lo, T_Array(ety)))
   | NewStruct (name, typ_args, args) -> ( match lookup_struct name var_env.structs with
@@ -405,7 +405,7 @@ let get_globvar_dependencies gvs =
       | Int _ -> acc
       | Char _ -> acc
       | GetInput _ -> acc
-      | Lookup (refer) -> dependencies_from_assignable (Reference refer) acc
+      | ValueOf (refer) -> dependencies_from_assignable (Reference refer) acc
       | NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
       | ArrayLiteral exprs -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
       | NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
@@ -499,7 +499,7 @@ and optimize_value expr var_env =
   | Bool _ -> Value(expr)
   | Int _ -> Value(expr)
   | Char _ -> Value(expr)
-  | Lookup _ -> Value(expr)
+  | ValueOf _ -> Value(expr)
   | NewArray _ -> Value(expr)
   | ArrayLiteral _ -> Value(expr)
   | NewStruct (_,_,_) -> Value(expr)
@@ -557,10 +557,10 @@ and compile_assignable_expr_as_value expr var_env acc =
     | T_Int -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
     | T_Bool -> compile_reference r var_env (FetchFull :: FetchByte :: acc)
     | T_Char -> compile_reference r var_env (FetchFull :: FetchByte :: acc)
-    | T_Array _ -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
-    | T_Struct _ -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
+    | T_Array _ -> compile_reference r var_env ((*FetchFull ::*) FetchFull :: acc)
+    | T_Struct _ -> compile_reference r var_env ((*FetchFull ::*) FetchFull :: acc)
+    | T_Generic _ -> compile_reference r var_env ((*FetchFull ::*) FetchFull :: acc) (*raise_error "Generic variables not yet supported, 1"*)
     | T_Null -> compile_reference r var_env acc
-    | T_Generic _ -> raise_error "Generic variables not yet supported, 1"
   )
   | _ -> compile_assignable_expr expr var_env acc
 
@@ -579,7 +579,7 @@ and compile_value val_expr var_env acc =
     | -1 -> raise_error "Unsupported GetInput variant"
     | x -> GetInput(x) :: acc
   )
-  | Lookup refer -> (
+  | ValueOf refer -> (
     let (_, ref_ty) = type_reference refer var_env in
     match ref_ty with
     | T_Int -> compile_assignable_expr_as_value (Reference refer) var_env acc
@@ -928,18 +928,16 @@ let rec compile_sod_list sod_list env break continue cleanup acc =
   | [] -> acc
   | h::t -> (
     match h with
-    | Statement (stmt, offset) -> (try (
+    | Statement (stmt, file, line) -> (try (
       compile_stmt stmt env break continue cleanup (compile_sod_list t env break continue cleanup (acc))
     ) with
-      | Error msg -> raise_offset_error msg offset
-      (* | Offset_error (msg, offset) -> raise_offset_error msg offset *)
+      | Error msg -> raise_line_error msg file line
       | e -> raise e
     )
-    | Declaration (dec, offset) -> (try (
+    | Declaration (dec, file, line) -> (try (
       compile_declaration dec env.var_env (compile_sod_list t (update_locals env dec) break continue (cleanup+1) acc)
     ) with
-      | Error msg -> raise_offset_error msg offset
-      | Offset_error (msg, offset) -> raise_offset_error msg offset
+      | Error msg -> raise_line_error msg file line
       | e -> raise e
     )
   )
@@ -969,7 +967,7 @@ and compile_stmt stmt env break continue cleanup acc =
   | Expression (expr) -> compile_unassignable_expr expr env break continue cleanup acc
 
 let compile_globalvars globvars structs acc =
-  compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; }); routine_env = []; }) None None 0 acc
+  compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, "wtf", 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; }); routine_env = []; }) None None 0 acc
 
 let compress_path path =
   let rec compress parts acc =
@@ -986,25 +984,26 @@ let total_path path =
   else path
 
 
-let inclusion topdecs base_path parse read_file = 
-  let rec aux base_path tds included acc =
+let inclusion path parse = 
+  let path = compress_path (total_path path) in
+  let rec aux path tds included acc =
     match tds with
-    | (Include path)::t -> (
-      let path = compress_path (if path.[0] = '.' then (String.sub base_path 0 ((String.rindex base_path '/')+1) ^ path) else path) in
-      match List.find_opt (fun p -> p = path) included with
-      | Some _ -> aux base_path t included acc
-      | None -> ( match parse (read_file path) with
-        | Topdecs tds' -> aux base_path t (path::included) (List.rev_append (aux path tds' (path::included) []) acc)
+    | (Include incl_path)::t -> (
+      let incl_path = compress_path (if incl_path.[0] = '.' then (String.sub path 0 ((String.rindex path '/')+1) ^ incl_path) else incl_path) in
+      match List.find_opt (fun p -> p = incl_path) included with
+      | Some _ -> aux path t included acc
+      | None -> ( match parse incl_path with
+        | Topdecs tds' -> aux path t (incl_path::included) (List.rev_append (aux incl_path tds' (incl_path::included) []) acc)
       )
     )
-    | h::t -> aux base_path t included (h::acc)
+    | h::t -> aux path t included (h::acc)
     | [] -> acc
   in
-  match topdecs with
-  | Topdecs tds -> Topdecs (aux base_path tds [compress_path base_path] [])
+  match parse path with
+  | Topdecs tds -> Topdecs (aux path tds [path] [])
 
-let compile path parse read_file =
-  let topdecs = inclusion (parse (read_file path)) (total_path path) parse read_file in
+let compile path parse =
+  let topdecs = inclusion path parse in
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
   let routines = get_routines topdecs in
   let structs = get_structs topdecs in
