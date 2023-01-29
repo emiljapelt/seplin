@@ -12,8 +12,8 @@ and declaration =
     | VarDeclaration of bool * string * assignable_expression
 
 and statement_or_declaration =
-    | Statement of statement * int
-    | Declaration of declaration * int
+    | Statement of statement * string * int (*   statement * file_name * line_number   *)
+    | Declaration of declaration * string * int (*   declaration * file_name * line_number   *)
 
 and unassignable_expression =
     | Assign of reference * assignable_expression
@@ -42,7 +42,7 @@ and value =
     | Bool of bool
     | Int of int
     | Char of char
-    | Lookup of reference
+    | ValueOf of reference
     | NewArray of typ * assignable_expression
     | ArrayLiteral of assignable_expression list
     | NewStruct of string * typ list * assignable_expression list

@@ -27,12 +27,27 @@
   
   let char_of_string s lexbuf = match s with
   | "\'\\n\'" -> '\n'
-  | _ when s.[1] = '\\' -> raise_offset_error ("Unknown escape character: " ^ s) (Lexing.lexeme_start lexbuf)
+  | _ when s.[1] = '\\' -> raise_line_error ("Unknown escape character: " ^ s) ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum)
   | _ -> s.[1]
+
+  let incr_linenum lexbuf = 
+    let pos = lexbuf.Lexing.lex_curr_p in
+    lexbuf.Lexing.lex_curr_p <- { pos with
+      Lexing.pos_lnum = pos.Lexing.pos_lnum + 1;
+      Lexing.pos_bol = pos.Lexing.pos_cnum;
+    }
+
+  let set_filename filename lexbuf =
+    let pos = lexbuf.Lexing.lex_curr_p in
+    lexbuf.Lexing.lex_curr_p <- { pos with
+      Lexing.pos_fname = filename;
+    }
 }
+
 rule lex = parse
-        [' ' '\t' '\r' '\n']        { lex lexbuf }
-    |   "//" [^ '\n' '\r']* ('\n' | '\r')       { lex lexbuf }
+        [' ' '\t']               { lex lexbuf }
+    |   ('\r''\n' | '\n')        { incr_linenum lexbuf ; lex lexbuf }
+    |   "//" [^ '\n' '\r']* ('\r''\n' | '\n')       { incr_linenum lexbuf ; lex lexbuf }
     |   ['0'-'9']+ as lxm { CSTINT (int_of_string lxm) }
     |   ''' ['\\']? _ ''' as lxm { CSTCHAR (char_of_string lxm lexbuf) }
     |   "true"            { CSTBOOL true }
@@ -69,5 +84,8 @@ rule lex = parse
     |   ';'           { SEMI }
     |   ':'           { COLON }
     |   '#'           { HASH }
-    |   _             { raise_offset_error "Unknown token" (Lexing.lexeme_start lexbuf) }
+    |   _             { raise_line_error "Unknown token" ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum) }
     |   eof           { EOF }
+
+and start filename = parse
+       "" { set_filename filename lexbuf ; lex lexbuf }

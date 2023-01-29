@@ -9,6 +9,9 @@
     let number = vg.next in
     let () = vg.next <- vg.next+1 in
     Int.to_string number
+
+  let get_filename () = ((symbol_start_pos ()).pos_fname)
+  let get_linenum () = ((symbol_start_pos ()).pos_lnum)
 %}
 %token <int> CSTINT
 %token INT
@@ -121,7 +124,7 @@ value:
   | NOT assignable_expression                             { Unary_op ("!", $2) }
   | PIPE reference PIPE                                   { ArraySize $2 }
   | HASH typ                                              { GetInput $2 }
-  | VALUE reference                                       { Lookup $2 }
+  | VALUE reference                                       { ValueOf $2 }
   | NEW typ LBRAKE assignable_expression RBRAKE           { NewArray ($2, $4) }
   | LBRAKE arguments RBRAKE                               { ArrayLiteral $2 }
   | NEW NAME LPAR arguments RPAR                          { NewStruct ($2, [], $4) }
@@ -151,7 +154,7 @@ arguments:
 arguments1:
     assignable_expression                     { [$1] }
   | assignable_expression COMMA arguments1    { $1 :: $3 }
-  | error { raise_offset_error "Error in arguments" ((symbol_start ())) }
+  | error { raise_line_error "Error in arguments" (get_filename ()) (get_linenum ()) }
 ;
 
 stmtOrDecSeq:
@@ -160,8 +163,8 @@ stmtOrDecSeq:
 ;
 
 stmtOrDec:
-    stmt                                                     { Statement ($1, (symbol_start ())) }
-  | dec                                                      { Declaration ($1, (symbol_start ())) }
+    stmt                                                     { Statement ($1, (get_filename ()), (get_linenum ())) }
+  | dec                                                      { Declaration ($1, (get_filename ()), (get_linenum ())) }
 ;
 
 dec:
@@ -180,31 +183,31 @@ stmt:
   | IF LPAR assignable_expression RPAR stmt                  { If ($3, $5, Block []) }
   | WHILE LPAR assignable_expression RPAR stmt               { While ($3, $5) }
   | UNTIL LPAR assignable_expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec assignable_expression SEMI unassignable_expression RPAR stmt    { Block([Declaration($3, (symbol_start ())); Statement(While($4, Block([Statement($8, (symbol_start ())); Statement(Expression($6), (symbol_start ()));])), (symbol_start ()));]) }
+  | FOR LPAR dec assignable_expression SEMI unassignable_expression RPAR stmt    { Block([Declaration($3, (get_filename ()), (get_linenum ())); Statement(While($4, Block([Statement($8, (get_filename ()), (get_linenum ())); Statement(Expression($6), (get_filename ()), (get_linenum ()));])), (get_filename ()), (get_linenum ()));]) }
   | REPEAT LPAR value RPAR stmt { 
     let var_name = new_var () in
     Block([
-      Declaration(TypeDeclaration(false, T_Int, var_name), (symbol_start ())); 
+      Declaration(TypeDeclaration(false, T_Int, var_name), (get_filename ()), (get_linenum ())); 
       Statement(While(Value(Binary_op("<", Reference(VarRef var_name), Value $3)), 
         Block([
-          Statement($5, (symbol_start ())); 
-          Statement(Expression(Assign(VarRef(var_name), Value(Binary_op("+", Value(Int 1), Reference(VarRef var_name))))), (symbol_start ()));
+          Statement($5, (get_filename ()), (get_linenum ())); 
+          Statement(Expression(Assign(VarRef(var_name), Value(Binary_op("+", Value(Int 1), Reference(VarRef var_name))))), (get_filename ()), (get_linenum ()));
         ])
-      ), (symbol_start ()));
+      ), (get_filename ()), (get_linenum ()));
     ]) 
   }
   | REPEAT LPAR reference RPAR stmt { 
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(false, T_Int, limit_name, Value(Lookup($3))), (symbol_start ())); 
-      Declaration(TypeDeclaration(false, T_Int, count_name), (symbol_start ())); 
+      Declaration(AssignDeclaration(false, T_Int, limit_name, Value(ValueOf($3))), (get_filename ()), (get_linenum ())); 
+      Declaration(TypeDeclaration(false, T_Int, count_name), (get_filename ()), (get_linenum ())); 
       Statement(While(Value(Binary_op("<", Reference(VarRef count_name), Reference(VarRef limit_name))), 
         Block([
-          Statement($5, (symbol_start ())); 
-          Statement(Expression(Assign(VarRef count_name, Value(Binary_op("+", Value(Int 1), Reference(VarRef count_name))))), (symbol_start ()));
+          Statement($5, (get_filename ()), (get_linenum ())); 
+          Statement(Expression(Assign(VarRef count_name, Value(Binary_op("+", Value(Int 1), Reference(VarRef count_name))))), (get_filename ()), (get_linenum ()));
         ])
-      ), (symbol_start ()));
+      ), (get_filename ()), (get_linenum ()));
     ]) 
   }
 ;
@@ -217,7 +220,7 @@ params:
 params1:
     param                  { [$1] }
   | param COMMA params1    { $1 :: $3 }
-  | error { raise_offset_error "Error in parameter declaration" ((symbol_start ())) }
+  | error { raise_line_error "Error in parameter declaration" (get_filename ()) (get_linenum ()) }
 ;
 
 param:
