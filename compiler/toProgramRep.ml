@@ -1002,8 +1002,54 @@ let inclusion path parse =
   match parse path with
   | Topdecs tds -> Topdecs (aux path tds [path] [])
 
+let reduction topdecs =
+  let find_routine_statement name =
+    let rec aux tds =
+      match tds with
+      | [] -> None
+      | Routine(_,n,_,_,stmt)::t when n = name -> Some(stmt)
+      | h::t -> aux t 
+    in
+    match topdecs with
+    | Topdecs(tds) -> aux tds
+  in
+  let rec find_in_statement stmt acc =
+    match stmt with
+      | If(_, if_block, else_block) -> find_in_statement if_block (find_in_statement else_block acc)
+      | While(_, body) -> find_in_statement body acc
+      | Block(block) -> find_in_sod_list block acc
+      | Expression(Call(name, _, _)) -> (
+        if List.exists (fun n -> n = name) acc then acc 
+        else match find_routine_statement name with
+        | Some(body) -> find_in_statement body (name::acc)
+        | None -> acc
+      )
+      | _ -> acc
+  and find_in_sod_list sod_list acc =
+    match sod_list with
+    | [] -> acc
+    | Statement(stmt,_,_)::t -> find_in_sod_list t (find_in_statement stmt acc)
+    | h::t -> find_in_sod_list t acc
+  in
+  let rec find_used_routines tds acc = 
+    match tds with
+    | [] -> acc
+    | Routine(External, name, _, _, stmt)::t -> find_used_routines t (find_in_statement stmt (name::acc))
+    | h::t -> find_used_routines t acc
+  in
+  let rec aux tds used acc = 
+    match tds with
+    | [] -> acc
+    | h::t -> ( match h with 
+      | Routine(_, name, _, _, _) -> if List.exists (fun n -> n = name) used then aux t used (h::acc) else aux t used acc 
+      | _ -> aux t used (h::acc)
+    )
+  in
+  match topdecs with
+  | Topdecs(tds) -> Topdecs(aux tds (find_used_routines tds []) [])
+
 let compile path parse =
-  let topdecs = inclusion path parse in
+  let topdecs = reduction (inclusion path parse) in
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
   let routines = get_routines topdecs in
   let structs = get_structs topdecs in
