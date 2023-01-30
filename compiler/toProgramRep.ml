@@ -1,101 +1,11 @@
 open Absyn
 open ProgramRep
 open Exceptions
-
-(*** Types ***)
-type variable_environment = { 
-  locals: (bool * typ * string) list; 
-  globals: (string * int * bool * typ * declaration) list; 
-  structs: (string * char list * (bool * typ * string) list) list; 
-}
-
-type environment = { 
-  var_env: variable_environment;
-  routine_env: (string * char list * (bool * typ * string) list) list; 
-}
-
-type label_generator = { mutable next : int }
-
+open Typing
+open Helpers
 
 
 (*** Helper functions ***)
-(* Lookup *)
-let lookup_routine (name: string) routines =
-  let rec aux li =
-    match li with
-    | [] -> None
-    | (n,tvs,ps)::t -> if n = name then Some(tvs,ps) else aux t
-  in
-  aux routines
-
-let lookup_globvar (name: string) globvars =
-  let rec aux li c =
-    match li with
-    | [] -> None
-    | (n,c,l,ty,_)::t -> if n = name then Some((c,ty,l)) else aux t (c-1)
-  in
-  aux globvars ((List.length globvars) - 1)
-
-let lookup_localvar (name: string) localvars =
-  let rec aux li c =
-    match li with
-    | [] -> None
-    | (l,ty,n)::t -> if n = name then Some((c,ty,l)) else aux t (c-1)
-  in
-  aux localvars ((List.length localvars) - 1)
-
-let lookup_struct (name: string) structs =
-  let rec aux li = 
-    match li with
-    | [] -> None
-    | (n,tvs,ps)::t -> if n = name then Some(tvs,ps) else aux t
-  in
-  aux structs
-
-let struct_field field params =
-  let rec aux ps c =
-    match ps with
-    | [] -> raise_error ("No such field, " ^ field)
-    | (l,ty,n)::t -> if n = field then (l,ty,c) else aux t (c+1)
-  in
-  aux params 0
-
-let var_locked (name: string) var_env = 
-  match lookup_localvar name var_env.locals with
-    | Some (_,_,ll) -> ll
-    | None -> 
-      match lookup_globvar name var_env.globals with
-      | Some (_,_,gl) -> gl
-      | None -> raise_error ("No such variable " ^ name)
-
-let var_type (name: string) var_env = 
-  match lookup_localvar name var_env.locals with
-  | Some (_,lty,_) -> lty
-  | None -> 
-    match lookup_globvar name var_env.globals with
-    | Some (_,gty,_) -> gty
-    | None -> raise_error ("No such variable " ^ name)
-
-let globvar_exists (name: string) globvars =
-  match lookup_globvar name globvars with
-  | Some _ -> true
-  | None -> false
-  
-let localvar_exists (name: string) localvars =
-  match lookup_localvar name localvars with
-  | Some _ -> true
-  | None -> false
-
-let routine_exists (name: string) routines =
-  match lookup_routine name routines with
-  | Some _ -> true
-  | None -> false
-
-let struct_exists (name: string) structs =
-  match lookup_struct name structs with
-  | Some _ -> true
-  | None -> false
-
 let addFreeVars amount acc =
   match (amount, acc) with
   | (0, _) -> acc
@@ -184,196 +94,6 @@ let get_structs (tds : topdecs) =
     )
   in match tds with
   | Topdecs l -> aux l []
-
-
-
-(* Typing *)
-let rec type_string t =
-  match t with
-  | T_Bool -> "bool"
-  | T_Int -> "int"
-  | T_Char -> "char"
-  | T_Array arr_ty -> (type_string arr_ty)^"[]"
-  | T_Struct(n,typ_args) -> n ^ "<" ^ (String.concat ","  (List.map (fun e -> (type_string e)) typ_args)) ^ ">"
-  | T_Null -> "null"
-  | T_Generic c -> String.make 1 c
-
-let rec type_equal type1 type2 =
-  let rec aux t1 t2 =
-    match (t1, t2) with
-    | (T_Int, T_Int) -> true
-    | (T_Bool, T_Bool) -> true
-    | (T_Char, T_Char) -> true
-    | (T_Array at1, T_Array at2) -> type_equal at1 at2
-    | (T_Struct(n1,ta1), T_Struct(n2, ta2)) when n1 = n2 && (List.length ta1) = (List.length ta2) -> true && (List.fold_right (fun e acc -> (type_equal (fst e) (snd e)) && acc) (List.combine ta1 ta2) true)
-    | (T_Null, _) -> true
-    | (T_Generic c1, T_Generic c2) -> c1 = c2
-    | _ -> false
-  in aux type1 type2 || aux type2 type1
-
-let type_array_literal lst =
-  let rec aux_type ty lo li =
-    match li with
-    | [] -> (lo,ty)
-    | (lock,h)::t -> (
-      if not (type_equal h ty) then raise_error "Array literal containing expressions of differing types"
-      else if lock then aux_type ty true t
-      else aux_type ty lo t
-    )
-  in
-  match lst with 
-  | [] -> (false, T_Null)
-  | (lock,h)::t -> aux_type h lock t
-
-let default_value t =
-  match t with
-  | T_Int -> Value (Int 0)
-  | T_Bool -> Value (Bool false)
-  | T_Char -> Value (Char '0')
-  | _ -> Reference (Null)
-
-let simple_type t =
-  match t with
-    | T_Int | T_Bool | T_Char -> true
-    | _ -> false
-  
-let rec type_assignable_expr expr var_env =
-  match expr with
-  | Reference ref_expr -> type_reference ref_expr var_env
-  | Value val_expr -> type_value val_expr var_env
-
-and type_reference ref_expr var_env =
-  match ref_expr with
-  | VarRef name -> (var_locked name var_env, var_type name var_env)
-  | StructRef (refer, field) -> (
-    let (lock, ty) =  type_reference refer var_env in
-    match ty with 
-    | T_Struct (str_name, typ_args) -> (match lookup_struct str_name var_env.structs with
-      | Some (typ_vars, fields) -> (
-        let resolved_fields = replace_generics fields typ_vars typ_args var_env.structs in
-        let (field_lock, field_ty,_) = struct_field field resolved_fields in
-        (lock || field_lock, field_ty)
-      )
-      | None -> raise_error ("No such struct: " ^ str_name)
-    )
-    | _ -> raise_error ("Field access on non-struct variable")
-  )
-  | ArrayRef (refer, expr) -> (
-    let (lock, ty) =  type_reference refer var_env in
-    match ty with 
-    | T_Array array_typ -> (lock, array_typ)
-    | _ -> raise_error ("Array access on non-array variable")
-  )
-  | Null -> (false, T_Null)
-
-and type_value val_expr var_env =
-  match val_expr with
-  | Binary_op (op, expr1, expr2) -> (
-    let (lock1, ty1) = type_assignable_expr expr1 var_env in
-    let (lock2, ty2) = type_assignable_expr expr2 var_env in
-    match (op, ty1, ty2) with
-    | ("&&", T_Bool, T_Bool) ->  (false, T_Bool)
-    | ("||", T_Bool, T_Bool) -> (false, T_Bool)
-    | ("=", _, T_Null) -> (false, T_Bool)
-    | ("=", T_Null, _) -> (false, T_Bool)
-    | ("=", T_Bool, T_Bool) -> (false, T_Bool)
-    | ("=", T_Char, T_Char) -> (false, T_Bool)
-    | ("=", T_Int, T_Int) -> (false, T_Bool)
-    | ("!=", _, T_Null) -> (false, T_Bool)
-    | ("!=", T_Null, _) -> (false, T_Bool)
-    | ("!=", T_Bool, T_Bool) -> (false, T_Bool)
-    | ("!=", T_Char, T_Char) -> (false, T_Bool)
-    | ("!=", T_Int, T_Int) -> (false, T_Bool)
-    | ("<=", T_Int, T_Int) -> (false, T_Bool) 
-    | ("<", T_Int, T_Int) -> (false, T_Bool)
-    | (">=", T_Int, T_Int) -> (false, T_Bool)
-    | (">", T_Int, T_Int) -> (false, T_Bool)
-    | ("+", T_Int, T_Int) -> (false, T_Int)
-    | ("-", T_Int, T_Int) -> (false, T_Int)
-    | ("*", T_Int, T_Int) -> (false, T_Int)
-    | _ -> raise_error "Unknown binary operator, or type mismatch"
-  )
-  | Unary_op (op, expr) -> (
-    let (lock, ty) = type_assignable_expr expr var_env in
-    match (op, ty) with
-    | ("!", T_Bool) -> (false, T_Bool)
-    | _ -> raise_error "Unknown unary operator, or type mismatch"
-  )
-  | ArraySize (refer) ->  (
-    let (lock, ty) = type_reference refer var_env in
-    match ty with
-    | T_Array _ -> (false, T_Int)
-    | _ -> raise_error "Array size of non-array variable"
-  )
-  | GetInput ty -> (false, ty)
-  | Bool _ -> (false, T_Bool)
-  | Int _ -> (false, T_Int)
-  | Char _ -> (false, T_Char)
-  | ValueOf (refer) -> type_reference refer var_env
-  | NewArray (ty, _) -> (false, T_Array(ty))
-  | ArrayLiteral elements -> (match type_array_literal (List.map (fun e -> type_assignable_expr e var_env) elements) with (lo,ety) -> (lo, T_Array(ety)))
-  | NewStruct (name, typ_args, args) -> ( match lookup_struct name var_env.structs with
-    | Some (typ_vars, params) -> (
-      if (List.length typ_vars > 0) then ( (* Generic *)
-        if (List.length typ_args = 0) then (
-          let typ_args = infere_generics typ_vars params args var_env in
-          (false, T_Struct(name, typ_args))
-        )
-        else if (List.length typ_args) = (List.length typ_vars) then (
-          (false, T_Struct(name, typ_args))
-        )
-        else raise_error ("Amount of type arguments does not match required amount") 
-      )
-      else (false, T_Struct(name, typ_args)) (* Not generic *)
-    )
-    | None -> raise_error ("No such struct: " ^ name)
-  )
-
-  and resolve_generic c typ_vars typ_args = 
-    let rec aux lst = 
-      match lst with
-      | [] -> failwith "Could not resolve generic index"
-      | (v,a)::t -> if v = c then a else aux t
-    in
-    aux (List.combine typ_vars typ_args)
-  
-  and replace_generics lst typ_vars typ_args structs = 
-    let rec replace element = 
-      match element with
-      | T_Generic(c) -> resolve_generic c typ_vars typ_args
-      | T_Array(sub) -> T_Array(replace sub)
-      | T_Struct(str_name, ta) -> T_Struct(str_name, List.map (fun e -> replace e) ta)
-      | e -> e
-    in
-    let aux element =
-      match element with
-      | (lock, ty, name) -> (lock, replace ty, name)
-    in
-    List.map (fun e -> aux e) lst
-    
-  and infere_generic c param_tys arg_tys =
-    let rec aux pt et =
-      match (pt, et ) with
-      | (_, T_Null) -> None
-      | (T_Generic g, _) -> if g = c then Some(et) else None
-      | (T_Array(sub_t), T_Array(sub_et)) -> aux sub_t sub_et
-      | (T_Struct(name_t, param1), T_Struct(name_et, param2)) when name_t = name_et -> infere_generic c param1 param2
-      | _ -> raise_error "Parameter/Argument structure mismatch in generic inference"
-    in match (param_tys, arg_tys) with
-    | (param_t::tp, arg_t::ta) -> ( match aux param_t arg_t with
-      | None -> infere_generic c tp ta
-      | Some(t) -> Some(t)
-    )
-    | _ -> None
-  
-  and infere_generics typ_vars params args var_env =
-    let param_tys = List.map (fun p -> match p with (_,t,_) -> t ) params in
-    let arg_tys = List.map (fun a -> match type_assignable_expr a var_env with (_,t) -> t) args in
-    List.map (fun tv -> (
-      match infere_generic tv param_tys arg_tys with
-      | Some(t) -> t
-      | None -> raise_error "Could not infere a type for all type variables"
-    )) typ_vars
 
 
 (* Labels *)
@@ -528,7 +248,7 @@ and compile_reference ref_expr var_env acc =
   match ref_expr with
   | VarRef name -> (fetch_var_index name var_env.globals var_env.locals) :: RefFetch :: acc
   | StructRef (refer, field) -> ( 
-    let (ref_lock, ref_ty) = type_reference refer var_env in
+    let (ref_lock, ref_ty) = Typing.type_reference refer var_env in
     match ref_ty with
     | T_Struct (name, _) -> (
       match lookup_struct name var_env.structs with
@@ -541,8 +261,8 @@ and compile_reference ref_expr var_env acc =
     | _ -> raise_error ("Struct field lookup type failure")
   )
   | ArrayRef (refer, index) -> (
-    let (_, ref_ty) = type_reference refer var_env in
-    let (_, idx_ty) = type_assignable_expr index var_env in
+    let (_, ref_ty) = Typing.type_reference refer var_env in
+    let (_, idx_ty) = Typing.type_assignable_expr index var_env in
     match (ref_ty, idx_ty) with
     | (T_Array (_), T_Int) -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: acc)))
     | _ -> raise_error ("Array lookup type failure")
@@ -552,7 +272,7 @@ and compile_reference ref_expr var_env acc =
 and compile_assignable_expr_as_value expr var_env acc =
   match expr with
   | Reference r -> (
-    let (_, ref_ty) = type_reference r var_env in
+    let (_, ref_ty) = Typing.type_reference r var_env in
     match ref_ty with
     | T_Int -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
     | T_Bool -> compile_reference r var_env (FetchFull :: FetchByte :: acc)
@@ -570,7 +290,7 @@ and compile_value val_expr var_env acc =
   | Int i -> PlaceInt(i) :: acc
   | Char c -> PlaceChar(c) :: acc
   | ArraySize refer -> (
-    let (_, ref_ty) = type_reference refer var_env in
+    let (_, ref_ty) = Typing.type_reference refer var_env in
     match ref_ty with
     | T_Array _ -> compile_reference refer var_env  (FetchFull :: SizeOf :: acc)
     | _ -> raise_error "Array size only makes sense for arrays"
@@ -580,7 +300,7 @@ and compile_value val_expr var_env acc =
     | x -> GetInput(x) :: acc
   )
   | ValueOf refer -> (
-    let (_, ref_ty) = type_reference refer var_env in
+    let (_, ref_ty) = Typing.type_reference refer var_env in
     match ref_ty with
     | T_Int -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Bool -> compile_assignable_expr_as_value (Reference refer) var_env acc
@@ -591,13 +311,13 @@ and compile_value val_expr var_env acc =
     | T_Generic _ -> raise_error "Cannot make a value lookup on a generic variable"
   )
   | NewArray (arr_ty, size_expr) -> (
-    let (_, s_ty) = type_assignable_expr size_expr var_env in
+    let (_, s_ty) = Typing.type_assignable_expr size_expr var_env in
     match s_ty with
     | T_Int -> compile_assignable_expr_as_value (optimize_assignable_expr size_expr var_env) var_env (DeclareStruct :: IncrRef :: acc)
     | _ -> raise_error ("Init array with non-int size")
   )
   | ArrayLiteral elements -> (
-    let (lo,ty) = type_array_literal (List.map (fun e -> type_assignable_expr e var_env) elements) in
+    let (lo,ty) = Typing.type_array_literal (List.map (fun e -> Typing.type_assignable_expr e var_env) elements) in
     let rec aux es c acc =
       match es with
       | [] -> acc
@@ -621,8 +341,8 @@ and compile_value val_expr var_env acc =
       match (ags, fields) with
       | ([], []) -> acc
       | (ha::ta, (field_lock,field_ty,_)::tf) -> (
-        let (ha_lock, ha_ty) = type_assignable_expr ha var_env in
-        if not (type_equal field_ty ha_ty) then raise_error ("Struct argument type mismatch")
+        let (ha_lock, ha_ty) = Typing.type_assignable_expr ha var_env in
+        if not (Typing.type_equal field_ty ha_ty) then raise_error ("Struct argument type mismatch")
         else if ha_lock && (not field_lock) then raise_error "Cannot give a locked variable as a parameter that is not locked"
         else let optha = optimize_assignable_expr ha var_env in
         match optha with
@@ -660,8 +380,8 @@ and compile_value val_expr var_env acc =
     | None -> raise_error ("No such struct: " ^ name)
   )
   | Binary_op (op, e1, e2) -> (
-      let (_, t1) = type_assignable_expr e1 var_env in
-      let (_, t2) = type_assignable_expr e2 var_env in
+      let (_, t1) = Typing.type_assignable_expr e1 var_env in
+      let (_, t2) = Typing.type_assignable_expr e2 var_env in
       match (op, t1, t2, e1, e2) with
       | ("&&", T_Bool, T_Bool, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (BoolAnd :: acc))
       | ("||", T_Bool, T_Bool, _, _) -> compile_assignable_expr_as_value e1 var_env (compile_assignable_expr_as_value e2 var_env (BoolOr :: acc))
@@ -685,7 +405,7 @@ and compile_value val_expr var_env acc =
       | _ -> raise_error "Unknown binary operator, or type mismatch"
     )
   | Unary_op (op, e) -> (
-    let (_, t) = type_assignable_expr e var_env in
+    let (_, t) = Typing.type_assignable_expr e var_env in
     match (op, t, e) with
     | ("!", T_Bool, _) -> compile_assignable_expr_as_value e var_env (BoolNot :: acc)
     | _ -> raise_error "Unknown unary operator, or type mismatch"
@@ -696,8 +416,8 @@ let compile_arguments args var_env acc =
     match ars with
     | ([]) -> acc
     | (((plock, pty, pname),eh)::t) -> (
-        let (expr_lock, expr_ty) = type_assignable_expr eh var_env in
-        if not (type_equal pty expr_ty) then raise_error ("Type mismatch on call: expected " ^ (type_string pty) ^ ", got " ^ (type_string expr_ty)) 
+        let (expr_lock, expr_ty) = Typing.type_assignable_expr eh var_env in
+        if not (Typing.type_equal pty expr_ty) then raise_error ("Type mismatch on call: expected " ^ (Typing.type_string pty) ^ ", got " ^ (Typing.type_string expr_ty)) 
         else if expr_lock && (not plock) then raise_error "Cannot give a locked variable as a parameter that is not locked"
         else let opteh = optimize_assignable_expr eh var_env in
         match opteh with
@@ -721,11 +441,11 @@ let compile_arguments args var_env acc =
   aux (List.rev args) acc
 
 let rec compile_assignment target assign var_env acc =
-  let (target_lock, target_type) = type_reference target var_env in
-  let (assign_lock, assign_type) = type_assignable_expr assign var_env in 
+  let (target_lock, target_type) = Typing.type_reference target var_env in
+  let (assign_lock, assign_type) = Typing.type_assignable_expr assign var_env in 
   if target_lock then raise_error "Assignment to a locked variable"
   else if assign_lock then raise_error "Cannot assign a locked variable, to another variable"
-  else if not (type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(type_string target_type)^"' but got '" ^(type_string assign_type)^ "'")
+  else if not (Typing.type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(Typing.type_string target_type)^"' but got '" ^(Typing.type_string assign_type)^ "'")
   else match (target, assign) with
   | (Null, _) -> raise_error "Assignment to null"
   | (VarRef name, Value v) -> ( match assign_type with 
@@ -746,7 +466,7 @@ let rec compile_assignment target assign var_env acc =
     | T_Null -> compile_reference target var_env (compile_reference re var_env (RefAssign :: acc))
     | T_Generic _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
   )
-  | (StructRef(refer, field), Value v) -> ( match type_reference refer var_env with
+  | (StructRef(refer, field), Value v) -> ( match Typing.type_reference refer var_env with
     | (_,T_Struct (str_name, typ_args)) -> ( match lookup_struct str_name var_env.structs with
       | None -> raise_error ("Could not find struct: " ^ str_name)
       | Some (typ_vars, fields) -> ( match struct_field field fields with
@@ -763,7 +483,7 @@ let rec compile_assignment target assign var_env acc =
     )
     | (_,_) -> raise_error "Struct assignment to non-struct" 
   )
-  | (StructRef(refer, field), Reference re) -> ( match type_reference refer var_env with
+  | (StructRef(refer, field), Reference re) -> ( match Typing.type_reference refer var_env with
     | (_,T_Struct (str_name, typ_args)) -> ( match lookup_struct str_name var_env.structs with
       | None -> raise_error ("Could not find struct: " ^ str_name)
       | Some (typ_vars, fields) -> ( match struct_field field fields with
@@ -780,8 +500,8 @@ let rec compile_assignment target assign var_env acc =
     )
     | (_,_) -> raise_error "Struct assignment to non-struct" 
   )
-  | (ArrayRef(refer, index), Value v) -> ( match type_reference refer var_env with
-    | (_,T_Array arr_ty) -> ( match type_assignable_expr index var_env with
+  | (ArrayRef(refer, index), Value v) -> ( match Typing.type_reference refer var_env with
+    | (_,T_Array arr_ty) -> ( match Typing.type_assignable_expr index var_env with
       | (_,T_Int) -> ( match assign_type with
         | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))))
         | T_Bool -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))))
@@ -795,8 +515,8 @@ let rec compile_assignment target assign var_env acc =
     )
     | (_,_) -> raise_error "Array assignment to non-array" 
   )
-  | (ArrayRef(refer, index), Reference re) -> ( match type_reference refer var_env with
-    | (_,T_Array arr_ty) -> ( match type_assignable_expr index var_env with 
+  | (ArrayRef(refer, index), Reference re) -> ( match Typing.type_reference refer var_env with
+    | (_,T_Array arr_ty) -> ( match Typing.type_assignable_expr index var_env with 
       | (_,T_Int) -> ( match assign_type with
         | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
         | T_Bool -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
@@ -851,7 +571,7 @@ let compile_unassignable_expr expr env break continue cleanup acc =
       match es with
       | [] -> acc
       | h::t -> (
-        let (_, expr_ty) = type_assignable_expr h env.var_env in
+        let (_, expr_ty) = Typing.type_assignable_expr h env.var_env in
         let opte = optimize_assignable_expr h env.var_env in
         match expr_ty with
         | T_Bool -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintBool :: acc))
@@ -878,9 +598,9 @@ let rec compile_declaration dec var_env acc =
   )
   | AssignDeclaration (l, ty, n, expr) -> (
     if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
-    else let (expr_lock, expr_ty) = type_assignable_expr expr var_env in 
+    else let (expr_lock, expr_ty) = Typing.type_assignable_expr expr var_env in 
     if expr_lock && (not l) then raise_error "Cannot assign a locked variable to a non-locked variable"
-    else if not (type_equal ty expr_ty) then raise_error ("Type mismatch on declaration: expected '" ^ (type_string ty) ^ "', got '" ^ (type_string expr_ty) ^ "'") 
+    else if not (Typing.type_equal ty expr_ty) then raise_error ("Type mismatch on declaration: expected '" ^ (Typing.type_string ty) ^ "', got '" ^ (Typing.type_string expr_ty) ^ "'") 
     else let opte = optimize_assignable_expr expr var_env in
     match expr with
     | Reference _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
@@ -897,7 +617,7 @@ let rec compile_declaration dec var_env acc =
   )
   | VarDeclaration (l, n, expr) -> (
     if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
-    else let (expr_lock, expr_ty) = type_assignable_expr expr var_env in
+    else let (expr_lock, expr_ty) = Typing.type_assignable_expr expr var_env in
     if expr_lock && (not l) then raise_error "Cannot assign a locked variable to a non-locked variable"
     else let opte = optimize_assignable_expr expr var_env in
     match expr with
@@ -947,7 +667,7 @@ and compile_stmt stmt env break continue cleanup acc =
   | If (expr, s1, s2) -> (
     let label_true = new_label () in
     let label_stop = new_label () in
-    let (_, t) = type_assignable_expr expr env.var_env in
+    let (_, t) = Typing.type_assignable_expr expr env.var_env in
     if t != T_Bool then raise_error "Condition not of type 'bool'"
     else compile_assignable_expr_as_value expr env.var_env (IfTrue(label_true) :: (compile_stmt s2 env break continue cleanup (GoTo(label_stop) :: CLabel(label_true) :: (compile_stmt s1 env break continue cleanup (CLabel(label_stop) :: acc)))))
   )
@@ -955,7 +675,7 @@ and compile_stmt stmt env break continue cleanup acc =
     let label_cond = new_label () in
     let label_start = new_label () in
     let label_stop = new_label () in
-    let (_, t) = type_assignable_expr expr env.var_env in
+    let (_, t) = Typing.type_assignable_expr expr env.var_env in
     if t != T_Bool then raise_error "Condition not of type 'bool'"
     else GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_assignable_expr_as_value expr env.var_env (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
   )
