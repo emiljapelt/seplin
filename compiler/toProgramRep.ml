@@ -739,7 +739,7 @@ let reduction topdecs =
       | While(_, body) -> find_in_statement body acc
       | Block(block) -> find_in_sod_list block acc
       | Expression(Call(name, _, _)) -> (
-        if List.exists (fun n -> n = name) acc then acc 
+        if List.mem name acc then acc 
         else match find_routine_statement name with
         | Some(body) -> find_in_statement body (name::acc)
         | None -> acc
@@ -761,7 +761,7 @@ let reduction topdecs =
     match tds with
     | [] -> acc
     | h::t -> ( match h with 
-      | Routine(_, name, _, _, _) -> if List.exists (fun n -> n = name) used then aux t used (h::acc) else aux t used acc 
+      | Routine(_, name, _, _, _) -> if List.mem name used then aux t used (h::acc) else aux t used acc 
       | _ -> aux t used (h::acc)
     )
   in
@@ -771,8 +771,9 @@ let reduction topdecs =
 let compile path parse =
   let topdecs = reduction (inclusion path parse) in
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
-  let routines = get_routines topdecs in
   let structs = get_structs topdecs in
+  let () = check_topdecs topdecs structs in
+  let routines = get_routines topdecs in
   let rec aux tds acc =
     match tds with
     | [] -> acc
