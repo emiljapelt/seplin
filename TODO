@@ -17,5 +17,4 @@
     - Some thing like: "internal map<T,U>(target: T[], rt: _(T,U))"
     - Where "_(T,U)" is some routine taking arguments (T,U)
     - Would strengthen generics, but might be weird to work with.
-- Check that parameters for routines and structs, only reference structs that exists
 - Add location data to global variable declarations, struct declarations and routines declarations.

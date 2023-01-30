@@ -189,3 +189,27 @@ and type_value val_expr var_env =
       | Some(t) -> t
       | None -> raise_error "Could not infere a type for all type variables"
     )) typ_vars
+
+let parameters_check typ_vars structs params =
+  let rec check p_ty =
+    match p_ty with
+    | T_Int
+    | T_Bool
+    | T_Char -> true
+    | T_Null -> false
+    | T_Array(sub_ty) -> check sub_ty
+    | T_Generic(c) -> if List.mem c typ_vars then true else false
+    | T_Struct(name, field_typs) -> if Helpers.struct_exists name structs then List.fold_right (fun field_ty acc -> (check field_ty) && acc) field_typs true else false
+  in
+  List.fold_right (fun (_,ty,_) acc -> (check ty) && acc) params true
+
+let rec check_topdecs topdecs structs =
+  let rec aux tds =
+    match tds with
+    | [] -> ()
+    | Routine(_,name,typ_vars,params,_)::t -> if parameters_check typ_vars structs params then aux t else raise_error ("illegal parameters in " ^ name)
+    | Struct(name,typ_vars,params)::t -> if parameters_check typ_vars structs params then aux t else raise_error ("illegal parameters in " ^ name)
+    | h::t -> aux t
+  in
+  match topdecs with
+  | Topdecs(tds) -> aux tds
