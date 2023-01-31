@@ -4,19 +4,27 @@ open Absyn
 
 (*** Types ***)
 type variable_environment = { 
-  locals: (bool * typ * string) list; 
-  globals: (string * int * bool * typ * declaration) list; 
-  structs: (string * char list * (bool * typ * string) list) list; 
+  locals: (bool * typ * string) list; (* Lock, type, name *)
+  globals: (string * int * bool * typ * declaration) list; (* name, stack_index, lock, type, expression *)
+  structs: (string * char list * (bool * typ * string) list) list; (* name, type_vars, parameters(lock, type, name) *)
 }
 
 type environment = { 
   var_env: variable_environment;
-  routine_env: (string * char list * (bool * typ * string) list) list; 
+  routine_env: (string * char list * (bool * typ * string) list) list; (* name, type_vars, parameters(lock, type, name) *)
 }
 
 type label_generator = { mutable next : int }
 
-(*** Lookup ***)
+(* Labels *)
+let lg = ( {next = 0;} )
+
+let new_label () =
+  let number = lg.next in
+  let () = lg.next <- lg.next+1 in
+  Int.to_string number
+
+(* Lookup *)
 let lookup_routine (name: string) routines =
   let rec aux li =
     match li with

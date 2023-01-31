@@ -96,16 +96,6 @@ let get_structs (tds : topdecs) =
   | Topdecs l -> aux l []
 
 
-(* Labels *)
-let lg = ( {next = 0;} )
-
-let new_label () =
-  let number = lg.next in
-  let () = lg.next <- lg.next+1 in
-  Int.to_string number
-
-
-
 (*** Global variable handling ***)
 (*    Compute the list of variable dependencies for each global variable    *)
 let get_globvar_dependencies gvs =
@@ -665,16 +655,16 @@ let rec compile_sod_list sod_list env break continue cleanup acc =
 and compile_stmt stmt env break continue cleanup acc =
   match stmt with
   | If (expr, s1, s2) -> (
-    let label_true = new_label () in
-    let label_stop = new_label () in
+    let label_true = Helpers.new_label () in
+    let label_stop = Helpers.new_label () in
     let (_, t) = Typing.type_assignable_expr expr env.var_env in
     if t != T_Bool then raise_error "Condition not of type 'bool'"
     else compile_assignable_expr_as_value expr env.var_env (IfTrue(label_true) :: (compile_stmt s2 env break continue cleanup (GoTo(label_stop) :: CLabel(label_true) :: (compile_stmt s1 env break continue cleanup (CLabel(label_stop) :: acc)))))
   )
   | While (expr, s) -> (
-    let label_cond = new_label () in
-    let label_start = new_label () in
-    let label_stop = new_label () in
+    let label_cond = Helpers.new_label () in
+    let label_start = Helpers.new_label () in
+    let label_stop = Helpers.new_label () in
     let (_, t) = Typing.type_assignable_expr expr env.var_env in
     if t != T_Bool then raise_error "Condition not of type 'bool'"
     else GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_assignable_expr_as_value expr env.var_env (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
