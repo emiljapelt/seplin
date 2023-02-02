@@ -18,3 +18,12 @@
     - Where "_(T,U)" is some routine taking arguments (T,U)
     - Would strengthen generics, but might be weird to work with.
 - Add location data to global variable declarations, struct declarations and routines declarations.
+- Implement struct literals
+  - syntax examples:
+    - t1 :tuple<int,int>:= {1,2};
+    - t1 :tuple:= {1,2};
+    - l1 :list<int>:= {1, {2, {3, null}}};
+    - l1 :list:= {1, {2, {3, null}}};
+  - will not be supported for infered declarations, as a struct type is required to check against
+  - a struct literal matches a struct type, if each expression in it matches it index-wise corresponding struct field, both with regards to lock state and type.
+  - requires quite a few special case, throughout the code base.
