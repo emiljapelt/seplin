@@ -37,7 +37,6 @@ let count_decl stmt_dec_list =
       match dec with
       | TypeDeclaration _ -> aux t (c+1)
       | AssignDeclaration _ -> aux t (c+1)
-      | VarDeclaration _ -> aux t (c+1)
     )
     | _::t -> aux t (c)
   in
@@ -53,11 +52,11 @@ let get_globvars (tds : topdecs) =
         if globvar_exists name acc then raise_error ("Duplicate global variable name: " ^ name)
         else aux t ((name, count, lock, ty, dec)::acc) (count+1)
       )
-      | AssignDeclaration (lock,ty,name,expr) -> ( 
+      | AssignDeclaration (lock,ty,name,expr) -> (
+        if Option.is_none ty then raise_error "Cannot infere types in global scope" else
         if globvar_exists name acc then raise_error ("Duplicate global variable name: " ^ name)
-        else aux t ((name, count, lock, ty, dec)::acc) (count+1)
+        else aux t ((name, count, lock, Option.get ty, dec)::acc) (count+1)
       )
-      | VarDeclaration (lock,name,expr) -> raise_error "var is not supported for global variables"
     )
     | _::t -> aux t acc count
   in match tds with 
@@ -125,7 +124,6 @@ let get_globvar_dependencies gvs =
     match dec with
     | TypeDeclaration _ -> []
     | AssignDeclaration (_,_,_,expr) -> dependencies_from_assignable expr []
-    | VarDeclaration (_,_,expr) -> dependencies_from_assignable expr []
   in
   List.map (fun (name,cnt,lock,ty,dec) -> ((name,cnt,lock,ty,dec), dependencies_from_declaration dec)) gvs
 
@@ -267,9 +265,9 @@ and compile_assignable_expr_as_value expr var_env acc =
     | T_Int -> compile_reference r var_env (FetchFull :: FetchFull :: acc)
     | T_Bool -> compile_reference r var_env (FetchFull :: FetchByte :: acc)
     | T_Char -> compile_reference r var_env (FetchFull :: FetchByte :: acc)
-    | T_Array _ -> compile_reference r var_env ((*FetchFull ::*) FetchFull :: acc)
-    | T_Struct _ -> compile_reference r var_env ((*FetchFull ::*) FetchFull :: acc)
-    | T_Generic _ -> compile_reference r var_env ((*FetchFull ::*) FetchFull :: acc) (*raise_error "Generic variables not yet supported, 1"*)
+    | T_Array _ -> compile_reference r var_env (FetchFull :: acc)
+    | T_Struct _ -> compile_reference r var_env (FetchFull :: acc)
+    | T_Generic _ -> compile_reference r var_env (FetchFull :: acc)
     | T_Null -> compile_reference r var_env acc
   )
   | _ -> compile_assignable_expr expr var_env acc
@@ -297,8 +295,8 @@ and compile_value val_expr var_env acc =
     | T_Char -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Array ty -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Struct(n, _) -> compile_assignable_expr_as_value (Reference refer) var_env acc
+    | T_Generic _ -> compile_assignable_expr_as_value (Reference refer) var_env acc
     | T_Null -> raise_error ("Direct null pointer dereferencing")
-    | T_Generic _ -> raise_error "Cannot make a value lookup on a generic variable"
   )
   | NewArray (arr_ty, size_expr) -> (
     let (_, s_ty) = Typing.type_assignable_expr size_expr var_env in
@@ -368,6 +366,30 @@ and compile_value val_expr var_env acc =
       ) 
     )
     | None -> raise_error ("No such struct: " ^ name)
+  )
+  | StructLiteral (exprs) -> (
+    let rec aux es c acc =
+      match es with
+      | [] -> acc
+      | h::t -> (
+        let opt_h = optimize_assignable_expr h var_env in
+        match opt_h with
+        | Value _ -> (
+          let (_, h_ty) = type_assignable_expr opt_h var_env in
+          match h_ty with
+          | T_Int -> aux t (c-1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr opt_h var_env (AssignFull :: FieldAssign :: acc))
+          | T_Char -> aux t (c-1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr opt_h var_env (AssignByte :: FieldAssign :: acc))
+          | T_Bool -> aux t (c-1) (CloneFull :: PlaceInt(c) :: DeclareFull :: IncrRef :: CloneFull :: compile_assignable_expr opt_h var_env (AssignByte :: FieldAssign :: acc))
+          | _ -> aux t (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr opt_h var_env (IncrRef :: FieldAssign :: acc))
+        )
+        | Reference r -> (
+          match r with
+          | Null -> aux t (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr opt_h var_env (FieldAssign :: acc))
+          | _ -> aux t (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr opt_h var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
+        )
+      )
+    in
+    PlaceInt(List.length exprs) :: DeclareStruct :: (aux (List.rev exprs) ((List.length exprs)-1) acc)
   )
   | Binary_op (op, e1, e2) -> (
       let (_, t1) = Typing.type_assignable_expr e1 var_env in
@@ -529,17 +551,15 @@ let compile_unassignable_expr expr env break continue cleanup acc =
     | None -> raise_error ("Call to undefined routine: " ^ name)
     | Some (typ_vars,params) -> (
       if List.length params != List.length args then raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length params)) ^ " arguments, but was given " ^  (Int.to_string (List.length args)))
-      else if List.length typ_vars > 0 then (
-        if List.length typ_args = 0 then (
-          let typ_args = infere_generics typ_vars params args env.var_env in
-          compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
-        )
-        else if List.length typ_vars = List.length typ_args then (
-          compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
-        )
-        else raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length typ_vars)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
+      else if List.length typ_vars = 0 then compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc) 
+      else (
+        let typ_args = (
+          if List.length typ_args = List.length typ_vars then typ_args 
+          else if List.length typ_args = 0 then infere_generics typ_vars params args env.var_env 
+          else raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length typ_vars)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
+        ) in
+        compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
       )
-      else compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
     )
   )
   | Stop -> addStop(acc)
@@ -577,60 +597,47 @@ let rec compile_declaration dec var_env acc =
   match dec with
   | TypeDeclaration (l, ty, n) -> (
     if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
+    else if not(well_defined_type ty var_env) then raise_error "Not a well defined type"
     else match ty with
     | T_Int -> DeclareFull :: IncrRef :: CloneFull :: PlaceInt(0) :: AssignFull :: acc
     | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: PlaceBool(false) :: AssignByte :: acc
     | T_Char -> DeclareByte :: IncrRef :: CloneFull :: PlaceChar('0') :: AssignByte :: acc
     | T_Array _ -> PlaceInt(0) :: acc
     | T_Struct _ -> PlaceInt(0) :: acc
+    | T_Generic _ -> PlaceInt(0) :: acc
     | T_Null -> raise_error "Cannot declare the 'null' type"
-    | T_Generic _ -> raise_error "Declaring variables of generic type is not supported yet"
   )
   | AssignDeclaration (l, ty, n, expr) -> (
-    if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
-    else let (expr_lock, expr_ty) = Typing.type_assignable_expr expr var_env in 
+    if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n) else 
+    let opt_expr = optimize_assignable_expr expr var_env in
+    let (expr_lock, expr_ty) = Typing.type_assignable_expr expr var_env in
+    if (Option.is_none ty) && (expr_ty = T_Null) then raise_error "Cannot infere a type from 'null'" else
+    let ty = if Option.is_some ty then (if well_defined_type (Option.get ty) var_env then Option.get ty else raise_error "Not a well defined type") else expr_ty in
     if expr_lock && (not l) then raise_error "Cannot assign a locked variable to a non-locked variable"
     else if not (Typing.type_equal ty expr_ty) then raise_error ("Type mismatch on declaration: expected '" ^ (Typing.type_string ty) ^ "', got '" ^ (Typing.type_string expr_ty) ^ "'") 
-    else let opte = optimize_assignable_expr expr var_env in
-    match expr with
-    | Reference _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
+    else match opt_expr with
+    | Reference _ ->  compile_assignable_expr opt_expr var_env (IncrRef :: acc)
+    | Value(StructLiteral _) -> raise_error "Struct literal declaration not implemented"
     | Value _ -> (
       match ty with
-      | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
-      | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
-      | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
-      | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-      | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-      | T_Null -> compile_assignable_expr opte var_env acc
-      | T_Generic _ -> raise_error "Declaring variables of generic type is not supported yet"
-    )
-  )
-  | VarDeclaration (l, n, expr) -> (
-    if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
-    else let (expr_lock, expr_ty) = Typing.type_assignable_expr expr var_env in
-    if expr_lock && (not l) then raise_error "Cannot assign a locked variable to a non-locked variable"
-    else let opte = optimize_assignable_expr expr var_env in
-    match expr with
-    | Reference _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-    | Value _ -> (
-      match expr_ty with
-      | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignFull :: acc))
-      | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
-      | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opte var_env (AssignByte :: acc))
-      | T_Array _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-      | T_Struct _ -> compile_assignable_expr opte var_env (IncrRef :: acc)
-      | T_Null -> raise_error "Cannot infere a type from 'null'"
-      | T_Generic _ -> raise_error "Declaring variables of generic type is not supported yet"
+      | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opt_expr var_env (AssignFull :: acc))
+      | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opt_expr var_env (AssignByte :: acc))
+      | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opt_expr var_env (AssignByte :: acc))
+      | T_Array _ -> compile_assignable_expr opt_expr var_env (IncrRef :: acc)
+      | T_Struct _ -> compile_assignable_expr opt_expr var_env (IncrRef :: acc)
+      | T_Generic _ -> compile_assignable_expr opt_expr var_env (IncrRef :: acc)
+      | T_Null -> compile_assignable_expr opt_expr var_env acc
     )
   )
 
 let update_locals env dec =
   match dec with
   | TypeDeclaration (lock, ty, name) -> ({ env with var_env = ({ env.var_env with locals = (lock, ty, name)::env.var_env.locals }) })
-  | AssignDeclaration (lock, ty, name, _) -> ({ env with var_env = ({ env.var_env with locals = (lock, ty, name)::env.var_env.locals }) })
-  | VarDeclaration (lock, name, expr) -> (
-    let (lo, ty) = type_assignable_expr expr env.var_env in
-    ({ env with var_env = ({ env.var_env with locals = (lock, ty, name)::env.var_env.locals }) })
+  | AssignDeclaration (lock, ty, name, expr) -> (
+    let (expr_lock, expr_ty) = type_assignable_expr expr env.var_env in
+    if (Option.is_none ty) && (expr_ty = T_Null) then raise_error "Cannot infere a type from 'null'" else
+    let ty = if Option.is_some ty then Option.get ty else expr_ty in
+    { env with var_env = ({ env.var_env with locals = (lock, ty, name)::env.var_env.locals }) }
   )
 
 let rec compile_sod_list sod_list env break continue cleanup acc =
@@ -677,7 +684,7 @@ and compile_stmt stmt env break continue cleanup acc =
   | Expression (expr) -> compile_unassignable_expr expr env break continue cleanup acc
 
 let compile_globalvars globvars structs acc =
-  compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, "wtf", 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; }); routine_env = []; }) None None 0 acc
+  compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, "wtf", 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; typ_vars = []}); routine_env = []; }) None None 0 acc
 
 let compress_path path =
   let rec compress parts acc =
@@ -768,8 +775,7 @@ let compile path parse =
     match tds with
     | [] -> acc
     | h::t -> match h with
-      | Routine (accmod, n, typ_vars, params, stmt) -> 
-        aux t ((routine_head accmod n params)::(compile_stmt stmt ({ var_env = ({ locals = (List.rev params); globals = globvars; structs = structs;}); routine_env = routines; }) None None 0 (addStop(acc))))
+      | Routine (accmod, n, typ_vars, params, stmt) -> aux t ((routine_head accmod n params)::(compile_stmt stmt ({ var_env = ({ locals = (List.rev params); globals = globvars; structs = structs; typ_vars = typ_vars;}); routine_env = routines; }) None None 0 (addStop(acc))))
       | _ -> aux t acc
   in
   match topdecs with

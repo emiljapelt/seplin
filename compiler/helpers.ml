@@ -7,6 +7,7 @@ type variable_environment = {
   locals: (bool * typ * string) list; (* Lock, type, name *)
   globals: (string * int * bool * typ * declaration) list; (* name, stack_index, lock, type, expression *)
   structs: (string * char list * (bool * typ * string) list) list; (* name, type_vars, parameters(lock, type, name) *)
+  typ_vars: char list;
 }
 
 type environment = { 
@@ -16,6 +17,7 @@ type environment = {
 
 type label_generator = { mutable next : int }
 
+
 (* Labels *)
 let lg = ( {next = 0;} )
 
@@ -23,39 +25,39 @@ let new_label () =
   let number = lg.next in
   let () = lg.next <- lg.next+1 in
   Int.to_string number
+  
 
 (* Lookup *)
+let rec lookup f l =
+  match l with
+  | [] -> None
+  | h::t -> ( match f h with
+    | None -> lookup f t
+    | a -> a
+  )
+
+let lookup_i f l =
+  let rec aux l i =
+    match l with
+    | [] -> None
+    | h::t -> ( match f i h with
+      | None -> aux t (i+1)
+      | a -> a
+    )
+  in
+  aux l 0
+
 let lookup_routine (name: string) routines =
-  let rec aux li =
-    match li with
-    | [] -> None
-    | (n,tvs,ps)::t -> if n = name then Some(tvs,ps) else aux t
-  in
-  aux routines
-
-let lookup_globvar (name: string) globvars =
-  let rec aux li c =
-    match li with
-    | [] -> None
-    | (n,c,l,ty,_)::t -> if n = name then Some((c,ty,l)) else aux t (c-1)
-  in
-  aux globvars ((List.length globvars) - 1)
-
-let lookup_localvar (name: string) localvars =
-  let rec aux li c =
-    match li with
-    | [] -> None
-    | (l,ty,n)::t -> if n = name then Some((c,ty,l)) else aux t (c-1)
-  in
-  aux localvars ((List.length localvars) - 1)
+  lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) routines
 
 let lookup_struct (name: string) structs =
-  let rec aux li = 
-    match li with
-    | [] -> None
-    | (n,tvs,ps)::t -> if n = name then Some(tvs,ps) else aux t
-  in
-  aux structs
+  lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs
+
+let lookup_globvar (name: string) globvars =
+  lookup (fun (n,c,l,ty,_) -> if n = name then Some(c,ty,l) else None) globvars
+
+let lookup_localvar (name: string) localvars =
+  lookup_i (fun i (l,ty,n) -> if n = name then Some(i,ty,l) else None) localvars
 
 let struct_field field params =
   let rec aux ps c =
@@ -82,21 +84,13 @@ let var_type (name: string) var_env =
     | None -> raise_error ("No such variable " ^ name)
 
 let globvar_exists (name: string) globvars =
-  match lookup_globvar name globvars with
-  | Some _ -> true
-  | None -> false
+  Option.is_some (lookup_globvar name globvars)
   
 let localvar_exists (name: string) localvars =
-  match lookup_localvar name localvars with
-  | Some _ -> true
-  | None -> false
+  Option.is_some (lookup_localvar name localvars)
 
 let routine_exists (name: string) routines =
-  match lookup_routine name routines with
-  | Some _ -> true
-  | None -> false
+  Option.is_some (lookup_routine name routines)
 
 let struct_exists (name: string) structs =
-  match lookup_struct name structs with
-  | Some _ -> true
-  | None -> false
+  Option.is_some (lookup_struct name structs)
