@@ -129,6 +129,7 @@ value:
   | LBRAKE arguments RBRAKE                               { ArrayLiteral $2 }
   | NEW NAME LPAR arguments RPAR                          { NewStruct ($2, [], $4) }
   | NEW NAME LT typ_args GT LPAR arguments RPAR           { NewStruct ($2, $4, $7) }
+  | LBRACE arguments RBRACE                               { StructLiteral $2 }
 ;
 
 unassignable_expression:
@@ -170,10 +171,10 @@ stmtOrDec:
 dec:
     NAME COLON typ SEMI                                      { TypeDeclaration (false, $3, $1) }
   | NAME COLON LOCKED typ SEMI                               { TypeDeclaration (true, $4, $1) }
-  | NAME COLON typ ASSIGNMENT assignable_expression SEMI     { AssignDeclaration (false, $3, $1, $5) }
-  | NAME COLON LOCKED typ ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, $4, $1, $6) }
-  | NAME COLON ASSIGNMENT assignable_expression SEMI           { VarDeclaration (false, $1, $4) }
-  | NAME COLON LOCKED ASSIGNMENT assignable_expression SEMI    { VarDeclaration (true, $1, $5) }
+  | NAME COLON typ ASSIGNMENT assignable_expression SEMI     { AssignDeclaration (false, Some $3, $1, $5) }
+  | NAME COLON LOCKED typ ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, Some $4, $1, $6) }
+  | NAME COLON ASSIGNMENT assignable_expression SEMI           { AssignDeclaration (false, None, $1, $4) }
+  | NAME COLON LOCKED ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, None, $1, $5) }
 ;
 
 stmt:
@@ -200,7 +201,7 @@ stmt:
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(false, T_Int, limit_name, Value(ValueOf($3))), (get_filename ()), (get_linenum ())); 
+      Declaration(AssignDeclaration(false, Some T_Int, limit_name, Value(ValueOf($3))), (get_filename ()), (get_linenum ())); 
       Declaration(TypeDeclaration(false, T_Int, count_name), (get_filename ()), (get_linenum ())); 
       Statement(While(Value(Binary_op("<", Reference(VarRef count_name), Reference(VarRef limit_name))), 
         Block([
