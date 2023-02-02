@@ -8,8 +8,7 @@ type statement =
 
 and declaration =
     | TypeDeclaration of bool * typ * string
-    | AssignDeclaration of bool * typ * string * assignable_expression
-    | VarDeclaration of bool * string * assignable_expression
+    | AssignDeclaration of bool * typ option * string * assignable_expression
 
 and statement_or_declaration =
     | Statement of statement * string * int (*   statement * file_name * line_number   *)
@@ -46,6 +45,7 @@ and value =
     | NewArray of typ * assignable_expression
     | ArrayLiteral of assignable_expression list
     | NewStruct of string * typ list * assignable_expression list
+    | StructLiteral of assignable_expression list
 
 and top_declaration =
     | Routine of access_mod * string * char list * (bool * typ * string) list * statement

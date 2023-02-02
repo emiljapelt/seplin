@@ -143,6 +143,7 @@ and type_value val_expr var_env =
     )
     | None -> raise_error ("No such struct: " ^ name)
   )
+  | StructLiteral _ -> raise_error "Cannot infere a type from a struct literal"
 
   and resolve_generic c typ_vars typ_args = 
     let rec aux lst = 
@@ -190,6 +191,14 @@ and type_value val_expr var_env =
       | None -> raise_error "Could not infere a type for all type variables"
     )) typ_vars
 
+let elements_unique lst =
+  let rec aux l seen =
+    match l with
+    | [] -> true
+    | h::t -> if List.mem h seen then false else aux t (h::seen)
+  in
+  aux lst []
+
 let parameters_check typ_vars structs params =
   let rec check p_ty =
     match p_ty with
@@ -203,13 +212,33 @@ let parameters_check typ_vars structs params =
   in
   List.fold_right (fun (_,ty,_) acc -> (check ty) && acc) params true
 
+let rec well_defined_type typ var_env =
+  match typ with
+  | T_Struct(name,typ_args) -> (
+    match lookup_struct name var_env.structs with
+    | None -> false
+    | Some(typ_vars,_) -> (List.length typ_args == List.length typ_vars) && (List.fold_right (fun e acc -> (well_defined_type e var_env) && acc ) typ_args true)
+  )
+  | T_Array sub -> if well_defined_type sub var_env then true else false
+  | T_Generic c -> if List.mem c var_env.typ_vars then true else false
+  | _ -> true
+
 let rec check_topdecs topdecs structs =
   let rec aux tds =
     match tds with
     | [] -> ()
-    | Routine(_,name,typ_vars,params,_)::t -> if parameters_check typ_vars structs params then aux t else raise_error ("illegal parameters in " ^ name)
-    | Struct(name,typ_vars,params)::t -> if parameters_check typ_vars structs params then aux t else raise_error ("illegal parameters in " ^ name)
+    | Routine(_,name,typ_vars,params,_)::t -> (
+      if not(elements_unique typ_vars) then raise_error ("Non-unique type variables in routine definition: " ^ name)
+      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in routine: " ^ name)
+      else aux t
+    )
+    | Struct(name,typ_vars,params)::t -> ( 
+      if not(elements_unique typ_vars) then raise_error ("Non-unique type variables in struct definition: " ^ name)
+      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in struct: " ^ name)
+      else aux t
+    )
     | h::t -> aux t
   in
   match topdecs with
   | Topdecs(tds) -> aux tds
+
