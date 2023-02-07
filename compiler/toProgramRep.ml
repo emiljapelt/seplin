@@ -212,7 +212,7 @@ and optimize_value expr var_env =
   | NewArray _ -> Value(expr)
   | ArrayLiteral _ -> Value(expr)
   | NewStruct (_,_,_) -> Value(expr)
-  | StructLiteral _ -> Value(expr)
+  | StructLiteral(exprs) -> Value(StructLiteral( List.map (fun e -> optimize_assignable_expr e var_env) exprs ))
 
 
 (*** Compiling functions ***)
