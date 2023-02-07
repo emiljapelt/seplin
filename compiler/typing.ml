@@ -242,3 +242,24 @@ let rec check_topdecs topdecs structs =
   match topdecs with
   | Topdecs(tds) -> aux tds
 
+let rec check_struct_literal struct_fields exprs var_env =
+  let rec aux pairs =
+    match pairs with
+    | [] -> true 
+    | ((lock,T_Struct(name,typ_args),_),Value(StructLiteral(literal_fields)))::t -> (
+      match lookup_struct name var_env.structs with
+      | None -> false
+      | Some(tvs,ps) -> (
+        let replaced = replace_generics ps tvs typ_args var_env.structs in
+        check_struct_literal replaced literal_fields var_env
+      )
+    )
+    | ((lock,T_Null,_),e)::t -> false
+    | ((lock,typ,_),e)::t -> (
+      let (expr_lock, expr_typ) = type_assignable_expr e var_env in
+      if not(type_equal typ expr_typ) then false else
+      if expr_lock && not(lock) then false else
+      aux t
+    )
+  in 
+  aux (List.combine struct_fields exprs)

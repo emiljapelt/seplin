@@ -41,11 +41,11 @@ let lookup_i f l =
     match l with
     | [] -> None
     | h::t -> ( match f i h with
-      | None -> aux t (i+1)
+      | None -> aux t (i-1)
       | a -> a
     )
   in
-  aux l 0
+  aux l ((List.length l)-1)
 
 let lookup_routine (name: string) routines =
   lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) routines
