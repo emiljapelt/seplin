@@ -118,6 +118,7 @@ let get_globvar_dependencies gvs =
       | NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
       | ArrayLiteral exprs -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
       | NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
+      | StructLiteral (exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
     )
   in
   let rec dependencies_from_declaration dec =
@@ -211,6 +212,7 @@ and optimize_value expr var_env =
   | NewArray _ -> Value(expr)
   | ArrayLiteral _ -> Value(expr)
   | NewStruct (_,_,_) -> Value(expr)
+  | StructLiteral _ -> Value(expr)
 
 
 (*** Compiling functions ***)
@@ -374,6 +376,7 @@ and compile_value val_expr var_env acc =
       | h::t -> (
         let opt_h = optimize_assignable_expr h var_env in
         match opt_h with
+        | Value(StructLiteral _) -> aux t (c-1) (CloneFull :: PlaceInt(c) :: (compile_assignable_expr opt_h var_env (FieldAssign :: acc)))
         | Value _ -> (
           let (_, h_ty) = type_assignable_expr opt_h var_env in
           match h_ty with
@@ -384,7 +387,7 @@ and compile_value val_expr var_env acc =
         )
         | Reference r -> (
           match r with
-          | Null -> aux t (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr opt_h var_env (FieldAssign :: acc))
+          | Null -> aux t (c-1) (CloneFull :: PlaceInt(c) :: PlaceInt(0) :: FieldAssign :: acc)
           | _ -> aux t (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr opt_h var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
         )
       )
@@ -454,93 +457,118 @@ let compile_arguments args var_env acc =
 
 let rec compile_assignment target assign var_env acc =
   let (target_lock, target_type) = Typing.type_reference target var_env in
-  let (assign_lock, assign_type) = Typing.type_assignable_expr assign var_env in 
-  if target_lock then raise_error "Assignment to a locked variable"
-  else if assign_lock then raise_error "Cannot assign a locked variable, to another variable"
-  else if not (Typing.type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(Typing.type_string target_type)^"' but got '" ^(Typing.type_string assign_type)^ "'")
-  else match (target, assign) with
-  | (Null, _) -> raise_error "Assignment to null"
-  | (VarRef name, Value v) -> ( match assign_type with 
-    | T_Int ->  compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignFull :: acc)))
-    | T_Bool -> compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignByte :: acc)))
-    | T_Char -> compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignByte :: acc)))
-    | T_Array _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
-    | T_Struct _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
-    | T_Null -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
-    | T_Generic _ -> raise_error "Generic variables not yet supported, 2"
-  )
-  | (VarRef name, Reference re) -> ( match assign_type with 
-    | T_Int -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
-    | T_Bool -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
-    | T_Char -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
-    | T_Array _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
-    | T_Struct _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
-    | T_Null -> compile_reference target var_env (compile_reference re var_env (RefAssign :: acc))
-    | T_Generic _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
-  )
-  | (StructRef(refer, field), Value v) -> ( match Typing.type_reference refer var_env with
-    | (_,T_Struct (str_name, typ_args)) -> ( match lookup_struct str_name var_env.structs with
-      | None -> raise_error ("Could not find struct: " ^ str_name)
-      | Some (typ_vars, fields) -> ( match struct_field field fields with
-        | (field_lock,field_ty,index) -> ( match assign_type with
-          | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))
-          | T_Bool -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))
-          | T_Char -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))
-          | T_Array _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
-          | T_Struct _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
-          | T_Null  -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (FieldAssign :: acc)))
-          | T_Generic _ -> raise_error "Assignment to unresolved generic field"
+  match (target, assign) with
+  | (VarRef name, Value(StructLiteral(exprs))) -> (
+    match lookup_localvar name var_env.locals with
+    | None -> raise_error "Fuck1"
+    | Some(i,ty,l) -> ( 
+      match ty with
+      | T_Struct(name,typ_args) -> (
+        match lookup_struct name var_env.structs with
+        | None -> raise_error "Fuck3"
+        | Some(typ_vars, params) -> (
+          if not(check_struct_literal (replace_generics params typ_vars typ_args var_env.structs) (exprs) var_env) then raise_error "Fuck4"
+          else compile_reference target var_env (compile_assignable_expr assign var_env (IncrRef :: RefAssign :: acc))
         )
       )
-    )
-    | (_,_) -> raise_error "Struct assignment to non-struct" 
+      | _ -> raise_error "Fuck2"
+    ) 
   )
-  | (StructRef(refer, field), Reference re) -> ( match Typing.type_reference refer var_env with
-    | (_,T_Struct (str_name, typ_args)) -> ( match lookup_struct str_name var_env.structs with
-      | None -> raise_error ("Could not find struct: " ^ str_name)
-      | Some (typ_vars, fields) -> ( match struct_field field fields with
-        | (field_lock, field_ty, index) -> ( match assign_type with
-          | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
-          | T_Bool -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
-          | T_Char -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
-          | T_Array _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
-          | T_Struct _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
-          | T_Null  -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FieldAssign :: acc)))
-          | T_Generic _ -> raise_error "Assignment to unresolved generic field"
+  | (StructRef(refer, field), Value(StructLiteral(exprs))) -> (
+    raise_error "not implemented1"
+  )
+  | (ArrayRef(refer, index), Value(StructLiteral(exprs))) -> (
+    raise_error "not implemented2"
+  )
+  | _ -> (
+    let (assign_lock, assign_type) = Typing.type_assignable_expr assign var_env in 
+    if target_lock then raise_error "Assignment to a locked variable"
+    else if assign_lock then raise_error "Cannot assign a locked variable, to another variable"
+    else if not (Typing.type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(Typing.type_string target_type)^"' but got '" ^(Typing.type_string assign_type)^ "'")
+    else match (target, assign) with
+    | (Null, _) -> raise_error "Assignment to null"
+    | (VarRef name, Value v) -> ( match assign_type with 
+      | T_Int ->  compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignFull :: acc)))
+      | T_Bool -> compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignByte :: acc)))
+      | T_Char -> compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignByte :: acc)))
+      | T_Array _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
+      | T_Struct _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
+      | T_Null -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
+      | T_Generic _ -> raise_error "Generic variables not yet supported, 2"
+    )
+    | (VarRef name, Reference re) -> ( match assign_type with 
+      | T_Int -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
+      | T_Bool -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
+      | T_Char -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
+      | T_Array _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
+      | T_Struct _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
+      | T_Null -> compile_reference target var_env (compile_reference re var_env (RefAssign :: acc))
+      | T_Generic _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
+    )
+    | (StructRef(refer, field), Value v) -> ( match Typing.type_reference refer var_env with
+      | (_,T_Struct (str_name, typ_args)) -> ( match lookup_struct str_name var_env.structs with
+        | None -> raise_error ("Could not find struct: " ^ str_name)
+        | Some (typ_vars, fields) -> ( match struct_field field fields with
+          | (field_lock,field_ty,index) -> ( match assign_type with
+            | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))
+            | T_Bool -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))
+            | T_Char -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))
+            | T_Array _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
+            | T_Struct _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
+            | T_Null  -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (FieldAssign :: acc)))
+            | T_Generic _ -> raise_error "Assignment to unresolved generic field"
+          )
         )
       )
+      | (_,_) -> raise_error "Struct assignment to non-struct" 
     )
-    | (_,_) -> raise_error "Struct assignment to non-struct" 
-  )
-  | (ArrayRef(refer, index), Value v) -> ( match Typing.type_reference refer var_env with
-    | (_,T_Array arr_ty) -> ( match Typing.type_assignable_expr index var_env with
-      | (_,T_Int) -> ( match assign_type with
-        | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))))
-        | T_Bool -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))))
-        | T_Char -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))))
-        | T_Array _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
-        | T_Struct _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
-        | T_Null -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (FieldAssign :: acc))))
-        | T_Generic _ -> raise_error "Declaring generic arrays is not supported yet"
+    | (StructRef(refer, field), Reference re) -> ( match Typing.type_reference refer var_env with
+      | (_,T_Struct (str_name, typ_args)) -> ( match lookup_struct str_name var_env.structs with
+        | None -> raise_error ("Could not find struct: " ^ str_name)
+        | Some (typ_vars, fields) -> ( match struct_field field fields with
+          | (field_lock, field_ty, index) -> ( match assign_type with
+            | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
+            | T_Bool -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
+            | T_Char -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
+            | T_Array _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
+            | T_Struct _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
+            | T_Null  -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FieldAssign :: acc)))
+            | T_Generic _ -> raise_error "Assignment to unresolved generic field"
+          )
+        )
       )
-      | (_,_) -> raise_error "Array index must be of type 'int'"
+      | (_,_) -> raise_error "Struct assignment to non-struct" 
     )
-    | (_,_) -> raise_error "Array assignment to non-array" 
-  )
-  | (ArrayRef(refer, index), Reference re) -> ( match Typing.type_reference refer var_env with
-    | (_,T_Array arr_ty) -> ( match Typing.type_assignable_expr index var_env with 
-      | (_,T_Int) -> ( match assign_type with
-        | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
-        | T_Bool -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
-        | T_Char -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
-        | T_Array _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
-        | T_Struct _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
-        | T_Null -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FieldAssign :: acc))))
-        | T_Generic _ -> raise_error "Declaring generic arrays is not supported yet"
+    | (ArrayRef(refer, index), Value v) -> ( match Typing.type_reference refer var_env with
+      | (_,T_Array arr_ty) -> ( match Typing.type_assignable_expr index var_env with
+        | (_,T_Int) -> ( match assign_type with
+          | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))))
+          | T_Bool -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))))
+          | T_Char -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignByte :: acc)))))
+          | T_Array _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
+          | T_Struct _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
+          | T_Null -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (FieldAssign :: acc))))
+          | T_Generic _ -> raise_error "Declaring generic arrays is not supported yet"
+        )
+        | (_,_) -> raise_error "Array index must be of type 'int'"
       )
-      | (_,_) -> raise_error "Array index must be of type 'int'"
+      | (_,_) -> raise_error "Array assignment to non-array" 
     )
-    | (_,_) -> raise_error "Array assignment to non-array" 
+    | (ArrayRef(refer, index), Reference re) -> ( match Typing.type_reference refer var_env with
+      | (_,T_Array arr_ty) -> ( match Typing.type_assignable_expr index var_env with 
+        | (_,T_Int) -> ( match assign_type with
+          | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
+          | T_Bool -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
+          | T_Char -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
+          | T_Array _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
+          | T_Struct _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
+          | T_Null -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FieldAssign :: acc))))
+          | T_Generic _ -> raise_error "Declaring generic arrays is not supported yet"
+        )
+        | (_,_) -> raise_error "Array index must be of type 'int'"
+      )
+      | (_,_) -> raise_error "Array assignment to non-array" 
+    )
   )
 
 let compile_unassignable_expr expr env break continue cleanup acc =
@@ -593,51 +621,63 @@ let compile_unassignable_expr expr env break continue cleanup acc =
     aux (List.rev exprs) acc
   )
 
-let rec compile_declaration dec var_env acc =
+let update_locals env lock typ name =
+  ({ env with var_env = ({ env.var_env with locals = (lock, typ, name)::env.var_env.locals }) })
+
+let rec compile_declaration dec env =
   match dec with
-  | TypeDeclaration (l, ty, n) -> (
-    if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n)
-    else if not(well_defined_type ty var_env) then raise_error "Not a well defined type"
-    else match ty with
-    | T_Int -> DeclareFull :: IncrRef :: CloneFull :: PlaceInt(0) :: AssignFull :: acc
-    | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: PlaceBool(false) :: AssignByte :: acc
-    | T_Char -> DeclareByte :: IncrRef :: CloneFull :: PlaceChar('0') :: AssignByte :: acc
-    | T_Array _ -> PlaceInt(0) :: acc
-    | T_Struct _ -> PlaceInt(0) :: acc
-    | T_Generic _ -> PlaceInt(0) :: acc
-    | T_Null -> raise_error "Cannot declare the 'null' type"
-  )
-  | AssignDeclaration (l, ty, n, expr) -> (
-    if localvar_exists n var_env.locals then raise_error ("Duplicate variable name: " ^ n) else 
-    let opt_expr = optimize_assignable_expr expr var_env in
-    let (expr_lock, expr_ty) = Typing.type_assignable_expr expr var_env in
-    if (Option.is_none ty) && (expr_ty = T_Null) then raise_error "Cannot infere a type from 'null'" else
-    let ty = if Option.is_some ty then (if well_defined_type (Option.get ty) var_env then Option.get ty else raise_error "Not a well defined type") else expr_ty in
-    if expr_lock && (not l) then raise_error "Cannot assign a locked variable to a non-locked variable"
-    else if not (Typing.type_equal ty expr_ty) then raise_error ("Type mismatch on declaration: expected '" ^ (Typing.type_string ty) ^ "', got '" ^ (Typing.type_string expr_ty) ^ "'") 
-    else match opt_expr with
-    | Reference _ ->  compile_assignable_expr opt_expr var_env (IncrRef :: acc)
-    | Value(StructLiteral _) -> raise_error "Struct literal declaration not implemented"
-    | Value _ -> (
-      match ty with
-      | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opt_expr var_env (AssignFull :: acc))
-      | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opt_expr var_env (AssignByte :: acc))
-      | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opt_expr var_env (AssignByte :: acc))
-      | T_Array _ -> compile_assignable_expr opt_expr var_env (IncrRef :: acc)
-      | T_Struct _ -> compile_assignable_expr opt_expr var_env (IncrRef :: acc)
-      | T_Generic _ -> compile_assignable_expr opt_expr var_env (IncrRef :: acc)
-      | T_Null -> compile_assignable_expr opt_expr var_env acc
+  | TypeDeclaration (lock, typ, name) -> (
+    if localvar_exists name env.var_env.locals then raise_error ("Duplicate variable name: " ^ name)
+    else if not(well_defined_type typ env.var_env) then raise_error "Not a well defined type"
+    else 
+    ( update_locals env lock typ name,
+      match typ with
+      | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: PlaceInt(0) :: AssignFull :: a
+      | T_Bool -> fun a -> DeclareByte :: IncrRef :: CloneFull :: PlaceBool(false) :: AssignByte :: a
+      | T_Char -> fun a -> DeclareByte :: IncrRef :: CloneFull :: PlaceChar('0') :: AssignByte :: a
+      | T_Array _
+      | T_Struct _
+      | T_Generic _ -> fun a -> PlaceInt(0) :: a
+      | T_Null -> raise_error "Cannot declare the 'null' type"
     )
   )
-
-let update_locals env dec =
-  match dec with
-  | TypeDeclaration (lock, ty, name) -> ({ env with var_env = ({ env.var_env with locals = (lock, ty, name)::env.var_env.locals }) })
-  | AssignDeclaration (lock, ty, name, expr) -> (
-    let (expr_lock, expr_ty) = type_assignable_expr expr env.var_env in
-    if (Option.is_none ty) && (expr_ty = T_Null) then raise_error "Cannot infere a type from 'null'" else
-    let ty = if Option.is_some ty then Option.get ty else expr_ty in
-    { env with var_env = ({ env.var_env with locals = (lock, ty, name)::env.var_env.locals }) }
+  | AssignDeclaration (lock, typ, name, expr) -> (
+    if localvar_exists name env.var_env.locals then raise_error ("Duplicate variable name: " ^ name) else 
+    let opt_expr = optimize_assignable_expr expr env.var_env in
+    match opt_expr with 
+    | Value(StructLiteral exprs) -> ( match typ with
+      | Some(T_Struct(n,tas)) -> ( match lookup_struct n env.var_env.structs with
+        | None -> raise_error ("No such struct: " ^ n)
+        | Some(tvs,ps) ->  (
+          let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) env.var_env then Option.get typ else raise_error "Not a well defined type") else raise_error "Struct literals cannot be infered to a type" in
+          if not(Typing.check_struct_literal (replace_generics ps tvs tas env.var_env.structs) exprs env.var_env) then raise_error ("Could not match struct literal with: '" ^ Typing.type_string typ ^ "'")
+          else (update_locals env lock typ name, fun a -> compile_assignable_expr opt_expr env.var_env (IncrRef :: a))
+        )
+      )
+      | _ -> raise_error "Struct literals must be assigned to variables with a struct type"
+    )
+    | _ -> (
+      let (expr_lock, expr_ty) = Typing.type_assignable_expr expr env.var_env in
+      if (Option.is_none typ) && (expr_ty = T_Null) then raise_error "Cannot infere a type from 'null'" else
+      let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) env.var_env then Option.get typ else raise_error "Not a well defined type") else expr_ty in
+      if expr_lock && (not lock) then raise_error "Cannot assign a locked variable to a non-locked variable"
+      else if not (Typing.type_equal typ expr_ty) then raise_error ("Type mismatch on declaration: expected '" ^ (Typing.type_string typ) ^ "', got '" ^ (Typing.type_string expr_ty) ^ "'") 
+      else 
+      ( update_locals env lock typ name,
+        match opt_expr with
+        | Reference _ -> fun a -> compile_assignable_expr opt_expr env.var_env (IncrRef :: a)
+        | Value _ -> (
+          match typ with
+          | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr opt_expr env.var_env (AssignFull :: a))
+          | T_Bool -> fun a -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opt_expr env.var_env (AssignByte :: a))
+          | T_Char -> fun a -> DeclareByte :: IncrRef :: CloneFull :: (compile_assignable_expr opt_expr env.var_env (AssignByte :: a))
+          | T_Array _ -> fun a -> compile_assignable_expr opt_expr env.var_env (IncrRef :: a)
+          | T_Struct _ -> fun a -> compile_assignable_expr opt_expr env.var_env (IncrRef :: a)
+          | T_Generic _ -> fun a -> compile_assignable_expr opt_expr env.var_env (IncrRef :: a)
+          | T_Null -> fun a -> compile_assignable_expr opt_expr env.var_env a
+        )
+      )
+    )
   )
 
 let rec compile_sod_list sod_list env break continue cleanup acc =
@@ -652,7 +692,8 @@ let rec compile_sod_list sod_list env break continue cleanup acc =
       | e -> raise e
     )
     | Declaration (dec, file, line) -> (try (
-      compile_declaration dec env.var_env (compile_sod_list t (update_locals env dec) break continue (cleanup+1) acc)
+      let (new_env, f) = compile_declaration dec env in
+      f (compile_sod_list t new_env break continue (cleanup+1) acc)
     ) with
       | Error msg -> raise_line_error msg file line
       | e -> raise e

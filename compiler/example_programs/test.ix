@@ -1,33 +1,46 @@
 
 struct tuple<T,U>(fst: T, snd: U);
-struct shit(content: int);
+struct list<T>(head: T, tail: list<T>);
 
-x :int:= 1;
-y :int:= 2;
+external test1() {
+    
+    l1 :list<int>:= {16, {32, null}};
 
-external test_arr() {
-    t1 ::= new tuple(1,2);
-    t11 :tuple<int,int>:= new tuple(1,2);
-    t2: tuple<int,int>;
-    t3: tuple<int,char>;
-    // t4 :tuple:= {1,2};
-    // t4 :tuple<int,int>:= {1,2};
+    print_all(l1);
+    
+    a2 ::= [4,5,6,7];
+    l2: list<int>;
+    from_array(a2,l2);
+    print_all(l2);
 
-    print x;
-    print y;
 }
 
-external main() {
-    meme(2);
+internal from_array(data: int[], out: list<int>) {
+    out := null;
+    for(i::=0; i<|data|; i+:=1) out := {data[i], out};
 }
 
-external meme<U>(x: U) {
-    meme2(x);
+internal print_all(l: list<int>) {
+
+    holder ::= $l;
+
+    while(holder != null) {
+        pretty_print(holder.head);
+        holder := holder.tail;
+    }
+
+}
+
+internal pretty_print(x: locked int) {
     print x, '\n';
 }
 
-internal meme2<U>(x: U) {
-    y ::= x;
-    print x, '\n';
-    print y, '\n';
+external meme() {
+
+    l1: list<int>;
+    l1 := {8, {16, null}};
+
+    print l1.head, '\n';
+    print l1.tail.head, '\n';
+
 }
