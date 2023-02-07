@@ -37,10 +37,12 @@ internal pretty_print(x: locked int) {
 
 external meme() {
 
-    l1: list<int>;
-    l1 := {8, {16, null}};
+    t1: tuple<int, tuple<int,int>>;
 
-    print l1.head, '\n';
-    print l1.tail.head, '\n';
+    t1 := {3, null};
+
+    t1.snd := {1,2};
+
+    print t1.snd.fst, t1.snd.snd;
 
 }

@@ -456,36 +456,9 @@ let compile_arguments args var_env acc =
   aux (List.rev args) acc
 
 let rec compile_assignment target assign var_env acc =
-  let (target_lock, target_type) = Typing.type_reference target var_env in
-  match (target, assign) with
-  | (VarRef name, Value(StructLiteral(exprs))) -> (
-    match lookup_localvar name var_env.locals with
-    | None -> raise_error "Fuck1"
-    | Some(i,ty,l) -> ( 
-      match ty with
-      | T_Struct(name,typ_args) -> (
-        match lookup_struct name var_env.structs with
-        | None -> raise_error "Fuck3"
-        | Some(typ_vars, params) -> (
-          if not(check_struct_literal (replace_generics params typ_vars typ_args var_env.structs) (exprs) var_env) then raise_error "Fuck4"
-          else compile_reference target var_env (compile_assignable_expr assign var_env (IncrRef :: RefAssign :: acc))
-        )
-      )
-      | _ -> raise_error "Fuck2"
-    ) 
-  )
-  | (StructRef(refer, field), Value(StructLiteral(exprs))) -> (
-    raise_error "not implemented1"
-  )
-  | (ArrayRef(refer, index), Value(StructLiteral(exprs))) -> (
-    raise_error "not implemented2"
-  )
-  | _ -> (
-    let (assign_lock, assign_type) = Typing.type_assignable_expr assign var_env in 
-    if target_lock then raise_error "Assignment to a locked variable"
-    else if assign_lock then raise_error "Cannot assign a locked variable, to another variable"
-    else if not (Typing.type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(Typing.type_string target_type)^"' but got '" ^(Typing.type_string assign_type)^ "'")
-    else match (target, assign) with
+  match Typing.assignable_check target assign var_env with
+  | TypeCheck(assign_type) -> (
+    match (target, assign) with
     | (Null, _) -> raise_error "Assignment to null"
     | (VarRef name, Value v) -> ( match assign_type with 
       | T_Int ->  compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignFull :: acc)))
@@ -569,6 +542,18 @@ let rec compile_assignment target assign var_env acc =
       )
       | (_,_) -> raise_error "Array assignment to non-array" 
     )
+  )
+  | StructureCheck(struct_name) -> (
+    match target with
+    | VarRef _ -> compile_reference target var_env (compile_assignable_expr assign var_env (IncrRef :: RefAssign :: acc))
+    | ArrayRef(_, index) -> compile_reference target var_env ((compile_assignable_expr_as_value index var_env (compile_assignable_expr assign var_env (IncrRef :: FieldAssign :: acc))))
+    | StructRef(refer, field_name) -> ( match lookup_struct struct_name var_env.structs with
+      | Some(_, struct_fields) -> ( match struct_field field_name struct_fields with
+        | (_,_,index) -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_assignable_expr assign var_env (FieldAssign :: acc)))
+      )
+      | None -> raise_error ("Could not find struct: " ^ struct_name)
+    )
+    | Null -> raise_error "Assignment to null"
   )
 
 let compile_unassignable_expr expr env break continue cleanup acc =

@@ -263,3 +263,32 @@ let rec check_struct_literal struct_fields exprs var_env =
     )
   in 
   aux (List.combine struct_fields exprs)
+
+type check_type =
+  | TypeCheck of typ
+  | StructureCheck of string
+
+let assignable_check target assign var_env =
+  match assign with
+  | Value(StructLiteral(exprs)) -> (
+    let (target_lock, target_type) = type_reference target var_env in
+    if target_lock then raise_error "Assignment to a locked variable"
+    else match target_type with
+    | T_Struct(name, typ_args) -> ( match lookup_struct name var_env.structs with
+      | Some(typ_vars, params) -> (
+        if not(check_struct_literal (replace_generics params typ_vars typ_args var_env.structs) exprs var_env) then raise_error "Structure mismatch in assignment"
+        else StructureCheck(name)
+      )
+      | None -> raise_error "Type lookup fuck up"
+    )
+    | _ -> raise_error "Type fuck up"
+  )
+  | _ -> (
+    let (target_lock, target_type) = type_reference target var_env in
+    let (assign_lock, assign_type) = type_assignable_expr assign var_env in
+    if target_lock then raise_error "Assignment to a locked variable"
+    else if assign_lock then raise_error "Cannot assign a locked variable, to another variable"
+    else if not (type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(type_string target_type)^"' but got '" ^(type_string assign_type)^ "'")
+    else TypeCheck(assign_type)
+  )
+  
