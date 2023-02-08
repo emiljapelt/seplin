@@ -264,11 +264,7 @@ let rec check_struct_literal struct_fields exprs var_env =
   in 
   aux (List.combine struct_fields exprs)
 
-type check_type =
-  | TypeCheck of typ
-  | StructureCheck of string
-
-let assignable_check target assign var_env =
+let assignment_type_check target assign var_env =
   match assign with
   | Value(StructLiteral(exprs)) -> (
     let (target_lock, target_type) = type_reference target var_env in
@@ -277,7 +273,7 @@ let assignable_check target assign var_env =
     | T_Struct(name, typ_args) -> ( match lookup_struct name var_env.structs with
       | Some(typ_vars, params) -> (
         if not(check_struct_literal (replace_generics params typ_vars typ_args var_env.structs) exprs var_env) then raise_error "Structure mismatch in assignment"
-        else StructureCheck(name)
+        else target_type
       )
       | None -> raise_error "Type lookup fuck up"
     )
@@ -289,6 +285,28 @@ let assignable_check target assign var_env =
     if target_lock then raise_error "Assignment to a locked variable"
     else if assign_lock then raise_error "Cannot assign a locked variable, to another variable"
     else if not (type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(type_string target_type)^"' but got '" ^(type_string assign_type)^ "'")
-    else TypeCheck(assign_type)
+    else assign_type
   )
   
+let declaration_type_check name lock typ expr var_env = 
+    if localvar_exists name var_env.locals then raise_error ("Duplicate variable name: " ^ name)
+    else match expr with
+    | Value(StructLiteral(exprs)) -> ( match typ with
+      | Some(T_Struct(n,tas)) -> ( match lookup_struct n var_env.structs with
+        | Some(tvs,ps) ->  (
+          let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else raise_error "Struct literals cannot be infered to a type" in
+          if not(check_struct_literal (replace_generics ps tvs tas var_env.structs) exprs var_env) then raise_error ("Could not match struct literal with: '" ^ type_string typ ^ "'")
+          else typ
+        )
+        | None -> raise_error ("No such struct: " ^ n)
+      )
+      | _ -> raise_error "Struct literals must be assigned to variables with a explict struct type"
+    )
+    | _ -> (
+      let (expr_lock, expr_ty) = type_assignable_expr expr var_env in
+      if (Option.is_none typ) && (expr_ty = T_Null) then raise_error "Cannot infere a type from 'null'" else
+      let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else expr_ty in
+      if expr_lock && (not lock) then raise_error "Cannot use a locked variable as a non-locked variable"
+      else if not (type_equal typ expr_ty) then raise_error ("Type mismatch: expected '" ^ (type_string typ) ^ "', got '" ^ (type_string expr_ty) ^ "'")
+      else typ
+    )
