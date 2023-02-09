@@ -101,9 +101,9 @@ let get_globvar_dependencies gvs =
   let rec dependencies_from_assignable expr acc =
     match expr with
     | Reference r -> ( match r with
-      | VarRef (name) -> name::acc
-      | ArrayRef (refer,_) -> dependencies_from_assignable (Reference refer) acc
-      | StructRef (refer,_) -> dependencies_from_assignable (Reference refer) acc
+      | VariableAccess (name) -> name::acc
+      | ArrayAccess (refer,_) -> dependencies_from_assignable (Reference refer) acc
+      | StructAccess (refer,_) -> dependencies_from_assignable (Reference refer) acc
       | Null -> acc
     )
     | Value v -> ( match v with
@@ -236,8 +236,8 @@ let rec compile_assignable_expr expr var_env acc =
 
 and compile_reference ref_expr var_env acc =
   match ref_expr with
-  | VarRef name -> (fetch_var_index name var_env.globals var_env.locals) :: RefFetch :: acc
-  | StructRef (refer, field) -> ( 
+  | VariableAccess name -> (fetch_var_index name var_env.globals var_env.locals) :: RefFetch :: acc
+  | StructAccess (refer, field) -> ( 
     let (ref_lock, ref_ty) = Typing.type_reference refer var_env in
     match ref_ty with
     | T_Struct (name, _) -> (
@@ -250,7 +250,7 @@ and compile_reference ref_expr var_env acc =
     )
     | _ -> raise_error ("Struct field lookup type failure")
   )
-  | ArrayRef (refer, index) -> (
+  | ArrayAccess (refer, index) -> (
     let (_, ref_ty) = Typing.type_reference refer var_env in
     let (_, idx_ty) = Typing.type_assignable_expr index var_env in
     match (ref_ty, idx_ty) with
@@ -444,9 +444,9 @@ let compile_arguments args var_env acc =
         | T_Generic _ -> raise_error "Generic variables not yet supported, in call arguments"
       )
       | Reference r -> ( match r with
-        | VarRef _ -> aux t (compile_reference r var_env (IncrRef :: acc)) 
-        | StructRef _ -> aux t (compile_reference r var_env (FetchFull :: IncrRef :: acc)) 
-        | ArrayRef _ -> aux t (compile_reference r var_env (FetchFull :: IncrRef :: acc)) 
+        | VariableAccess _ -> aux t (compile_reference r var_env (IncrRef :: acc)) 
+        | StructAccess _ -> aux t (compile_reference r var_env (FetchFull :: IncrRef :: acc)) 
+        | ArrayAccess _ -> aux t (compile_reference r var_env (FetchFull :: IncrRef :: acc)) 
         | Null -> aux t (compile_reference r var_env acc) 
       )
     )
@@ -457,7 +457,7 @@ let rec compile_assignment target assign var_env acc =
   let assign_type = Typing.assignment_type_check target assign var_env in
   match (target, assign) with
   | (Null, _) -> raise_error "Assignment to null"
-  | (VarRef name, Value v) -> ( match assign_type with 
+  | (VariableAccess name, Value v) -> ( match assign_type with 
     | T_Int ->  compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignFull :: acc)))
     | T_Bool -> compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignByte :: acc)))
     | T_Char -> compile_reference target var_env (FetchFull :: (compile_value v var_env (AssignByte :: acc)))
@@ -466,7 +466,7 @@ let rec compile_assignment target assign var_env acc =
     | T_Null -> compile_reference target var_env (compile_value v var_env (RefAssign :: acc))
     | T_Generic _ -> raise_error "This should not happen"
   )
-  | (VarRef name, Reference re) -> ( match assign_type with 
+  | (VariableAccess name, Reference re) -> ( match assign_type with 
     | T_Int -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
     | T_Bool -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
     | T_Char -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
@@ -475,7 +475,7 @@ let rec compile_assignment target assign var_env acc =
     | T_Null -> compile_reference target var_env (compile_reference re var_env (RefAssign :: acc))
     | T_Generic _ -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
   )
-  | (StructRef(refer, field), Value v) -> ( match Typing.type_reference refer var_env with
+  | (StructAccess(refer, field), Value v) -> ( match Typing.type_reference refer var_env with
     | (_,T_Struct (str_name, typ_args)) -> ( match lookup_struct str_name var_env.structs with
       | None -> raise_error ("Could not find struct: " ^ str_name)
       | Some (typ_vars, fields) -> ( match struct_field field fields with
@@ -492,7 +492,7 @@ let rec compile_assignment target assign var_env acc =
     )
     | (_,t) -> raise_error ("Struct assignment to variable of type: " ^ Typing.type_string t) 
   )
-  | (StructRef(refer, field), Reference re) -> ( match Typing.type_reference refer var_env with
+  | (StructAccess(refer, field), Reference re) -> ( match Typing.type_reference refer var_env with
     | (_,T_Struct (str_name, typ_args)) -> ( match lookup_struct str_name var_env.structs with
       | None -> raise_error ("Could not find struct: " ^ str_name)
       | Some (typ_vars, fields) -> ( match struct_field field fields with
@@ -509,7 +509,7 @@ let rec compile_assignment target assign var_env acc =
     )
     | (_,t) -> raise_error ("Struct assignment to variable of type: " ^ Typing.type_string t) 
   )
-  | (ArrayRef(refer, index), Value v) -> ( match Typing.type_reference refer var_env with
+  | (ArrayAccess(refer, index), Value v) -> ( match Typing.type_reference refer var_env with
     | (_,T_Array arr_ty) -> ( match Typing.type_assignable_expr index var_env with
       | (_,T_Int) -> ( match assign_type with
         | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))))
@@ -524,7 +524,7 @@ let rec compile_assignment target assign var_env acc =
     )
     | (_,t) -> raise_error ("Array assignment to variable of type: " ^ Typing.type_string t) 
   )
-  | (ArrayRef(refer, index), Reference re) -> ( match Typing.type_reference refer var_env with
+  | (ArrayAccess(refer, index), Reference re) -> ( match Typing.type_reference refer var_env with
     | (_,T_Array arr_ty) -> ( match Typing.type_assignable_expr index var_env with 
       | (_,T_Int) -> ( match assign_type with
         | T_Int -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc))))
@@ -539,56 +539,7 @@ let rec compile_assignment target assign var_env acc =
     )
     | (_,t) -> raise_error ("Array assignment to variable of type: " ^ Typing.type_string t) 
   )
-
-let compile_unassignable_expr expr env break continue cleanup acc =
-  match expr with
-  | Assign (target, aexpr) -> compile_assignment target (optimize_assignable_expr aexpr env.var_env) env.var_env acc
-  | Call (name, typ_args, args) -> (
-    match lookup_routine name env.routine_env with
-    | None -> raise_error ("Call to undefined routine: " ^ name)
-    | Some (typ_vars,params) -> (
-      if List.length params != List.length args then raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length params)) ^ " arguments, but was given " ^  (Int.to_string (List.length args)))
-      else if List.length typ_vars = 0 then compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc) 
-      else (
-        let typ_args = (
-          if List.length typ_args = List.length typ_vars then typ_args 
-          else if List.length typ_args = 0 then infere_generics typ_vars params args env.var_env 
-          else raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length typ_vars)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
-        ) in
-        compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
-      )
-    )
-  )
-  | Stop -> addStop(acc)
-  | Halt -> addHalt(acc)
-  | Break -> (
-    match break with
-    | Some name when cleanup = 0 -> GoTo(name) :: acc
-    | Some name -> addFreeVars cleanup (GoTo(name) :: acc)
-    | None -> raise_error "No loop to break out of"
-  )
-  | Continue -> (
-    match continue with
-    | Some name when cleanup = 0 -> GoTo(name) :: acc
-    | Some name -> addFreeVars cleanup (GoTo(name) :: acc)
-    | None -> raise_error "No loop to continue in"
-  )
-  | Print exprs -> (
-    let rec aux es acc =
-      match es with
-      | [] -> acc
-      | h::t -> (
-        let (_, expr_ty) = Typing.type_assignable_expr h env.var_env in
-        let opte = optimize_assignable_expr h env.var_env in
-        match expr_ty with
-        | T_Bool -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintBool :: acc))
-        | T_Int -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintInt :: acc))
-        | T_Char -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintChar :: acc))
-        | _ -> aux t (compile_assignable_expr opte env.var_env (PrintInt :: acc))
-      )
-    in
-    aux (List.rev exprs) acc
-  )
+  
 
 let update_locals env lock typ name =
   ({ env with var_env = ({ env.var_env with locals = (lock, typ, name)::env.var_env.locals }) })
@@ -671,7 +622,53 @@ and compile_stmt stmt env break continue cleanup acc =
     if decs = 0 then compile_sod_list sod_list env break continue cleanup acc
     else compile_sod_list sod_list env break continue cleanup (addFreeVars decs acc)
   )
-  | Expression (expr) -> compile_unassignable_expr expr env break continue cleanup acc
+  | Assign (target, aexpr) -> compile_assignment target (optimize_assignable_expr aexpr env.var_env) env.var_env acc
+  | Call (name, typ_args, args) -> (
+    match lookup_routine name env.routine_env with
+    | None -> raise_error ("Call to undefined routine: " ^ name)
+    | Some (typ_vars,params) -> (
+      if List.length params != List.length args then raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length params)) ^ " arguments, but was given " ^  (Int.to_string (List.length args)))
+      else if List.length typ_vars = 0 then compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc) 
+      else (
+        let typ_args = (
+          if List.length typ_args = List.length typ_vars then typ_args 
+          else if List.length typ_args = 0 then infere_generics typ_vars params args env.var_env 
+          else raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length typ_vars)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
+        ) in
+        compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
+      )
+    )
+  )
+  | Stop -> addStop(acc)
+  | Halt -> addHalt(acc)
+  | Break -> (
+    match break with
+    | Some name when cleanup = 0 -> GoTo(name) :: acc
+    | Some name -> addFreeVars cleanup (GoTo(name) :: acc)
+    | None -> raise_error "No loop to break out of"
+  )
+  | Continue -> (
+    match continue with
+    | Some name when cleanup = 0 -> GoTo(name) :: acc
+    | Some name -> addFreeVars cleanup (GoTo(name) :: acc)
+    | None -> raise_error "No loop to continue in"
+  )
+  | Print exprs -> (
+    let rec aux es acc =
+      match es with
+      | [] -> acc
+      | h::t -> (
+        let (_, expr_ty) = Typing.type_assignable_expr h env.var_env in
+        let opte = optimize_assignable_expr h env.var_env in
+        match expr_ty with
+        | T_Bool -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintBool :: acc))
+        | T_Int -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintInt :: acc))
+        | T_Char -> aux t (compile_assignable_expr_as_value opte env.var_env (PrintChar :: acc))
+        | _ -> aux t (compile_assignable_expr opte env.var_env (PrintInt :: acc))
+      )
+    in
+    aux (List.rev exprs) acc
+  )
 
 let compile_globalvars globvars structs acc =
   compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, "wtf", 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; typ_vars = []}); routine_env = []; }) None None 0 acc
@@ -725,7 +722,7 @@ let reduction topdecs =
       | If(_, if_block, else_block) -> find_in_statement if_block (find_in_statement else_block acc)
       | While(_, body) -> find_in_statement body acc
       | Block(block) -> find_in_sod_list block acc
-      | Expression(Call(name, _, _)) -> (
+      | Call(name, _, _) -> (
         if List.mem name acc then acc 
         else match find_routine_statement name with
         | Some(body) -> find_in_statement body (name::acc)

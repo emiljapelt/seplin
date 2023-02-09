@@ -1,51 +1,48 @@
 open ProgramRep
 
 type statement =
-    | If of assignable_expression * statement * statement
-    | While of assignable_expression * statement
+    | If of expression * statement * statement
+    | While of expression * statement
     | Block of statement_or_declaration list
-    | Expression of unassignable_expression
-
-and declaration =
-    | TypeDeclaration of bool * typ * string
-    | AssignDeclaration of bool * typ option * string * assignable_expression
-
-and statement_or_declaration =
-    | Statement of statement * string * int (*   statement * file_name * line_number   *)
-    | Declaration of declaration * string * int (*   declaration * file_name * line_number   *)
-
-and unassignable_expression =
-    | Assign of reference * assignable_expression
-    | Call of string * typ list * assignable_expression list
+    | Assign of reference * expression
+    | Call of string * typ list * expression list
     | Stop
     | Halt
     | Break
     | Continue
-    | Print of assignable_expression list
+    | Print of expression list
 
-and assignable_expression =
+and declaration =
+    | TypeDeclaration of bool * typ * string
+    | AssignDeclaration of bool * typ option * string * expression
+
+and statement_or_declaration =
+    | Statement of statement * string * int (*   statement * file_name * line_number   *)
+    | Declaration of declaration * string * int (*   declaration * file_name * line_number   *)
+    
+and expression =
     | Reference of reference
     | Value of value
 
 and reference =
-    | VarRef of string
-    | StructRef of reference * string
-    | ArrayRef of reference * assignable_expression
+    | VariableAccess of string
+    | StructAccess of reference * string
+    | ArrayAccess of reference * expression
     | Null
 
 and value =
-    | Binary_op of string * assignable_expression * assignable_expression
-    | Unary_op of string * assignable_expression
+    | Binary_op of string * expression * expression
+    | Unary_op of string * expression
     | ArraySize of reference
     | GetInput of typ
     | Bool of bool
     | Int of int
     | Char of char
     | ValueOf of reference
-    | NewArray of typ * assignable_expression
-    | ArrayLiteral of assignable_expression list
-    | NewStruct of string * typ list * assignable_expression list
-    | StructLiteral of assignable_expression list
+    | NewArray of typ * expression
+    | ArrayLiteral of expression list
+    | NewStruct of string * typ list * expression list
+    | StructLiteral of expression list
 
 and top_declaration =
     | Routine of access_mod * string * char list * (bool * typ * string) list * statement
