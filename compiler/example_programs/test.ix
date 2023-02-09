@@ -1,56 +1,40 @@
 
-struct tuple<T,U>(fst: T, snd: U);
-struct list<T>(head: T, tail: list<T>);
+include ../library/collections/stack.ix;
+include ../library/collections/tuple.ix;
 
-external test1() {
+external test() {
     
-    l1 :list<int>:= {16, {32, null}};
+    s1: stack<int>;
+    stack_from_array([1,2,3], s1);
+    s2: stack<int>;
+    stack_from_array([4,5,6], s2);
 
-    print_all(l1);
-    
-    a2 ::= [4,5,6,7];
-    l2: list<int>;
-    from_array(a2,l2);
-    print_all(l2);
+    s3: stack<tuple<int,int>>;
+    zip(s1, s2, s3);
 
+    printer(s3);
 }
 
-internal from_array(data: int[], out: list<int>) {
-    out := null;
-    for(i::=0; i<|data|; i+:=1) out := {data[i], out};
-}
+internal printer(target: stack<tuple<int,int>>) {
 
-internal print_all(l: list<int>) {
-
-    holder ::= $l;
-
-    while(holder != null) {
-        pretty_print(holder.head);
-        holder := holder.tail;
+    pointer ::= target;
+    until(pointer = null) {
+        print pointer.top.fst, ' ', pointer.top.snd, '\n';
+        pointer := pointer.rest;
     }
 
 }
 
-internal pretty_print(x: locked int) {
-    print x, '\n';
-}
-
 external meme() {
 
-    x ::= 1;
-    y ::= 2;
+    arr :int:= 0;
 
-    print x,y,'\n';
+    inner_meme(4, arr);
 
-    swap(x,y);
+    print arr;
 
-    print x,y,'\n';
 }
 
-internal swap<T>(a: T, b: T) {
-
-    temp :tuple<T,T>:= {a, null};
-    a := b;
-    b := temp.fst;
-
+internal inner_meme<T>(elem: T, target: T) {
+    target := $elem;
 }

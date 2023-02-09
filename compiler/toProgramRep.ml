@@ -464,7 +464,7 @@ let rec compile_assignment target assign var_env acc =
     | T_Array _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
     | T_Struct _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
     | T_Null -> compile_reference target var_env (compile_value v var_env (RefAssign :: acc))
-    | T_Generic _ -> raise_error "This should not happen"
+    | T_Generic _ -> compile_reference target var_env (compile_value v var_env (IncrRef :: RefAssign :: acc))
   )
   | (VariableAccess name, Reference re) -> ( match assign_type with 
     | T_Int -> compile_reference target var_env (compile_reference re var_env (FetchFull :: IncrRef :: RefAssign :: acc))
@@ -486,7 +486,7 @@ let rec compile_assignment target assign var_env acc =
           | T_Array _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
           | T_Struct _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
           | T_Null  -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (FieldAssign :: acc)))
-          | T_Generic _ -> raise_error "Assignment to unresolved generic field"
+          | T_Generic _ -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_value v var_env (IncrRef :: FieldAssign :: acc)))
         )
       )
     )
@@ -518,7 +518,7 @@ let rec compile_assignment target assign var_env acc =
         | T_Array _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
         | T_Struct _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
         | T_Null -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (FieldAssign :: acc))))
-        | T_Generic _ -> raise_error "generic arrays is not fully supported yet"
+        | T_Generic _ -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (compile_value v var_env (IncrRef :: FieldAssign :: acc))))
       )
       | (_,_) -> raise_error "Array index must be of type 'int'"
     )
