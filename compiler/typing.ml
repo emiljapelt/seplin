@@ -59,8 +59,8 @@ let rec type_assignable_expr expr var_env =
 
 and type_reference ref_expr var_env =
   match ref_expr with
-  | VarRef name -> (var_locked name var_env, var_type name var_env)
-  | StructRef (refer, field) -> (
+  | VariableAccess name -> (var_locked name var_env, var_type name var_env)
+  | StructAccess (refer, field) -> (
     let (lock, ty) =  type_reference refer var_env in
     match ty with 
     | T_Struct (str_name, typ_args) -> (match lookup_struct str_name var_env.structs with
@@ -73,7 +73,7 @@ and type_reference ref_expr var_env =
     )
     | _ -> raise_error ("Field access on non-struct variable")
   )
-  | ArrayRef (refer, expr) -> (
+  | ArrayAccess (refer, expr) -> (
     let (lock, ty) =  type_reference refer var_env in
     match ty with 
     | T_Array array_typ -> (lock, array_typ)
@@ -275,9 +275,9 @@ let assignment_type_check target assign var_env =
         if not(check_struct_literal (replace_generics params typ_vars typ_args var_env.structs) exprs var_env) then raise_error "Structure mismatch in assignment"
         else target_type
       )
-      | None -> raise_error "Type lookup fuck up"
+      | None -> raise_error ("No such struct: " ^ name)
     )
-    | _ -> raise_error "Type fuck up"
+    | _ -> raise_error ("Struct literal assignment to a variable of type: " ^ type_string target_type)
   )
   | _ -> (
     let (target_lock, target_type) = type_reference target var_env in
