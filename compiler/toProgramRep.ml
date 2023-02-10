@@ -432,7 +432,7 @@ let compile_arguments args var_env acc =
     | ([]) -> acc
     | (((plock, pty, pname),eh)::t) -> (
       let opteh = optimize_assignable_expr eh var_env in
-      let typ = Typing.declaration_type_check pname plock (Some(pty)) opteh var_env in
+      let typ = Typing.argument_type_check pname plock (Some(pty)) opteh var_env in
       match opteh with
       | Value _ -> ( match typ with
         | T_Int -> aux t (DeclareFull :: IncrRef :: CloneFull :: (compile_assignable_expr_as_value opteh var_env (AssignFull :: acc)))
