@@ -13,7 +13,7 @@ byte_t command_index(char* command) {
 }
 
 byte_t is_flag(char* flag) {
-    if (flag[0] == '-' || (flag[0] == '-' && flag[1] == '-')) return true;
+    if (flag[0] == '-' && flag[1] == '-') return true;
     else return false;
 }
 
