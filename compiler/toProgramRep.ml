@@ -219,7 +219,8 @@ and optimize_value expr var_env =
 let routine_head accmod name params =
   match accmod with
   | Internal -> CLabel(name)
-  | External -> CEntryPoint(name, List.map (fun (lock,ty,_) -> (lock,ty)) params)
+  | External -> CLabel(name)
+  | Entry -> CEntryPoint(name, List.map (fun (lock,ty,_) -> (lock,ty)) params)
 
 let fetch_var_index (name: string) globvars localvars = 
   match lookup_localvar name localvars with
@@ -688,19 +689,19 @@ let total_path path =
   else path
 
 
-let inclusion path parse = 
+let merge path parse = 
   let path = compress_path (total_path path) in
-  let rec aux path tds included acc =
+  let rec aux path tds merged acc =
     match tds with
-    | (Include incl_path)::t -> (
-      let incl_path = compress_path (if incl_path.[0] = '.' then (String.sub path 0 ((String.rindex path '/')+1) ^ incl_path) else incl_path) in
-      match List.find_opt (fun p -> p = incl_path) included with
-      | Some _ -> aux path t included acc
-      | None -> ( match parse incl_path with
-        | Topdecs tds' -> aux path t (incl_path::included) (List.rev_append (aux incl_path tds' (incl_path::included) []) acc)
+    | (Merge merge_path)::t -> (
+      let merge_path = compress_path (if merge_path.[0] = '.' then (String.sub path 0 ((String.rindex path '/')+1) ^ merge_path) else merge_path) in
+      match List.find_opt (fun p -> p = merge_path) merged with
+      | Some _ -> aux path t merged acc
+      | None -> ( match parse merge_path with
+        | Topdecs tds' -> aux path t (merge_path::merged) (List.rev_append (aux merge_path tds' (merge_path::merged) []) acc)
       )
     )
-    | h::t -> aux path t included (h::acc)
+    | h::t -> aux path t merged (h::acc)
     | [] -> acc
   in
   match parse path with
@@ -738,7 +739,7 @@ let reduction topdecs =
   let rec find_used_routines tds acc = 
     match tds with
     | [] -> acc
-    | Routine(External, name, _, _, stmt)::t -> find_used_routines t (find_in_statement stmt (name::acc))
+    | Routine(Entry, name, _, _, stmt)::t -> find_used_routines t (find_in_statement stmt (name::acc))
     | h::t -> find_used_routines t acc
   in
   let rec aux tds used acc = 
@@ -753,7 +754,7 @@ let reduction topdecs =
   | Topdecs(tds) -> Topdecs(aux tds (find_used_routines tds []) [])
 
 let compile path parse =
-  let topdecs = reduction (inclusion path parse) in
+  let topdecs = reduction (merge path parse) in
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
   let structs = get_structs topdecs in
   let () = check_topdecs topdecs structs in

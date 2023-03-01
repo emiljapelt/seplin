@@ -48,12 +48,13 @@ and top_declaration =
     | Routine of access_mod * string * char list * (bool * typ * string) list * statement
     | GlobalDeclaration of declaration
     | Struct of string * char list * ((bool * typ * string) list)
-    | Include of string
-    | Inject (* Not implemented *)
+    | Merge of string
+    | Insert (* Not implemented *)
 
 and access_mod =
     | Internal
     | External
+    | Entry
 
 and topdecs = 
     | Topdecs of top_declaration list

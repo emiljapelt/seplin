@@ -7,8 +7,9 @@ type token =
   | CHAR
   | INTERNAL
   | EXTERNAL
+  | ENTRY
   | NAME of (string)
-  | INCLUDE
+  | MERGE
   | PATH of (string)
   | TYPE_VAR of (char)
   | ASSIGNMENT

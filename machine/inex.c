@@ -703,16 +703,18 @@ int main(int argc, char** argv) {
                 byte_t locked_var = *entry_point.argument_types;
                 entry_point.argument_types += 1;
                 switch (*entry_point.argument_types) {
-                    case 0: // simple
-                        entry_point.argument_types += 1; 
+                    case INT: // simple
+                    case BOOL:
+                    case CHAR: {
                         byte_t* loaded = load_simple_argument(*entry_point.argument_types, cmd_arguments[i+3]);
                         if (loaded == (byte_t*)-1) return -1;
                         arguments[i] = loaded;
                         entry_point.argument_types += 1;
                         break;
-                    case 1: // array
-                    case 2: // struct
-                    case 3: // generic
+                    }
+                    case ARRAY: // array
+                    case STRUCT: // struct
+                    case GENERIC: // generic
                         printf("INEX does not support array and struct as commandline arguments\n");
                         return -1;
                     default:

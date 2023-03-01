@@ -5,3 +5,9 @@ external main1(i: int, c: char, b: bool) { stop; }
 external main2(i: int[], ii: int[][]) { stop; }
 external main3(t: tuple<int, int[]>, tt: tuple<tuple<int,int>,int>) { stop; }
 external main4<T>(t: T, lt: T[]) { stop; }
+
+
+entry main(i: int, u: int) {
+    print i - u;
+    halt;
+}

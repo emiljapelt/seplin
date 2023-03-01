@@ -8,8 +8,9 @@
                         "char", CHAR;
                         "internal", INTERNAL;
                         "external", EXTERNAL;
+                        "entry", ENTRY;
                         "struct", STRUCT;
-                        "include", INCLUDE;
+                        "merge", MERGE;
                         "new", NEW;
                         "null", NULL;
                         "locked", LOCKED;

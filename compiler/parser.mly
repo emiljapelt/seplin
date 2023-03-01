@@ -19,9 +19,9 @@
 %token BOOL
 %token <char> CSTCHAR
 %token CHAR
-%token INTERNAL EXTERNAL
+%token INTERNAL EXTERNAL ENTRY
 %token <string> NAME
-%token INCLUDE
+%token MERGE
 %token <string> PATH
 %token <char> TYPE_VAR
 %token ASSIGNMENT
@@ -59,13 +59,15 @@ topdecs:
 
 topdec:
     dec { GlobalDeclaration $1 }
-  | INTERNAL NAME LPAR params RPAR block                  { Routine (Internal, $2, [], $4, $6) }
-  | INTERNAL NAME LT typ_vars GT LPAR params RPAR block   { Routine (Internal, $2, $4, $7, $9) }
-  | EXTERNAL NAME LPAR params RPAR block                  { Routine (External, $2, [], $4, $6) }
-  | EXTERNAL NAME LT typ_vars GT LPAR params RPAR block   { Routine (External, $2, $4, $7, $9) }
-  | STRUCT NAME LPAR params RPAR SEMI                     { Struct ($2, [], $4) }
-  | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI      { Struct ($2, $4, $7) }
-  | INCLUDE PATH SEMI                                     { Include $2 }
+  | INTERNAL NAME LPAR params RPAR block                    { Routine (Internal, $2, [], $4, $6) }
+  | INTERNAL NAME LT typ_vars GT LPAR params RPAR block     { Routine (Internal, $2, $4, $7, $9) }
+  | EXTERNAL NAME LPAR params RPAR block                    { Routine (External, $2, [], $4, $6) }
+  | EXTERNAL NAME LT typ_vars GT LPAR params RPAR block     { Routine (External, $2, $4, $7, $9) }
+  | ENTRY NAME LPAR simple_params RPAR block                { Routine (Entry, $2, [], $4, $6) }
+  | ENTRY NAME LT typ_vars GT LPAR simple_params RPAR block { raise_line_error "Entrypoints cannot be generic" (get_filename ()) (get_linenum ()) }
+  | STRUCT NAME LPAR params RPAR SEMI                       { Struct ($2, [], $4) }
+  | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI        { Struct ($2, $4, $7) }
+  | MERGE PATH SEMI                                         { Merge $2 }
 ;
 
 typ_vars:
@@ -78,10 +80,15 @@ typ_args:
   | typ COMMA typ_args  { $1 :: $3 }
 ;
 
-typ:
+simple_typ:
     INT                 { T_Int }
   | BOOL                { T_Bool }
   | CHAR                { T_Char }
+  | error { raise_line_error "Entrypoints can only take simple types as arguments" (get_filename ()) (get_linenum ()) }
+;
+
+typ:
+    simple_typ          { $1 }
   | typ LBRAKE RBRAKE   { T_Array $1 }
   | NAME                { T_Struct ($1, []) }
   | NAME LT typ_args GT { T_Struct ($1, $3) }
@@ -213,6 +220,21 @@ non_control_flow_stmt:
   | PRINT arguments1                          { Print $2 }
 ;
 
+simple_params:
+                      { [] }
+  | simple_params1    { $1 }
+;
+
+simple_params1:
+    simple_param                         { [$1] }
+  | simple_param COMMA simple_params1    { $1 :: $3 }
+;
+
+simple_param:
+    NAME COLON LOCKED simple_typ           { (true, $4, $1) }
+  | NAME COLON simple_typ                  { (false, $3, $1) }
+;
+
 params:
                { [] }
   | params1    { $1 }
@@ -221,7 +243,7 @@ params:
 params1:
     param                  { [$1] }
   | param COMMA params1    { $1 :: $3 }
-  | error { raise_line_error "Error in parameter declaration" (get_filename ()) (get_linenum ()) }
+  /* | error { raise_line_error "Error in parameter declaration" (get_filename ()) (get_linenum ()) } */
 ;
 
 param:
