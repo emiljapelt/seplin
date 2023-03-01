@@ -618,7 +618,7 @@ int main(int argc, char** argv) {
 
     if (!cmd_argument_count) { print_help(); return -1;}
     char* cmd_arguments[cmd_argument_count];
-
+    
     short fls = 0;
     for(int i = 1; i < argc; i++) {
         char* cmd_info = argv[i];
@@ -704,42 +704,11 @@ int main(int argc, char** argv) {
                 entry_point.argument_types += 1;
                 switch (*entry_point.argument_types) {
                     case 0: // simple
+                        entry_point.argument_types += 1; 
+                        byte_t* loaded = load_simple_argument(*entry_point.argument_types, cmd_arguments[i+3]);
+                        if (loaded == (byte_t*)-1) return -1;
+                        arguments[i] = loaded;
                         entry_point.argument_types += 1;
-                        switch (*entry_point.argument_types) {
-                            case 0: { // int
-                                entry_point.argument_types += 1;
-                                full_t int_v = parse_int(cmd_arguments[i+3]);
-                                if (int_v == 0 && !(strcmp(cmd_arguments[i+3], "0") == 0)) { printf("Failure: expected an int, but got: %s\n", cmd_arguments[i+3]); return -1; }
-                                byte_t* int_alloc = allocate_simple(FULL);
-                                *((full_t*)(int_alloc)) = int_v;
-                                arguments[i] = int_alloc;
-                                INCR_REF_COUNT(int_alloc);
-                                break;
-                            }
-                            case 1: { // bool
-                                entry_point.argument_types += 1;
-                                byte_t bool_v = parse_bool(cmd_arguments[i+3]);
-                                if (bool_v == -1) { printf("Failure: expected a bool, but got: %s\n", cmd_arguments[i+3]); return -1; }
-                                byte_t* bool_alloc = allocate_simple(BYTE);
-                                *(bool_alloc) = bool_v;
-                                arguments[i] = bool_alloc;
-                                INCR_REF_COUNT(bool_alloc);
-                                break;
-                            }
-                            case 2: { // char
-                                entry_point.argument_types += 1;
-                                byte_t char_v = parse_char(cmd_arguments[i+3]);
-                                if (char_v == -1) { printf("Failure: expected a char, but got: %s\n", cmd_arguments[i+3]); return -1; }
-                                byte_t* char_alloc = allocate_simple(BYTE);
-                                *(char_alloc) = char_v;
-                                arguments[i] = char_alloc;
-                                INCR_REF_COUNT(char_alloc);
-                                break;
-                            }
-                            default:
-                                printf("Unknown simple type\n");
-                                return -1;
-                        }
                         break;
                     case 1: // array
                     case 2: // struct

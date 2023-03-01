@@ -59,21 +59,29 @@ let get_index list prop =
 (* Writers *)
 
 let rec write_type_info file lock ty structs =
+  let rec write_type ty =
+    fprintf file "%c" (Char.chr (ProgramRep.type_index ty)) ; 
+    match ty with
+    | T_Array sub -> write_type sub
+    | T_Generic(c) -> fprintf file "%c" c;
+    | T_Struct (str_name, typ_vars) -> (
+      match get_index structs (fun (name, typ_vars, fields) -> str_name = name) with
+      | None -> failwith "struct not found while writing binary"
+      | Some i -> write_word file (Int64.of_int i)
+    )
+    | _ -> ()
+  in
   if lock then fprintf file "\x01" else fprintf file "\x00" ;
-  match ty with
-  | T_Int -> fprintf file "\x00" ; fprintf file "%c" (Char.chr (ProgramRep.type_index T_Int))
-  | T_Bool -> fprintf file "\x00" ; fprintf file "%c" (Char.chr (ProgramRep.type_index T_Bool))
-  | T_Char -> fprintf file "\x00" ; fprintf file "%c" (Char.chr (ProgramRep.type_index T_Char))
-  | T_Array arr_ty -> fprintf file "\x01" ; write_type_info file false arr_ty structs
-  | T_Struct (str_name, typ_vars) -> (
-    match get_index structs (fun (name, typ_vars, fields) -> str_name = name) with
-    | None -> failwith "struct not found while writing binary"
-    | Some i -> fprintf file "\x02" ; write_word file (Int64.of_int i)
-  )
-  | T_Null -> failwith ("writing null type")
-  | T_Generic c -> fprintf file "\x03%c" c
+  write_type ty
 
-
+let write_typ_vars file typ_vars =
+  let rec aux tvs =
+    match tvs with
+    | [] -> ()
+    | h::t -> fprintf file "%c" h ; aux t
+  in
+  fprintf file "%c" (Char.chr (List.length typ_vars)) ;
+  aux typ_vars
 
 let rec write_entry_point_info file name addr args structs =
   fprintf file "%s%c" name '\x00';
@@ -119,7 +127,7 @@ let rec write_global_vars file gvs structs =
 
 
 let rec write_struct_info file name typ_vars fields structs =
-  fprintf file "%s%c" name '\x00'; fprintf file "%c" (Char.chr (List.length fields)) ;
+  fprintf file "%s%c" name '\x00'; write_typ_vars file typ_vars ; fprintf file "%c" (Char.chr (List.length fields)) ;
   let rec aux fs =
     match fs with
     | [] -> ()

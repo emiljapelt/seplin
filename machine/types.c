@@ -41,3 +41,35 @@ byte_t parse_char(char* str) {
         return str[0];
     }
 }
+
+byte_t* load_simple_argument(char type, char* arg) {
+    switch (type) {
+        case INT: {
+            full_t value = parse_int(arg);
+            if (value == 0 && !(strcmp(arg, "0") == 0)) { printf("Failure: expected an int, but got: %s\n", arg); return (byte_t*)-1; }
+            byte_t* alloc = allocate_simple(FULL);
+            *((full_t*)(alloc)) = value;
+            INCR_REF_COUNT(alloc);
+            return alloc;
+        }
+        case BOOL: {
+            byte_t value = parse_bool(arg);
+            if (value == -1) { printf("Failure: expected a bool, but got: %s\n", arg); return (byte_t*)-1; }
+            byte_t* alloc = allocate_simple(BYTE);
+            *(alloc) = value;
+            INCR_REF_COUNT(alloc);
+            return alloc;
+        }
+        case CHAR: {
+            byte_t value = parse_char(arg);
+            if (value == -1) { printf("Failure: expected a bool, but got: %s\n", arg); return (byte_t*)-1; }
+            byte_t* alloc = allocate_simple(BYTE);
+            *(alloc) = value;
+            INCR_REF_COUNT(alloc);
+            return alloc;
+        }
+        default:
+            printf("Unknown simple type\n");
+            return (byte_t*)-1;
+    }
+}

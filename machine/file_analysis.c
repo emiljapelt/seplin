@@ -12,18 +12,20 @@ void skip_string(byte_t** file) {
 }
 
 int type_rep_size(byte_t* file) {
-    int size = 1;
-    switch (*(file+1)) {
-        case 0: // simple
-            size += 2;
+    int size = 0;
+    switch (*(file)) {
+        case INT:
+        case BOOL:
+        case CHAR:
+            size += 1;
             break;
-        case 1: // array
-            size += 1 + type_rep_size(file+2);
+        case ARRAY:
+            size += 1 + type_rep_size(file+1);
             break;
-        case 2: // struct
+        case STRUCT:
             size += 9;
             break;
-        case 3:
+        case GENERIC:
             size += 2;
             break;
     }
@@ -31,7 +33,11 @@ int type_rep_size(byte_t* file) {
 }
 
 void skip_type(byte_t** file) {
-    *file += type_rep_size(*file);
+    *file += 1 + type_rep_size((*file)+1); // lock + type
+}
+
+void skip_type_vars(byte_t** file) {
+    *file += 1 + (**file);
 }
 
 struct file_segments find_segments(byte_t* file) {
@@ -44,6 +50,7 @@ struct file_segments find_segments(byte_t* file) {
     file += 8;
     while(i > 0) {
         skip_string(&file);
+        skip_type_vars(&file);
         byte_t f = *(byte_t*)file;
         file += 1;
         while(f > 0) {
@@ -53,7 +60,6 @@ struct file_segments find_segments(byte_t* file) {
         i--;
     }
     segments.global_var_segment = file;
-
     // Find entry_point_segment / skip over globvar_segment
 
     i = *(full_t*)file;
@@ -121,29 +127,17 @@ struct entry_point_info find_entry_point(byte_t* ptr, char* name) {
 }
 
 void print_type(byte_t* ptr, byte_t* struct_seg) {
-    if (*ptr == 1) printf("locked ");
-    ptr += 1;
     switch (*ptr) {
-        case 0: // simple
-            ptr += 1;
-            switch (*ptr) {
-                case 0: // int
-                    printf("int");
-                    break;
-                case 1: // bool
-                    printf("bool");
-                    break;
-                case 2: // char
-                    printf("char");
-                    break;
-            }
-            break;
-        case 1: // array
+        case INT: printf("int"); break;
+        case BOOL: printf("bool"); break;
+        case CHAR: printf("char"); break;
+        case ARRAY: {
             ptr += 1;
             print_type(ptr, struct_seg);
             printf("[]");
             break;
-        case 2: // struct
+        }
+        case STRUCT: {
             ptr += 1;
             full_t idx = *(full_t*)ptr;
             struct_seg += 8;
@@ -159,12 +153,35 @@ void print_type(byte_t* ptr, byte_t* struct_seg) {
             }
             printf("%s", struct_seg);
             break;
-        case 3: // generic
+        }
+        case GENERIC: {
             ptr += 1;
             printf("%c", *ptr);
             ptr += 1;
             break;
+        }
+        default:
+            break;
     }
+}
+
+void print_type_info(byte_t* ptr, byte_t* struct_seg) {
+    if (*ptr == 1) printf("locked ");
+    ptr += 1;
+    print_type(ptr, struct_seg);
+}
+
+void print_type_vars(byte_t* ptr) {
+    printf("<");
+    byte_t i = *ptr;
+    ptr += 1;
+    while (i > 0) {
+        printf("%c", *ptr);
+        ptr += 1;
+        if (i != 1) printf(",");
+        i--;
+    }
+    printf(">");
 }
 
 void print_structs(byte_t* structs) {
@@ -174,12 +191,15 @@ void print_structs(byte_t* structs) {
     ptr += 8;
 
     while (struct_count > 0) {
-        printf("    %s(", ptr);
+        printf("    %s", ptr);
         skip_string(&ptr);
+        print_type_vars(ptr);
+        skip_type_vars(&ptr);
+        printf("(");
         byte_t fields = *(byte_t*)ptr;
         ptr += 1;
         while (fields > 0) {
-            print_type(ptr, structs);
+            print_type_info(ptr, structs);
             if (fields > 1) printf(", ");
             skip_type(&ptr);
             fields--;
@@ -198,7 +218,7 @@ void print_global_vars(byte_t* ptr, byte_t* structs) {
     while (globvar_count > 0) {
         printf("    %s: ", ptr);
         skip_string(&ptr);
-        print_type(ptr, structs);
+        print_type_info(ptr, structs);
         skip_type(&ptr);
         printf("\n");
         globvar_count--;
@@ -222,7 +242,7 @@ void print_entry_points(byte_t* ptr, byte_t* struct_seg) {
         ptr += 1;
 
         while(argc > 0) {
-            print_type(ptr, struct_seg);
+            print_type_info(ptr, struct_seg);
             skip_type(&ptr);
             if (argc > 1) printf(", ");
             argc--;

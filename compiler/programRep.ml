@@ -24,7 +24,10 @@ let type_index ty =
   | T_Int -> 0
   | T_Bool -> 1
   | T_Char -> 2
-  | _ -> -1
+  | T_Array _ -> 3
+  | T_Struct _ -> 4
+  | T_Generic _ -> 5
+  | T_Null -> failwith "typing a null"
 
 type concrete_program_part =
   | CEntryPoint of string * (bool * typ) list

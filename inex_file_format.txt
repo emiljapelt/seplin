@@ -14,10 +14,8 @@ struct_info:
 8[struct_count:sc]
 sc{
   *[c][0]
-  [fields:f]
-  f{
-    {type_info}
-  }  
+  [typ_vars:ts]ts[c]
+  [fields:f]f{type_info}  
 }
 
 -----------------------------
@@ -35,22 +33,34 @@ entry_point_info:
 
 8[entry_point_count:epc]
 epc{
-  *[c][0]8[addr][arg_count:ac]
-  ac{type_info}
+  *[c][0]8[addr]
+  [typ_args:vs]vs[c]
+  [arg_count:ac]ac{type_info}
 }
 
 -----------------------------
 
 type_info:
 
-simple:
-[lock][0][type_idx]
+[lock]{type}
+
+int:
+[0]
+
+bool:
+[1]
+
+char:
+[2]
 
 array:
-[lock][1]{type_info}
+[3]{type}
 
 struct:
-[lock][2]8[struct_idx]
+[4]8[struct_idx]
+
+generic:
+[5][character]
 
 ------------------------------
 
@@ -59,12 +69,3 @@ number_meaning:
 lock:
 unlocked: 0
 locked: 1
-
-type idx:
-int: 0
-bool: 1
-
-type type idx:
-simple: 0
-array: 1
-struct: 2
