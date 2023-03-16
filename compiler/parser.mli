@@ -10,6 +10,8 @@ type token =
   | ENTRY
   | NAME of (string)
   | MERGE
+  | REFERENCE
+  | AS
   | PATH of (string)
   | TYPE_VAR of (char)
   | ASSIGNMENT

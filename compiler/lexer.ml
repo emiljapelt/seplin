@@ -12,6 +12,8 @@
                         "entry", ENTRY;
                         "struct", STRUCT;
                         "merge", MERGE;
+                        "reference", REFERENCE;
+                        "as", AS;
                         "new", NEW;
                         "null", NULL;
                         "locked", LOCKED;
@@ -45,7 +47,7 @@
       Lexing.pos_fname = filename;
     }
 
-# 49 "lexer.ml"
+# 51 "lexer.ml"
 let __ocaml_lex_tables = {
   Lexing.lex_base =
    "\000\000\218\255\219\255\220\255\222\255\224\255\225\255\226\255\
@@ -588,221 +590,221 @@ let rec lex lexbuf =
 and __ocaml_lex_lex_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 49 "lexer.mll"
+# 51 "lexer.mll"
                                  ( lex lexbuf )
-# 594 "lexer.ml"
+# 596 "lexer.ml"
 
   | 1 ->
-# 50 "lexer.mll"
+# 52 "lexer.mll"
                                  ( incr_linenum lexbuf ; lex lexbuf )
-# 599 "lexer.ml"
+# 601 "lexer.ml"
 
   | 2 ->
-# 51 "lexer.mll"
+# 53 "lexer.mll"
                                                     ( incr_linenum lexbuf ; lex lexbuf )
-# 604 "lexer.ml"
+# 606 "lexer.ml"
 
   | 3 ->
 let
-# 52 "lexer.mll"
+# 54 "lexer.mll"
                       lxm
-# 610 "lexer.ml"
+# 612 "lexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 52 "lexer.mll"
+# 54 "lexer.mll"
                           ( CSTINT (int_of_string lxm) )
-# 614 "lexer.ml"
+# 616 "lexer.ml"
 
   | 4 ->
 let
-# 53 "lexer.mll"
+# 55 "lexer.mll"
                              lxm
-# 620 "lexer.ml"
+# 622 "lexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 53 "lexer.mll"
+# 55 "lexer.mll"
                                  ( CSTCHAR (char_of_string lxm lexbuf) )
-# 624 "lexer.ml"
+# 626 "lexer.ml"
 
   | 5 ->
-# 54 "lexer.mll"
+# 56 "lexer.mll"
                           ( CSTBOOL true )
-# 629 "lexer.ml"
+# 631 "lexer.ml"
 
   | 6 ->
-# 55 "lexer.mll"
+# 57 "lexer.mll"
                           ( CSTBOOL false )
-# 634 "lexer.ml"
+# 636 "lexer.ml"
 
   | 7 ->
 let
-# 56 "lexer.mll"
+# 58 "lexer.mll"
                      lxm
-# 640 "lexer.ml"
+# 642 "lexer.ml"
 = Lexing.sub_lexeme_char lexbuf lexbuf.Lexing.lex_start_pos in
-# 56 "lexer.mll"
+# 58 "lexer.mll"
                          ( TYPE_VAR (lxm) )
-# 644 "lexer.ml"
+# 646 "lexer.ml"
 
   | 8 ->
 let
-# 57 "lexer.mll"
+# 59 "lexer.mll"
                                                                  id
-# 650 "lexer.ml"
+# 652 "lexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 58 "lexer.mll"
+# 60 "lexer.mll"
                 ( try
                     Hashtbl.find keyword_table id
                   with Not_found -> NAME id )
-# 656 "lexer.ml"
+# 658 "lexer.ml"
 
   | 9 ->
 let
-# 61 "lexer.mll"
+# 63 "lexer.mll"
                                                                                                                        path
-# 662 "lexer.ml"
+# 664 "lexer.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 61 "lexer.mll"
+# 63 "lexer.mll"
                                                                                                                             ( PATH path )
-# 666 "lexer.ml"
+# 668 "lexer.ml"
 
   | 10 ->
-# 62 "lexer.mll"
+# 64 "lexer.mll"
                       ( PLUS )
-# 671 "lexer.ml"
+# 673 "lexer.ml"
 
   | 11 ->
-# 63 "lexer.mll"
+# 65 "lexer.mll"
                       ( TIMES )
-# 676 "lexer.ml"
+# 678 "lexer.ml"
 
   | 12 ->
-# 64 "lexer.mll"
+# 66 "lexer.mll"
                       ( MINUS )
-# 681 "lexer.ml"
+# 683 "lexer.ml"
 
   | 13 ->
-# 65 "lexer.mll"
+# 67 "lexer.mll"
                       ( EQ )
-# 686 "lexer.ml"
+# 688 "lexer.ml"
 
   | 14 ->
-# 66 "lexer.mll"
+# 68 "lexer.mll"
                       ( NEQ )
-# 691 "lexer.ml"
+# 693 "lexer.ml"
 
   | 15 ->
-# 67 "lexer.mll"
+# 69 "lexer.mll"
                       ( LTEQ )
-# 696 "lexer.ml"
+# 698 "lexer.ml"
 
   | 16 ->
-# 68 "lexer.mll"
+# 70 "lexer.mll"
                       ( LT )
-# 701 "lexer.ml"
+# 703 "lexer.ml"
 
   | 17 ->
-# 69 "lexer.mll"
+# 71 "lexer.mll"
                       ( GTEQ )
-# 706 "lexer.ml"
+# 708 "lexer.ml"
 
   | 18 ->
-# 70 "lexer.mll"
+# 72 "lexer.mll"
                       ( GT )
-# 711 "lexer.ml"
+# 713 "lexer.ml"
 
   | 19 ->
-# 71 "lexer.mll"
+# 73 "lexer.mll"
                       ( LOGIC_AND )
-# 716 "lexer.ml"
+# 718 "lexer.ml"
 
   | 20 ->
-# 72 "lexer.mll"
+# 74 "lexer.mll"
                       ( LOGIC_OR )
-# 721 "lexer.ml"
+# 723 "lexer.ml"
 
   | 21 ->
-# 73 "lexer.mll"
+# 75 "lexer.mll"
                       ( VALUE )
-# 726 "lexer.ml"
+# 728 "lexer.ml"
 
   | 22 ->
-# 74 "lexer.mll"
+# 76 "lexer.mll"
                       ( PIPE )
-# 731 "lexer.ml"
+# 733 "lexer.ml"
 
   | 23 ->
-# 75 "lexer.mll"
+# 77 "lexer.mll"
                       ( NOT )
-# 736 "lexer.ml"
+# 738 "lexer.ml"
 
   | 24 ->
-# 76 "lexer.mll"
+# 78 "lexer.mll"
                       ( ASSIGNMENT )
-# 741 "lexer.ml"
+# 743 "lexer.ml"
 
   | 25 ->
-# 77 "lexer.mll"
+# 79 "lexer.mll"
                       ( LPAR )
-# 746 "lexer.ml"
+# 748 "lexer.ml"
 
   | 26 ->
-# 78 "lexer.mll"
+# 80 "lexer.mll"
                       ( RPAR )
-# 751 "lexer.ml"
+# 753 "lexer.ml"
 
   | 27 ->
-# 79 "lexer.mll"
+# 81 "lexer.mll"
                       ( LBRACE )
-# 756 "lexer.ml"
+# 758 "lexer.ml"
 
   | 28 ->
-# 80 "lexer.mll"
+# 82 "lexer.mll"
                       ( RBRACE )
-# 761 "lexer.ml"
+# 763 "lexer.ml"
 
   | 29 ->
-# 81 "lexer.mll"
+# 83 "lexer.mll"
                       ( LBRAKE )
-# 766 "lexer.ml"
+# 768 "lexer.ml"
 
   | 30 ->
-# 82 "lexer.mll"
+# 84 "lexer.mll"
                       ( RBRAKE )
-# 771 "lexer.ml"
+# 773 "lexer.ml"
 
   | 31 ->
-# 83 "lexer.mll"
+# 85 "lexer.mll"
                       ( COMMA )
-# 776 "lexer.ml"
+# 778 "lexer.ml"
 
   | 32 ->
-# 84 "lexer.mll"
+# 86 "lexer.mll"
                       ( DOT )
-# 781 "lexer.ml"
+# 783 "lexer.ml"
 
   | 33 ->
-# 85 "lexer.mll"
+# 87 "lexer.mll"
                       ( SEMI )
-# 786 "lexer.ml"
+# 788 "lexer.ml"
 
   | 34 ->
-# 86 "lexer.mll"
+# 88 "lexer.mll"
                       ( COLON )
-# 791 "lexer.ml"
+# 793 "lexer.ml"
 
   | 35 ->
-# 87 "lexer.mll"
+# 89 "lexer.mll"
                       ( HASH )
-# 796 "lexer.ml"
+# 798 "lexer.ml"
 
   | 36 ->
-# 88 "lexer.mll"
+# 90 "lexer.mll"
                       ( raise_line_error "Unknown token" ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum) )
-# 801 "lexer.ml"
+# 803 "lexer.ml"
 
   | 37 ->
-# 89 "lexer.mll"
+# 91 "lexer.mll"
                       ( EOF )
-# 806 "lexer.ml"
+# 808 "lexer.ml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf;
       __ocaml_lex_lex_rec lexbuf __ocaml_lex_state
@@ -812,9 +814,9 @@ and start filename lexbuf =
 and __ocaml_lex_start_rec filename lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 92 "lexer.mll"
+# 94 "lexer.mll"
           ( set_filename filename lexbuf ; lex lexbuf )
-# 818 "lexer.ml"
+# 820 "lexer.ml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf;
       __ocaml_lex_start_rec filename lexbuf __ocaml_lex_state

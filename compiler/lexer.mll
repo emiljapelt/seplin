@@ -11,6 +11,8 @@
                         "entry", ENTRY;
                         "struct", STRUCT;
                         "merge", MERGE;
+                        "reference", REFERENCE;
+                        "as", AS;
                         "new", NEW;
                         "null", NULL;
                         "locked", LOCKED;

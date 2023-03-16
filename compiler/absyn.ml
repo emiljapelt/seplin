@@ -49,7 +49,7 @@ and top_declaration =
     | GlobalDeclaration of declaration
     | Struct of string * char list * ((bool * typ * string) list)
     | Merge of string
-    | Insert (* Not implemented *)
+    | FileReference of string * string (* nick_name * file_path *)
 
 and access_mod =
     | Internal

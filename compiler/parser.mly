@@ -21,7 +21,7 @@
 %token CHAR
 %token INTERNAL EXTERNAL ENTRY
 %token <string> NAME
-%token MERGE
+%token MERGE REFERENCE AS
 %token <string> PATH
 %token <char> TYPE_VAR
 %token ASSIGNMENT
@@ -68,6 +68,7 @@ topdec:
   | STRUCT NAME LPAR params RPAR SEMI                       { Struct ($2, [], $4) }
   | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI        { Struct ($2, $4, $7) }
   | MERGE PATH SEMI                                         { Merge $2 }
+  | REFERENCE PATH AS NAME SEMI                             { FileReference($4, $2) }
 ;
 
 typ_vars:

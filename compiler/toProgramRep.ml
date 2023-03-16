@@ -71,7 +71,7 @@ let get_routines (tds : topdecs) =
       match h with
       | Routine (accmod, name, typ_vars, params, stmt) -> (
         if routine_exists name acc then raise_error ("Duplicate routine name: " ^ name)
-        else aux t ((name, typ_vars, params)::acc)
+        else aux t ((accmod,name, typ_vars, params)::acc)
         )
       | _ -> aux t acc
     )
@@ -672,7 +672,7 @@ and compile_stmt stmt env break continue cleanup acc =
   )
 
 let compile_globalvars globvars structs acc =
-  compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, "wtf", 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; typ_vars = []}); routine_env = []; }) None None 0 acc
+  compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, "wtf", 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; typ_vars = []}); routine_env = []; file_refs = [] }) None None 0 acc
 
 let compress_path path =
   let rec compress parts acc =
@@ -753,7 +753,57 @@ let reduction topdecs =
   match topdecs with
   | Topdecs(tds) -> Topdecs(aux tds (find_used_routines tds []) [])
 
+
+type context =
+  | Context of string * environment
+
+let dir_from_file path = String.sub path 0 (String.rindex path '/')
+let complete_path base path = compress_path (if path.[0] = '.' then (String.sub base 0 ((String.rindex base '/')+1) ^ path) else path)
+
+let create_context_graph base_path parse : context list =
+  let rec get_context_environment path topdecs file_refs globals structs routines : environment =
+    match topdecs with
+    | [] -> ({ var_env = { globals = globals; structs = structs; locals = []; typ_vars = []}; routine_env = routines; file_refs = file_refs })
+    | (FileReference(nick_name, ref_path))::t -> (
+      let ref_path = complete_path path ref_path in
+      get_context_environment path t ((nick_name,ref_path)::file_refs) globals structs routines
+    )
+    | (Routine(access_mod, name, typ_vars, params, _))::t -> get_context_environment path t file_refs globals structs ((access_mod,name,typ_vars,params)::routines)
+    | (Struct(name, typ_vars, fields))::t -> get_context_environment path t file_refs globals ((name, typ_vars, fields)::structs) routines
+    | (GlobalDeclaration(declaration))::t -> ( match declaration with
+      | TypeDeclaration(lock, typ, name) -> get_context_environment path t file_refs ((name,(List.length globals),lock,typ,declaration)::globals) structs routines
+      | AssignDeclaration(lock, typ_opt, name, expr) -> ( match typ_opt with
+        | Some(typ) -> get_context_environment path t file_refs ((name,(List.length globals),lock,typ,declaration)::globals) structs routines
+        | None -> failwith "Cannot infere types for global variables"
+      )
+    )
+    | _::t -> get_context_environment path t file_refs globals structs routines
+  in
+  let rec get_contexts path parse acc =
+    let path = complete_path base_path path in
+    let topdecs = parse path in
+    let context_env = get_context_environment path (match topdecs with Topdecs(t) -> t) [] [] [] [] in
+    let context = Context(path, context_env) in
+    List.fold_right (fun (_,ref_path) acc -> 
+      if List.exists (fun c -> match c with Context(p,_) -> p = ref_path) acc then acc
+      else get_contexts ref_path parse (acc)
+    ) context_env.file_refs (context::acc)
+  in
+  get_contexts base_path parse []
+
+let rec print_contexts contexts =
+  let rec print_refs refs = 
+    match refs with
+    | [] -> ()
+    | (nick_name, path)::t -> Printf.printf "\t-> %s[%s]\n" nick_name path ; print_refs t
+  in
+  match contexts with
+  | [] -> ()
+  | Context(path, env)::t -> Printf.printf "%s\n" path; print_refs env.file_refs ; print_contexts t
+
 let compile path parse =
+  let contexts = create_context_graph (compress_path (total_path path)) parse in
+  let () = Printf.printf "%i\n" (List.length contexts); print_contexts contexts ; exit 0 in
   let topdecs = reduction (merge path parse) in
   let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
   let structs = get_structs topdecs in
@@ -763,7 +813,7 @@ let compile path parse =
     match tds with
     | [] -> acc
     | h::t -> match h with
-      | Routine (accmod, n, typ_vars, params, stmt) -> aux t ((routine_head accmod n params)::(compile_stmt stmt ({ var_env = ({ locals = (List.rev params); globals = globvars; structs = structs; typ_vars = typ_vars;}); routine_env = routines; }) None None 0 (addStop(acc))))
+      | Routine (accmod, n, typ_vars, params, stmt) -> aux t ((routine_head accmod n params)::(compile_stmt stmt ({ var_env = ({ locals = (List.rev params); globals = globvars; structs = structs; typ_vars = typ_vars;}); routine_env = routines; file_refs = []}) None None 0 (addStop(acc))))
       | _ -> aux t acc
   in
   match topdecs with

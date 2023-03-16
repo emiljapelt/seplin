@@ -12,7 +12,8 @@ type variable_environment = {
 
 type environment = { 
   var_env: variable_environment;
-  routine_env: (string * char list * (bool * typ * string) list) list; (* name, type_vars, parameters(lock, type, name) *)
+  routine_env: (access_mod * string * char list * (bool * typ * string) list) list; (* name, type_vars, parameters(lock, type, name) *)
+  file_refs: (string * string) list
 }
 
 type label_generator = { mutable next : int }
@@ -48,7 +49,7 @@ let lookup_i f l =
   aux l ((List.length l)-1)
 
 let lookup_routine (name: string) routines =
-  lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) routines
+  lookup (fun (accmod,n,tvs,ps) -> if n = name then Some(tvs,ps) else None) routines
 
 let lookup_struct (name: string) structs =
   lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs
