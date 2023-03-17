@@ -242,6 +242,14 @@ let rec check_topdecs topdecs structs =
   match topdecs with
   | Topdecs(tds) -> aux tds
 
+let check_structs structs =
+  let rec aux strs seen =
+    match strs with
+    | [] -> ()
+    | (name, typ_vars, fields)::t -> if List.mem name seen then failwith ("Duplicate struct name: " ^name) else aux t (name::seen) 
+  in
+  aux structs []
+
 let rec check_struct_literal struct_fields exprs var_env =
   let rec aux pairs =
     match pairs with

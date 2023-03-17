@@ -10,7 +10,6 @@
                         "external", EXTERNAL;
                         "entry", ENTRY;
                         "struct", STRUCT;
-                        "merge", MERGE;
                         "reference", REFERENCE;
                         "as", AS;
                         "new", NEW;

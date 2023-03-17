@@ -9,7 +9,6 @@ type token =
   | EXTERNAL
   | ENTRY
   | NAME of (string)
-  | MERGE
   | REFERENCE
   | AS
   | PATH of (string)

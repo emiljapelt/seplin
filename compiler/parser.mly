@@ -21,7 +21,7 @@
 %token CHAR
 %token INTERNAL EXTERNAL ENTRY
 %token <string> NAME
-%token MERGE REFERENCE AS
+%token REFERENCE AS
 %token <string> PATH
 %token <char> TYPE_VAR
 %token ASSIGNMENT
@@ -67,7 +67,6 @@ topdec:
   | ENTRY NAME LT typ_vars GT LPAR simple_params RPAR block { raise_line_error "Entrypoints cannot be generic" (get_filename ()) (get_linenum ()) }
   | STRUCT NAME LPAR params RPAR SEMI                       { Struct ($2, [], $4) }
   | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI        { Struct ($2, $4, $7) }
-  | MERGE PATH SEMI                                         { Merge $2 }
   | REFERENCE PATH AS NAME SEMI                             { FileReference($4, $2) }
 ;
 
@@ -216,8 +215,10 @@ non_control_flow_stmt:
   | reference MINUS ASSIGNMENT assignable_expression  { Assign ($1, Value(Binary_op("-", Reference $1, $4))) }
   | reference TIMES ASSIGNMENT assignable_expression  { Assign ($1, Value(Binary_op("*", Reference $1, $4))) }
   | reference NOT ASSIGNMENT assignable_expression    { Assign ($1, Value(Unary_op("!", $4))) }
-  | NAME LPAR arguments RPAR                    { Call ($1, [], $3) }
-  | NAME LT typ_args GT LPAR arguments RPAR     { Call ($1, $3, $6) }
+  | NAME LPAR arguments RPAR                          { Call (None, $1, [], $3) }
+  | NAME LT typ_args GT LPAR arguments RPAR           { Call (None, $1, $3, $6) }
+  | NAME HASH NAME LPAR arguments RPAR                 { Call (Some($1), $3, [], $5) }
+  | NAME HASH NAME LT typ_args GT LPAR arguments RPAR  { Call (Some($1), $3, $5, $8) }
   | PRINT arguments1                          { Print $2 }
 ;
 

@@ -43,14 +43,14 @@ let count_decl stmt_dec_list =
   aux stmt_dec_list 0
 
 (*    list of: string * int * bool * typ * declaration    *)
-let get_globvars (tds : topdecs) = 
+(* let get_globvars (tds : topdecs) = 
   let rec aux topdecs acc count =
     match topdecs with
     | [] -> acc
     | (GlobalDeclaration dec)::t -> ( match dec with
       | TypeDeclaration (lock,ty,name) -> ( 
         if globvar_exists name acc then raise_error ("Duplicate global variable name: " ^ name)
-        else aux t ((name, count, lock, ty, dec)::acc) (count+1)
+        else aux t ((name, context, count, lock, ty, dec)::acc) (count+1)
       )
       | AssignDeclaration (lock,ty,name,expr) -> (
         if Option.is_none ty then raise_error "Cannot infere types in global scope" else
@@ -60,7 +60,7 @@ let get_globvars (tds : topdecs) =
     )
     | _::t -> aux t acc count
   in match tds with 
-  | Topdecs l -> aux l [] 0
+  | Topdecs l -> aux l [] 0 *)
 
 (*    list of: string * access_mod * char list * (bool * typ * string) list * statement    *)
 let get_routines (tds : topdecs) =
@@ -71,7 +71,7 @@ let get_routines (tds : topdecs) =
       match h with
       | Routine (accmod, name, typ_vars, params, stmt) -> (
         if routine_exists name acc then raise_error ("Duplicate routine name: " ^ name)
-        else aux t ((accmod,name, typ_vars, params)::acc)
+        else aux t ((accmod,name,"",typ_vars,params,stmt)::acc)
         )
       | _ -> aux t acc
     )
@@ -126,13 +126,13 @@ let get_globvar_dependencies gvs =
     | TypeDeclaration _ -> []
     | AssignDeclaration (_,_,_,expr) -> dependencies_from_assignable expr []
   in
-  List.map (fun (name,cnt,lock,ty,dec) -> ((name,cnt,lock,ty,dec), dependencies_from_declaration dec)) gvs
+  List.map (fun (name,context,lock,ty,dec) -> ((name,context,lock,ty,dec), dependencies_from_declaration dec)) gvs
 
 let extract_name t =
   match t with
-  | (f,_,_,_,_) -> f
+  | (f,_,_,_,_,_) -> f
 
-(*    Compute an ordering of the global variables, according to their dependancies    *)
+(*    Compute an ordering of the global variables, according to their dependencies    *)
 let order_dep_globvars dep_gvs =
   let rec aux dep_globvars count prev_count remain acc =
     match dep_globvars with
@@ -140,8 +140,8 @@ let order_dep_globvars dep_gvs =
     | [] when count = prev_count -> raise_error "Cannot resolve an ordering of the global variables"
     | [] -> aux remain count count [] acc
     | h::t -> ( match h with
-      | ((name,cnt,lock,ty,dec), deps) -> (
-        if List.for_all (fun dep -> List.exists (fun a -> dep = extract_name a) acc) deps then aux t (count+1) prev_count remain ((name,count,lock,ty,dec)::acc)
+      | ((name,context,lock,ty,dec), deps) -> (
+        if List.for_all (fun dep -> List.exists (fun a -> dep = extract_name a) acc) deps then aux t (count+1) prev_count remain ((name,context,count,lock,ty,dec)::acc)
         else aux t count prev_count (h::remain) acc
       )
     )
@@ -149,7 +149,7 @@ let order_dep_globvars dep_gvs =
   List.rev (aux dep_gvs 0 0 [] [])
 
 let gather_globvar_info gvs =
-  List.map (fun (name,count,lock,ty,dec) -> (lock, ty, name)) gvs
+  List.map (fun (name,context,count,lock,ty,dec) -> (lock, ty, name)) gvs
 
 
 (*** Optimizing functions ***)
@@ -216,11 +216,14 @@ and optimize_value expr var_env =
 
 
 (*** Compiling functions ***)
-let routine_head accmod name params =
+let routine_head accmod name context base_context params =
   match accmod with
-  | Internal -> CLabel(name)
-  | External -> CLabel(name)
-  | Entry -> CEntryPoint(name, List.map (fun (lock,ty,_) -> (lock,ty)) params)
+  | Internal -> CLabel(context^"#"^name)
+  | External -> CLabel(context^"#"^name)
+  | Entry -> (
+    if (context = base_context) then CEntryPoint(name, List.map (fun (lock,ty,_) -> (lock,ty)) params)
+    else CLabel(context^"#"^name)
+  )
 
 let fetch_var_index (name: string) globvars localvars = 
   match lookup_localvar name localvars with
@@ -581,34 +584,34 @@ let rec compile_declaration dec env =
     )
   )
 
-let rec compile_sod_list sod_list env break continue cleanup acc =
+let rec compile_sod_list sod_list env contexts break continue cleanup acc =
   match sod_list with
   | [] -> acc
   | h::t -> (
     match h with
     | Statement (stmt, file, line) -> (try (
-      compile_stmt stmt env break continue cleanup (compile_sod_list t env break continue cleanup (acc))
+      compile_stmt stmt env contexts break continue cleanup (compile_sod_list t env contexts break continue cleanup (acc))
     ) with
       | Error msg -> raise_line_error msg file line
       | e -> raise e
     )
     | Declaration (dec, file, line) -> (try (
       let (new_env, f) = compile_declaration dec env in
-      f (compile_sod_list t new_env break continue (cleanup+1) acc)
+      f (compile_sod_list t new_env contexts break continue (cleanup+1) acc)
     ) with
       | Error msg -> raise_line_error msg file line
       | e -> raise e
     )
   )
 
-and compile_stmt stmt env break continue cleanup acc =
+and compile_stmt stmt env contexts break continue cleanup acc =
   match stmt with
   | If (expr, s1, s2) -> (
     let label_true = Helpers.new_label () in
     let label_stop = Helpers.new_label () in
     let (_, t) = Typing.type_assignable_expr expr env.var_env in
     if t != T_Bool then raise_error "Condition not of type 'bool'"
-    else compile_assignable_expr_as_value expr env.var_env (IfTrue(label_true) :: (compile_stmt s2 env break continue cleanup (GoTo(label_stop) :: CLabel(label_true) :: (compile_stmt s1 env break continue cleanup (CLabel(label_stop) :: acc)))))
+    else compile_assignable_expr_as_value expr env.var_env (IfTrue(label_true) :: (compile_stmt s2 env contexts break continue cleanup (GoTo(label_stop) :: CLabel(label_true) :: (compile_stmt s1 env contexts break continue cleanup (CLabel(label_stop) :: acc)))))
   )
   | While (expr, s) -> (
     let label_cond = Helpers.new_label () in
@@ -616,27 +619,37 @@ and compile_stmt stmt env break continue cleanup acc =
     let label_stop = Helpers.new_label () in
     let (_, t) = Typing.type_assignable_expr expr env.var_env in
     if t != T_Bool then raise_error "Condition not of type 'bool'"
-    else GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_assignable_expr_as_value expr env.var_env (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
+    else GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_assignable_expr_as_value expr env.var_env (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
   )
   | Block (sod_list) -> (
     let decs = count_decl sod_list in
-    if decs = 0 then compile_sod_list sod_list env break continue cleanup acc
-    else compile_sod_list sod_list env break continue cleanup (addFreeVars decs acc)
+    if decs = 0 then compile_sod_list sod_list env contexts break continue cleanup acc
+    else compile_sod_list sod_list env contexts break continue cleanup (addFreeVars decs acc)
   )
   | Assign (target, aexpr) -> compile_assignment target (optimize_assignable_expr aexpr env.var_env) env.var_env acc
-  | Call (name, typ_args, args) -> (
-    match lookup_routine name env.routine_env with
+  | Call (context_opt, name, typ_args, args) -> (
+    let context_env = 
+      if Option.is_none context_opt then env
+      else match List.find_opt (fun (alias,name) -> alias = (Option.get context_opt)) env.file_refs with
+      | None -> failwith ("No such context: " ^ (Option.get context_opt))
+      | Some((_,c)) -> ( match List.find_opt (fun e -> match e with Context(cn,_) -> cn = c) contexts with
+        | None -> failwith (name ^ " from " ^ c)
+        | Some(Context(_,c_env)) -> c_env
+      )
+    in
+    match lookup_routine name context_env.routine_env with
     | None -> raise_error ("Call to undefined routine: " ^ name)
-    | Some (typ_vars,params) -> (
+    | Some (accmod,typ_vars,params) -> (
+      if Option.is_some context_opt && accmod = Internal then raise_error ("Call to internal routine of another context") else
       if List.length params != List.length args then raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length params)) ^ " arguments, but was given " ^  (Int.to_string (List.length args)))
-      else if List.length typ_vars = 0 then compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc) 
+      else if List.length typ_vars = 0 then compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call((context_env.context_name)^"#"^name) :: acc) 
       else (
         let typ_args = (
           if List.length typ_args = List.length typ_vars then typ_args 
           else if List.length typ_args = 0 then infere_generics typ_vars params args env.var_env 
           else raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length typ_vars)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
         ) in
-        compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call(name) :: acc)
+        compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call((context_env.context_name)^"#"^name) :: acc)
       )
     )
   )
@@ -672,7 +685,7 @@ and compile_stmt stmt env break continue cleanup acc =
   )
 
 let compile_globalvars globvars structs acc =
-  compile_sod_list (List.map (fun (_,_,_,_,dec) -> Declaration (dec, "wtf", 0)) globvars) ({ var_env = ({ locals = []; globals = globvars; structs = structs; typ_vars = []}); routine_env = []; file_refs = [] }) None None 0 acc
+  compile_sod_list (List.map (fun (_,_,_,_,_,dec) -> Declaration (dec, "wtf", 0)) globvars) ({ context_name = ""; var_env = ({ locals = []; globals = globvars; structs = structs; typ_vars = []}); routine_env = []; file_refs = [] }) [] None None 0 acc
 
 let compress_path path =
   let rec compress parts acc =
@@ -688,133 +701,82 @@ let total_path path =
   if path.[0] = '.' then Sys.getcwd () ^ "/" ^ path
   else path
 
-
-let merge path parse = 
-  let path = compress_path (total_path path) in
-  let rec aux path tds merged acc =
-    match tds with
-    | (Merge merge_path)::t -> (
-      let merge_path = compress_path (if merge_path.[0] = '.' then (String.sub path 0 ((String.rindex path '/')+1) ^ merge_path) else merge_path) in
-      match List.find_opt (fun p -> p = merge_path) merged with
-      | Some _ -> aux path t merged acc
-      | None -> ( match parse merge_path with
-        | Topdecs tds' -> aux path t (merge_path::merged) (List.rev_append (aux merge_path tds' (merge_path::merged) []) acc)
-      )
-    )
-    | h::t -> aux path t merged (h::acc)
-    | [] -> acc
-  in
-  match parse path with
-  | Topdecs tds -> Topdecs (aux path tds [path] [])
-
-let reduction topdecs =
-  let find_routine_statement name =
-    let rec aux tds =
-      match tds with
-      | [] -> None
-      | Routine(_,n,_,_,stmt)::t when n = name -> Some(stmt)
-      | h::t -> aux t 
-    in
-    match topdecs with
-    | Topdecs(tds) -> aux tds
-  in
-  let rec find_in_statement stmt acc =
-    match stmt with
-      | If(_, if_block, else_block) -> find_in_statement if_block (find_in_statement else_block acc)
-      | While(_, body) -> find_in_statement body acc
-      | Block(block) -> find_in_sod_list block acc
-      | Call(name, _, _) -> (
-        if List.mem name acc then acc 
-        else match find_routine_statement name with
-        | Some(body) -> find_in_statement body (name::acc)
-        | None -> acc
-      )
-      | _ -> acc
-  and find_in_sod_list sod_list acc =
-    match sod_list with
-    | [] -> acc
-    | Statement(stmt,_,_)::t -> find_in_sod_list t (find_in_statement stmt acc)
-    | h::t -> find_in_sod_list t acc
-  in
-  let rec find_used_routines tds acc = 
-    match tds with
-    | [] -> acc
-    | Routine(Entry, name, _, _, stmt)::t -> find_used_routines t (find_in_statement stmt (name::acc))
-    | h::t -> find_used_routines t acc
-  in
-  let rec aux tds used acc = 
-    match tds with
-    | [] -> acc
-    | h::t -> ( match h with 
-      | Routine(_, name, _, _, _) -> if List.mem name used then aux t used (h::acc) else aux t used acc 
-      | _ -> aux t used (h::acc)
-    )
-  in
-  match topdecs with
-  | Topdecs(tds) -> Topdecs(aux tds (find_used_routines tds []) [])
-
-
-type context =
-  | Context of string * environment
-
-let dir_from_file path = String.sub path 0 (String.rindex path '/')
 let complete_path base path = compress_path (if path.[0] = '.' then (String.sub base 0 ((String.rindex base '/')+1) ^ path) else path)
 
-let create_context_graph base_path parse : context list =
-  let rec get_context_environment path topdecs file_refs globals structs routines : environment =
+let gather_context_infos base_path parse =
+  let rec get_context_environment path topdecs file_refs globals structs routines =
     match topdecs with
-    | [] -> ({ var_env = { globals = globals; structs = structs; locals = []; typ_vars = []}; routine_env = routines; file_refs = file_refs })
-    | (FileReference(nick_name, ref_path))::t -> (
+    | [] -> (complete_path base_path path, globals, structs, routines, file_refs)
+    | (FileReference(alias, ref_path))::t -> (
+      if List.exists (fun (a,_) -> a = alias) file_refs then failwith ("Duplicate context alias: " ^ alias) else
       let ref_path = complete_path path ref_path in
-      get_context_environment path t ((nick_name,ref_path)::file_refs) globals structs routines
+      get_context_environment path t ((alias,ref_path)::file_refs) globals structs routines
     )
-    | (Routine(access_mod, name, typ_vars, params, _))::t -> get_context_environment path t file_refs globals structs ((access_mod,name,typ_vars,params)::routines)
+    | (Routine(access_mod, name, typ_vars, params, stmt))::t -> get_context_environment path t file_refs globals structs ((access_mod,name,(complete_path base_path path),typ_vars,params,stmt)::routines)
     | (Struct(name, typ_vars, fields))::t -> get_context_environment path t file_refs globals ((name, typ_vars, fields)::structs) routines
     | (GlobalDeclaration(declaration))::t -> ( match declaration with
-      | TypeDeclaration(lock, typ, name) -> get_context_environment path t file_refs ((name,(List.length globals),lock,typ,declaration)::globals) structs routines
+      | TypeDeclaration(lock, typ, name) -> get_context_environment path t file_refs ((name,(complete_path base_path path),lock,typ,declaration)::globals) structs routines
       | AssignDeclaration(lock, typ_opt, name, expr) -> ( match typ_opt with
-        | Some(typ) -> get_context_environment path t file_refs ((name,(List.length globals),lock,typ,declaration)::globals) structs routines
+        | Some(typ) -> get_context_environment path t file_refs ((name,(complete_path base_path path),lock,typ,declaration)::globals) structs routines
         | None -> failwith "Cannot infere types for global variables"
       )
     )
-    | _::t -> get_context_environment path t file_refs globals structs routines
   in
   let rec get_contexts path parse acc =
     let path = complete_path base_path path in
     let topdecs = parse path in
-    let context_env = get_context_environment path (match topdecs with Topdecs(t) -> t) [] [] [] [] in
-    let context = Context(path, context_env) in
+    let context_env = get_context_environment path (match topdecs with Topdecs(t) -> t) [][][][] in
+    let (_,_,_,_,file_refs) = context_env in
     List.fold_right (fun (_,ref_path) acc -> 
-      if List.exists (fun c -> match c with Context(p,_) -> p = ref_path) acc then acc
+      if List.exists (fun (_,(p,_,_,_,_)) -> p = ref_path) acc then acc
       else get_contexts ref_path parse (acc)
-    ) context_env.file_refs (context::acc)
+    ) file_refs ((topdecs,context_env)::acc)
   in
   get_contexts base_path parse []
 
-let rec print_contexts contexts =
-  let rec print_refs refs = 
-    match refs with
-    | [] -> ()
-    | (nick_name, path)::t -> Printf.printf "\t-> %s[%s]\n" nick_name path ; print_refs t
+let merge_contexts contexts =
+  let rec aux cs topdecs globals structs routines =
+    match cs with
+    | [] -> (Topdecs(topdecs), globals, structs, routines)
+    | (Topdecs(tds),(_,c_globals,c_structs,c_routines,_))::t -> (
+      aux t 
+        (List.rev_append topdecs tds) 
+        (List.rev_append globals c_globals) 
+        (List.rev_append structs c_structs) 
+        (List.rev_append routines c_routines)
+    )
   in
-  match contexts with
-  | [] -> ()
-  | Context(path, env)::t -> Printf.printf "%s\n" path; print_refs env.file_refs ; print_contexts t
+  aux contexts [][][][]
+
+let create_contexts globals context_infos : context list =
+  let get_globalvar_info var_name context_name = 
+    match List.find_opt (fun (n,cn,_,_,_,_) -> n = var_name && cn = context_name) globals with
+    | None -> failwith "fail global variable lookup"
+    | Some((n,cn,idx,lock,typ,dec)) -> (n,cn,idx,lock,typ,dec)
+  in
+  let rec aux c_infos acc =
+    match c_infos with
+    | [] -> acc
+    | (_,(context_name, globs, structs, routines, file_refs))::t -> (
+      aux t (Context(context_name, ({ context_name = context_name; var_env = { locals = []; globals = (List.map (fun (n,cn,_,_,_) -> get_globalvar_info n cn) globs); structs = structs; typ_vars = []}; routine_env = routines; file_refs = file_refs }))::acc)
+    )
+  in
+  aux context_infos []
 
 let compile path parse =
-  let contexts = create_context_graph (compress_path (total_path path)) parse in
-  let () = Printf.printf "%i\n" (List.length contexts); print_contexts contexts ; exit 0 in
-  let topdecs = reduction (merge path parse) in
-  let globvars = (order_dep_globvars (get_globvar_dependencies (get_globvars topdecs))) in
-  let structs = get_structs topdecs in
+  let path = (compress_path (total_path path)) in
+  let context_infos = gather_context_infos path parse in
+  let (topdecs,globals,structs,routines) = merge_contexts context_infos in
+  let globals_ordered = (order_dep_globvars (get_globvar_dependencies globals)) in
+  let contexts = create_contexts globals_ordered context_infos in
   let () = check_topdecs topdecs structs in
-  let routines = get_routines topdecs in
-  let rec aux tds acc =
-    match tds with
+  let () = check_structs structs in
+  let rec compile_routines routines acc =
+    match routines with
     | [] -> acc
-    | h::t -> match h with
-      | Routine (accmod, n, typ_vars, params, stmt) -> aux t ((routine_head accmod n params)::(compile_stmt stmt ({ var_env = ({ locals = (List.rev params); globals = globvars; structs = structs; typ_vars = typ_vars;}); routine_env = routines; file_refs = []}) None None 0 (addStop(acc))))
-      | _ -> aux t acc
+    | (accmod,name,context_name,typ_vars,params,stmt)::t -> ( match List.find (fun c -> match c with Context(cn,_) -> cn = context_name) contexts with 
+      | Context(context_name, context_env) ->
+        compile_routines t ((routine_head accmod name context_name path params)::(compile_stmt stmt ({ context_name = context_name; var_env = ({ locals = (List.rev params); globals = context_env.var_env.globals; structs = structs; typ_vars = typ_vars;}); routine_env = context_env.routine_env; file_refs = context_env.file_refs}) contexts None None 0 (addStop(acc))))
+      )
   in
-  match topdecs with
-  | Topdecs tds -> Program(structs, (gather_globvar_info globvars), ProgramRep.translate(compile_globalvars globvars structs (ToStart :: (aux tds []))))
+  Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars globals_ordered structs ((ToStart :: (compile_routines routines [])))))

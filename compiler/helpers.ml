@@ -5,19 +5,22 @@ open Absyn
 (*** Types ***)
 type variable_environment = { 
   locals: (bool * typ * string) list; (* Lock, type, name *)
-  globals: (string * int * bool * typ * declaration) list; (* name, stack_index, lock, type, expression *)
+  globals: (string * string * int * bool * typ * declaration) list; (* name, stack_index, lock, type, expression *)
   structs: (string * char list * (bool * typ * string) list) list; (* name, type_vars, parameters(lock, type, name) *)
   typ_vars: char list;
 }
 
 type environment = { 
+  context_name: string;
   var_env: variable_environment;
-  routine_env: (access_mod * string * char list * (bool * typ * string) list) list; (* name, type_vars, parameters(lock, type, name) *)
+  routine_env: (access_mod * string * string * char list * (bool * typ * string) list * statement) list; (* name, type_vars, parameters(lock, type, name) *)
   file_refs: (string * string) list
 }
 
 type label_generator = { mutable next : int }
 
+type context =
+  | Context of string * environment
 
 (* Labels *)
 let lg = ( {next = 0;} )
@@ -49,13 +52,13 @@ let lookup_i f l =
   aux l ((List.length l)-1)
 
 let lookup_routine (name: string) routines =
-  lookup (fun (accmod,n,tvs,ps) -> if n = name then Some(tvs,ps) else None) routines
+  lookup (fun (accmod,n,context,tvs,ps,stmt) -> if n = name then Some(accmod,tvs,ps) else None) routines
 
 let lookup_struct (name: string) structs =
   lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs
 
 let lookup_globvar (name: string) globvars =
-  lookup (fun (n,c,l,ty,_) -> if n = name then Some(c,ty,l) else None) globvars
+  lookup (fun (n,c,cnt,l,ty,_) -> if n = name then Some(cnt,ty,l) else None) globvars
 
 let lookup_localvar (name: string) localvars =
   lookup_i (fun i (l,ty,n) -> if n = name then Some(i,ty,l) else None) localvars
