@@ -15,3 +15,18 @@ external sum(l: list<int>, out: int) {
         handle := handle.tail;
     }
 }
+
+external print_list<T>(target: list<T>) {
+    handle ::= $target;
+    while(handle != null) {
+        print handle.head, '\n';
+        handle := handle.tail;
+    }
+}
+
+external from_array<T>(a: T[], out: list<T>) {
+    out := null;
+    for(i ::= 0; i < |a|; i +:= 1) {
+        out := {a[i], out};
+    }
+}

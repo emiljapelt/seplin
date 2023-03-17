@@ -1404,7 +1404,7 @@ let yyact = [|
     let _1 = (Parsing.peek_val __caml_parser_env 3 : string) in
     let _4 = (Parsing.peek_val __caml_parser_env 0 : 'typ) in
     Obj.repr(
-# 252 "parser.mly"
+# 251 "parser.mly"
                                     ( (true, _4, _1) )
 # 1410 "parser.ml"
                : 'param))
@@ -1412,7 +1412,7 @@ let yyact = [|
     let _1 = (Parsing.peek_val __caml_parser_env 2 : string) in
     let _3 = (Parsing.peek_val __caml_parser_env 0 : 'typ) in
     Obj.repr(
-# 253 "parser.mly"
+# 252 "parser.mly"
                                     ( (false, _3, _1) )
 # 1418 "parser.ml"
                : 'param))

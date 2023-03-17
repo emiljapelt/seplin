@@ -245,7 +245,6 @@ params:
 params1:
     param                  { [$1] }
   | param COMMA params1    { $1 :: $3 }
-  /* | error { raise_line_error "Error in parameter declaration" (get_filename ()) (get_linenum ()) } */
 ;
 
 param:

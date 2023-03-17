@@ -42,26 +42,6 @@ let count_decl stmt_dec_list =
   in
   aux stmt_dec_list 0
 
-(*    list of: string * int * bool * typ * declaration    *)
-(* let get_globvars (tds : topdecs) = 
-  let rec aux topdecs acc count =
-    match topdecs with
-    | [] -> acc
-    | (GlobalDeclaration dec)::t -> ( match dec with
-      | TypeDeclaration (lock,ty,name) -> ( 
-        if globvar_exists name acc then raise_error ("Duplicate global variable name: " ^ name)
-        else aux t ((name, context, count, lock, ty, dec)::acc) (count+1)
-      )
-      | AssignDeclaration (lock,ty,name,expr) -> (
-        if Option.is_none ty then raise_error "Cannot infere types in global scope" else
-        if globvar_exists name acc then raise_error ("Duplicate global variable name: " ^ name)
-        else aux t ((name, count, lock, Option.get ty, dec)::acc) (count+1)
-      )
-    )
-    | _::t -> aux t acc count
-  in match tds with 
-  | Topdecs l -> aux l [] 0 *)
-
 (*    list of: string * access_mod * char list * (bool * typ * string) list * statement    *)
 let get_routines (tds : topdecs) =
   let rec aux topdecs acc =
@@ -631,9 +611,9 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     let context_env = 
       if Option.is_none context_opt then env
       else match List.find_opt (fun (alias,name) -> alias = (Option.get context_opt)) env.file_refs with
-      | None -> failwith ("No such context: " ^ (Option.get context_opt))
+      | None -> raise_error ("No such context: " ^ (Option.get context_opt))
       | Some((_,c)) -> ( match List.find_opt (fun e -> match e with Context(cn,_) -> cn = c) contexts with
-        | None -> failwith (name ^ " from " ^ c)
+        | None -> raise_error ("Failed lookup of context: " ^ c)
         | Some(Context(_,c_env)) -> c_env
       )
     in
@@ -751,7 +731,7 @@ let merge_contexts contexts =
 let create_contexts globals context_infos : context list =
   let get_globalvar_info var_name context_name = 
     match List.find_opt (fun (n,cn,_,_,_,_) -> n = var_name && cn = context_name) globals with
-    | None -> failwith "fail global variable lookup"
+    | None -> failwith "Failed global variable lookup"
     | Some((n,cn,idx,lock,typ,dec)) -> (n,cn,idx,lock,typ,dec)
   in
   let rec aux c_infos acc =
