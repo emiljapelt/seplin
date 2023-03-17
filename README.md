@@ -15,7 +15,7 @@
 ## Special words
 | Word | Explaination |
 | --- | --- |
-| Context | Denotes everything that is available in a file. This includes structs, global variables and routines.
+| Context | Denotes everything that is available directly in a file. This includes structs, global variables, routines and references to other contexts.
 
 
 ## Documentation Index
