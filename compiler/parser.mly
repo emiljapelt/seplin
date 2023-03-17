@@ -99,44 +99,49 @@ block:
   LBRACE stmtOrDecSeq RBRACE    { Block $2 }
 ;
 
-assignable_expression:
+expression:
     reference                                     { Reference $1 }
   | value                                         { Value $1 }
-  | LPAR assignable_expression RPAR               { $2 }
 ;
 
 reference:
    NAME                                               { VariableAccess $1 }
   | reference DOT NAME                                { StructAccess ($1, $3) }
-  | reference LBRAKE assignable_expression RBRAKE     { ArrayAccess ($1, $3) }
+  | reference LBRAKE expression RBRAKE                { ArrayAccess ($1, $3) }
   | NULL                                              { Null }
+  | LPAR reference RPAR {$2}
 ;
 
-value:
-    CSTBOOL   { Bool $1 }
+simple_value:
+  LPAR value RPAR { $2 }
+  | CSTBOOL   { Bool $1 }
   | CSTINT    { Int $1 }
   | CSTCHAR   { Char $1 }
-  | assignable_expression LOGIC_AND assignable_expression       { Binary_op ("&&", $1, $3) }
-  | assignable_expression LOGIC_OR assignable_expression        { Binary_op ("||", $1, $3) }
-  | assignable_expression EQ assignable_expression        { Binary_op ("=", $1, $3) }
-  | assignable_expression NEQ assignable_expression       { Binary_op ("!=", $1, $3) }
-  | assignable_expression LTEQ assignable_expression      { Binary_op ("<=", $1, $3) }
-  | assignable_expression LT assignable_expression        { Binary_op ("<", $1, $3) }
-  | assignable_expression GTEQ assignable_expression      { Binary_op (">=", $1, $3) }
-  | assignable_expression GT assignable_expression        { Binary_op (">", $1, $3) }
-  | assignable_expression PLUS assignable_expression      { Binary_op ("+", $1, $3) }
-  | assignable_expression TIMES assignable_expression     { Binary_op ("*", $1, $3) }
-  | assignable_expression MINUS assignable_expression     { Binary_op ("-", $1, $3) }
-  | MINUS assignable_expression                           { Binary_op ("-", Value (Int 0), $2) }
-  | NOT assignable_expression                             { Unary_op ("!", $2) }
+  | MINUS expression                                      { Binary_op ("-", Value (Int 0), $2) }
+  | NOT expression                                        { Unary_op ("!", $2) }
   | PIPE reference PIPE                                   { ArraySize $2 }
   | HASH typ                                              { GetInput $2 }
   | VALUE reference                                       { ValueOf $2 }
-  | NEW typ LBRAKE assignable_expression RBRAKE           { NewArray ($2, $4) }
+  | NEW typ LBRAKE expression RBRAKE                      { NewArray ($2, $4) }
   | LBRAKE arguments RBRAKE                               { ArrayLiteral $2 }
   | NEW NAME LPAR arguments RPAR                          { NewStruct ($2, [], $4) }
   | NEW NAME LT typ_args GT LPAR arguments RPAR           { NewStruct ($2, $4, $7) }
   | LBRACE arguments RBRACE                               { StructLiteral $2 }
+;
+
+value:
+   simple_value { $1 }
+  | expression LOGIC_AND expression       { Binary_op ("&&", $1, $3) }
+  | expression LOGIC_OR expression        { Binary_op ("||", $1, $3) }
+  | expression EQ expression        { Binary_op ("=", $1, $3) }
+  | expression NEQ expression       { Binary_op ("!=", $1, $3) }
+  | expression LTEQ expression      { Binary_op ("<=", $1, $3) }
+  | expression LT expression        { Binary_op ("<", $1, $3) }
+  | expression GTEQ expression      { Binary_op (">=", $1, $3) }
+  | expression GT expression        { Binary_op (">", $1, $3) }
+  | expression PLUS expression      { Binary_op ("+", $1, $3) }
+  | expression TIMES expression     { Binary_op ("*", $1, $3) }
+  | expression MINUS expression     { Binary_op ("-", $1, $3) }
 ;
 
 arguments:
@@ -145,8 +150,8 @@ arguments:
 ;
 
 arguments1:
-    assignable_expression                     { [$1] }
-  | assignable_expression COMMA arguments1    { $1 :: $3 }
+    expression                     { [$1] }
+  | expression COMMA arguments1    { $1 :: $3 }
   | error { raise_line_error "Error in arguments" (get_filename ()) (get_linenum ()) }
 ;
 
@@ -163,19 +168,19 @@ stmtOrDec:
 dec:
     NAME COLON typ SEMI                                      { TypeDeclaration (false, $3, $1) }
   | NAME COLON LOCKED typ SEMI                               { TypeDeclaration (true, $4, $1) }
-  | NAME COLON typ ASSIGNMENT assignable_expression SEMI     { AssignDeclaration (false, Some $3, $1, $5) }
-  | NAME COLON LOCKED typ ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, Some $4, $1, $6) }
-  | NAME COLON ASSIGNMENT assignable_expression SEMI           { AssignDeclaration (false, None, $1, $4) }
-  | NAME COLON LOCKED ASSIGNMENT assignable_expression SEMI    { AssignDeclaration (true, None, $1, $5) }
+  | NAME COLON typ ASSIGNMENT expression SEMI     { AssignDeclaration (false, Some $3, $1, $5) }
+  | NAME COLON LOCKED typ ASSIGNMENT expression SEMI    { AssignDeclaration (true, Some $4, $1, $6) }
+  | NAME COLON ASSIGNMENT expression SEMI           { AssignDeclaration (false, None, $1, $4) }
+  | NAME COLON LOCKED ASSIGNMENT expression SEMI    { AssignDeclaration (true, None, $1, $5) }
 ;
 
 stmt:
    block                                              { $1 }
-  | IF LPAR assignable_expression RPAR stmt ELSE stmt        { If ($3, $5, $7) }
-  | IF LPAR assignable_expression RPAR stmt                  { If ($3, $5, Block []) }
-  | WHILE LPAR assignable_expression RPAR stmt               { While ($3, $5) }
-  | UNTIL LPAR assignable_expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec assignable_expression SEMI non_control_flow_stmt RPAR stmt    { Block([Declaration($3, (get_filename ()), (get_linenum ())); Statement(While($4, Block([Statement($8, (get_filename ()), (get_linenum ())); Statement($6, (get_filename ()), (get_linenum ()));])), (get_filename ()), (get_linenum ()));]) }
+  | IF LPAR expression RPAR stmt ELSE stmt        { If ($3, $5, $7) }
+  | IF LPAR expression RPAR stmt                  { If ($3, $5, Block []) }
+  | WHILE LPAR expression RPAR stmt               { While ($3, $5) }
+  | UNTIL LPAR expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
+  | FOR LPAR dec expression SEMI non_control_flow_stmt RPAR stmt    { Block([Declaration($3, (get_filename ()), (get_linenum ())); Statement(While($4, Block([Statement($8, (get_filename ()), (get_linenum ())); Statement($6, (get_filename ()), (get_linenum ()));])), (get_filename ()), (get_linenum ()));]) }
   | REPEAT LPAR value RPAR stmt { 
     let var_name = new_var () in
     Block([
@@ -210,11 +215,11 @@ stmt:
 ;
 
 non_control_flow_stmt:
-    reference ASSIGNMENT assignable_expression        { Assign ($1, $3) }
-  | reference PLUS ASSIGNMENT assignable_expression   { Assign ($1, Value(Binary_op("+", Reference $1, $4))) }
-  | reference MINUS ASSIGNMENT assignable_expression  { Assign ($1, Value(Binary_op("-", Reference $1, $4))) }
-  | reference TIMES ASSIGNMENT assignable_expression  { Assign ($1, Value(Binary_op("*", Reference $1, $4))) }
-  | reference NOT ASSIGNMENT assignable_expression    { Assign ($1, Value(Unary_op("!", $4))) }
+    reference ASSIGNMENT expression        { Assign ($1, $3) }
+  | reference PLUS ASSIGNMENT expression   { Assign ($1, Value(Binary_op("+", Reference $1, $4))) }
+  | reference MINUS ASSIGNMENT expression  { Assign ($1, Value(Binary_op("-", Reference $1, $4))) }
+  | reference TIMES ASSIGNMENT expression  { Assign ($1, Value(Binary_op("*", Reference $1, $4))) }
+  | reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
   | NAME LPAR arguments RPAR                          { Call (None, $1, [], $3) }
   | NAME LT typ_args GT LPAR arguments RPAR           { Call (None, $1, $3, $6) }
   | NAME HASH NAME LPAR arguments RPAR                 { Call (Some($1), $3, [], $5) }

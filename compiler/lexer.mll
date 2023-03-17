@@ -59,7 +59,9 @@ rule lex = parse
                 { try
                     Hashtbl.find keyword_table id
                   with Not_found -> NAME id }
-    |   ('.' '.'?)? ('/' ('.' '.'? | ['A'-'Z' 'a'-'z' '0'-'9' '_']+))* '/' ['A'-'Z' 'a'-'z' '0'-'9' '_' '.']+ ".ix" as path { PATH path }
+    |   ('.' '.'?)? ('/' ('.' '.'? | ['A'-'Z' 'a'-'z' '0'-'9' '_']+))* '/' ['A'-'Z' 'a'-'z' '0'-'9' '_' '.']+ '.' ['a' - 'z']+ as path { 
+        if Filename.extension path = ".ix" then PATH path else raise_line_error "Referenced file must in with .ix" ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum)
+    }
     |   '+'           { PLUS }
     |   '*'           { TIMES }
     |   '-'           { MINUS }
