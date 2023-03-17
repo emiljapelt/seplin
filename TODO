@@ -6,3 +6,4 @@
     - Some thing like: "if (T is int) { ... } "
     - Would strengthen type composition
 - Do not allow global variable declaration in one context, to reference global variables in other contexts
+- Try to implement mutual references
