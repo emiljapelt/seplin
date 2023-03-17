@@ -130,7 +130,7 @@ and type_value val_expr var_env =
   | NewStruct (name, typ_args, args) -> ( match lookup_struct name var_env.structs with
     | Some (typ_vars, params) -> (
       if (List.length typ_vars > 0) then ( (* Generic *)
-        if (List.length typ_args = 0) then (
+        if (typ_args = []) then (
           let typ_args = infere_generics typ_vars params args var_env in
           (false, T_Struct(name, typ_args))
         )

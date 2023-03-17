@@ -116,7 +116,7 @@ let extract_name t =
 let order_dep_globvars dep_gvs =
   let rec aux dep_globvars count prev_count remain acc =
     match dep_globvars with
-    | [] when List.length remain = 0 -> acc
+    | [] when remain = [] -> acc
     | [] when count = prev_count -> raise_error "Cannot resolve an ordering of the global variables"
     | [] -> aux remain count count [] acc
     | h::t -> ( match h with
@@ -338,7 +338,7 @@ and compile_value val_expr var_env acc =
     match lookup_struct name var_env.structs with
     | Some (typ_vars, params) -> (
       if (List.length typ_vars > 0) then ( (* Generic *)
-        if (List.length typ_args = 0) then (
+        if (typ_args = []) then (
           let typ_args = infere_generics typ_vars params args var_env in
           PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args var_env.structs)) ((List.length params)-1) acc)
         )
@@ -622,11 +622,11 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     | Some (accmod,typ_vars,params) -> (
       if Option.is_some context_opt && accmod = Internal then raise_error ("Call to internal routine of another context") else
       if List.length params != List.length args then raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length params)) ^ " arguments, but was given " ^  (Int.to_string (List.length args)))
-      else if List.length typ_vars = 0 then compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call((context_env.context_name)^"#"^name) :: acc) 
+      else if typ_vars = [] then compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call((context_env.context_name)^"#"^name) :: acc) 
       else (
         let typ_args = (
           if List.length typ_args = List.length typ_vars then typ_args 
-          else if List.length typ_args = 0 then infere_generics typ_vars params args env.var_env 
+          else if typ_args = [] then infere_generics typ_vars params args env.var_env 
           else raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length typ_vars)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
         ) in
         compile_arguments (List.combine (replace_generics params typ_vars typ_args env.var_env.structs) args) env.var_env (PlaceInt(List.length params) :: Call((context_env.context_name)^"#"^name) :: acc)
