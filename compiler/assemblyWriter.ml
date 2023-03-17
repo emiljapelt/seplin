@@ -27,7 +27,7 @@ let rec retrieve_labels program c acc =
     | h::t -> (
       match h with
       | Label (s) -> retrieve_labels t c ((s, c)::acc)
-      | EntryPoint (n, _) -> retrieve_labels t c ((n, c)::acc)
+      | EntryPoint (n,l,_) -> retrieve_labels t c ((l, c)::acc)
       | IntInstruction _ -> retrieve_labels t (c+9) acc
       | BoolInstruction _ -> retrieve_labels t (c+2) acc
       | CharInstruction _ -> retrieve_labels t (c+2) acc
@@ -101,7 +101,7 @@ let rec write_entry_points file pps structs =
     | [] -> ()
     | h::t -> match h with
       | Label _ -> aux t addr
-      | EntryPoint (name, args) -> write_entry_point_info file name addr args structs ; aux t addr
+      | EntryPoint (name,label,args) -> write_entry_point_info file name addr args structs ; aux t addr
       | IntInstruction _ -> aux t (addr+9)
       | BoolInstruction _ -> aux t (addr+2)
       | CharInstruction _ -> aux t (addr+2)

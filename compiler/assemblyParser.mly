@@ -77,7 +77,7 @@ program_section:
 
 program:
         {[]}
-    | ENTRY_POINT NAME type_list program { (EntryPoint ($2, $3)) :: $4 }
+    | ENTRY_POINT NAME type_list program { (EntryPoint ($2, $2, $3)) :: $4 }
     | LABEL NAME program { (Label $2) :: $3}
     | HALT program { Instruction(0) :: $2 }
     | STOP program { Instruction(1) :: $2 }

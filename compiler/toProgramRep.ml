@@ -201,7 +201,7 @@ let routine_head accmod name context base_context params =
   | Internal -> CLabel(context^"#"^name)
   | External -> CLabel(context^"#"^name)
   | Entry -> (
-    if (context = base_context) then CEntryPoint(name, List.map (fun (lock,ty,_) -> (lock,ty)) params)
+    if (context = base_context) then CEntryPoint(name, (context^"#"^name), List.map (fun (lock,ty,_) -> (lock,ty)) params)
     else CLabel(context^"#"^name)
   )
 

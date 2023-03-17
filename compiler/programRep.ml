@@ -2,7 +2,7 @@ type program =
   | Program of (string * char list * (bool * typ * string) list) list * (bool * typ * string) list * program_part list
 
 and program_part =
-  | EntryPoint of string * (bool * typ) list
+  | EntryPoint of string * string * (bool * typ) list
   | Label of string
   | Instruction of int
   | IntInstruction of int * int
@@ -30,7 +30,7 @@ let type_index ty =
   | T_Null -> failwith "typing a null"
 
 type concrete_program_part =
-  | CEntryPoint of string * (bool * typ) list
+  | CEntryPoint of string * string * (bool * typ) list
   | CLabel of string
   | CHalt
   | CStop
@@ -95,7 +95,7 @@ let translate concrete_list =
   | [] -> List.rev acc
   | h::t -> (
     match h with
-    | CEntryPoint (s, tl) -> aux t (EntryPoint(s,tl)::acc)
+    | CEntryPoint (name, label, tl) -> aux t (EntryPoint(name,label,tl)::acc)
     | CLabel (s) -> aux t (Label(s)::acc)
     | CHalt -> aux t (Instruction(0)::acc)
     | CStop -> aux t (Instruction(1)::acc)

@@ -367,7 +367,7 @@ let yyact = [|
     let _4 = (Parsing.peek_val __caml_parser_env 0 : 'program) in
     Obj.repr(
 # 80 "assemblyParser.mly"
-                                         ( (EntryPoint (_2, _3)) :: _4 )
+                                         ( (EntryPoint (_2, _2, _3)) :: _4 )
 # 372 "assemblyParser.ml"
                : 'program))
 ; (fun __caml_parser_env ->
