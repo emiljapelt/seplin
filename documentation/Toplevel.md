@@ -5,24 +5,14 @@ ___
 ## Global Declaration
 This works exactly like usual [declarations](StatementsAndDeclarations.md#declarations), except that type inference is not currently available.
 ___
-## File merging
-**Syntax:** merge _file_path_ ;
+## File referencing
+**Syntax:** reference _file_path_ as _context_alias_ ;
 <br>
-**Explanation:** Merges the referenced file in the compilation, making everything in the file available. This can be compared to copy/pasteing the contents of one file into another. The file path name must end with .ix, or it will not be parsed.
-<br>
-**Example**
-```
-merge ./library/collections/list.ix;
-```
-___
-## File insertion
-**Syntax:** insert _file_path_ ;
-<br>
-**Explanation:** NOT IMPLEMENTED. Similar to merging, except that the internals of the inserted file will be hidden.
+**Explanation:** Create a reference to another .ix-file's context, under the given alias. This will make struct definitions and entry/external routines from the context available. Entry routines from the referenced context, will not be added to the list of entry points, but will be usable as external routines.
 <br>
 **Example**
 ```
-insert ./library/collections/list.ix;
+reference ./library/collections/list.ix as list;
 ```
 ___
 ## Structs

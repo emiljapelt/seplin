@@ -9,7 +9,13 @@
 | Multi entry point | Routines are marked either 'internal' or 'external'. When running the program, any of the external routines can be used as the entry point. |
 | Generic types | Both structs and routines can be generic. |
 | Type inference | Both generic types, and the type of non-global variable declarations, can be infered in most cases.  |
-| File reduction | Any routine which will never be reached from an external routine, is not compiled. |
+| File reduction (BROKEN) | Any routine which will never be reached from an external routine, is not compiled. |
+
+
+## Special words
+| Word | Explaination |
+| --- | --- |
+| Context | Denotes everything that is available in a file. This includes structs, global variables and routines.
 
 
 ## Documentation Index

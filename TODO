@@ -1,15 +1,8 @@
-- More data types (float, string, etc. )
-    - use Quarter instead of Short
-    - consider how to specify types in source code
-        - float, h_float, uh_float, u_int, uq_int
-        - float, half float, unsigned half float, unsigned int, unsigned quarter int
-- Refine error printing for the compiler
-- Rework binary files, to this:
-    - VM use Macros for simple types again
-    - If a command_line argument could not be parsed, check if it a legal global variable
+- Refine error printing for the compiler, especially for references to other contexts
+- Allow command_line argument to reference global variables in VM
 - Do some automated testing
 - Generalize PLACE_* instructions by size
 - Implement generic type resolution
     - Some thing like: "if (T is int) { ... } "
     - Would strengthen type composition
-- Add location data to global variable declarations, struct declarations and routines declarations.
+- Do not allow global variable declaration in one context, to reference global variables in other contexts

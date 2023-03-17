@@ -62,9 +62,13 @@ b := b && a;
 ```
 ___
 ## Call
-**Syntax:** _routine_name_ < _type_arguments_ > ( _arguments_ ) ;
+**Syntax:**
 <br>
-**Explaination:** Call a routine. In some cases the type arguments can be left out, and the compiler will infer the types from the arguments. Types cannot be infered from _null_ and [struct literals](Expressions.md#structliteral).
+ _routine_name_ < _type_arguments_ > ( _arguments_ ) ;
+<br>
+ _context_alias_ # _routine_name_ < _type_arguments_ > ( _arguments_ ) ;
+<br>
+**Explaination:** Call a routine. In some cases the type arguments can be left out, and the compiler will infer the types from the arguments. Types cannot be infered from _null_ and [struct literals](Expressions.md#structliteral). If a context alias is provided, the routine lookup will happen if the aliased context, otherwise the lookup will happen in the local context.
 <br>
 **Examples:**
 ```
@@ -72,8 +76,10 @@ s: int;
 sum([1,2,3,4,5], s);
 
 lst: list<int>;
+num: int;
 push<int>(1, lst);
 push(2, lst);
+funcs#pop(lst, num);
 ```
 ___
 ## Stop
