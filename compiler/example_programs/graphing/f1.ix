@@ -14,7 +14,7 @@ entry main1() {
     list#sum(nums, sum);
     print sum, '\n';
 
-    list#prepend<int>(6, nums);
+    list#prepend<int,int>(6, nums);
     list#sum(nums, sum);
     print sum, '\n';
 }
