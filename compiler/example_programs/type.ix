@@ -1,13 +1,38 @@
 
-struct tuple<T,U>(fst: T, snd: U);
+reference ../library/collections/tuple.ix as tuple;
+reference ../library/collections/stack.ix as stack;
 
-external main1(i: int, c: char, b: bool) { stop; }
-external main2(i: int[], ii: int[][]) { stop; }
-external main3(t: tuple<int, int[]>, tt: tuple<tuple<int,int>,int>) { stop; }
-external main4<T>(t: T, lt: T[]) { stop; }
+entry main1() {
 
+    stk1: stack<int>;
+    stk2: stack<char>;
+    stack#from_array([1,2,3,4], stk1);
+    stack#from_array(['a','b','c'], stk2);
 
-entry main(i: int, u: int) {
-    print i - u;
-    halt;
+    zip: stack<tuple<int,char>>;
+    tuple#zip(stk1, stk2, zip);
+
+    while(zip != null) {
+        print zip.top.fst, ' ', zip.top.snd,'\n';
+        zip := zip.rest;
+    }
+
+}
+
+reference ../library/collections/tree.ix as tree;
+
+entry main2() {
+
+    tree: binary_tree<char>;
+    tree#add(tree, 2, 'c');
+    tree#add(tree, 6, 'a');
+    tree#add(tree, 1, 'o');
+
+    truth: bool;
+    element: char;
+
+    for(i ::= 0; i < 10; i +:= 1) {
+        tree#contains_key(tree, $i, truth);
+        print truth, '\n';
+    }
 }

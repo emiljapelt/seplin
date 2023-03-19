@@ -174,7 +174,7 @@ and type_value val_expr var_env =
       | (T_Generic g, _) -> if g = c then Some(et) else None
       | (T_Array(sub_t), T_Array(sub_et)) -> aux sub_t sub_et
       | (T_Struct(name_t, param1), T_Struct(name_et, param2)) when name_t = name_et -> infere_generic c param1 param2
-      | _ -> raise_error "Parameter/Argument structure mismatch in generic inference"
+      | _ -> None (* raise_error "Parameter/Argument structure mismatch in generic inference" *)
     in match (param_tys, arg_tys) with
     | (param_t::tp, arg_t::ta) -> ( match aux param_t arg_t with
       | None -> infere_generic c tp ta

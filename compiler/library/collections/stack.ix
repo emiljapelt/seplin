@@ -1,19 +1,19 @@
 struct stack<T>(top: T, rest: stack<T>);
 
-internal push<T>(elem: T, stck: stack<T>) {
+external push<T>(elem: T, stck: stack<T>) {
     stck := {elem, stck};
 }
 
-internal peek<T>(stck: stack<T>, out: T) {
-    out := stck.head;
+external peek<T>(stck: stack<T>, out: T) {
+    out := stck.top;
 }
 
-internal pop<T>(stck: stack<T>, out: T) {
-    out := stck.head;
-    stck := stck.tail;
+external pop<T>(stck: stack<T>, out: T) {
+    out := stck.top;
+    stck := stck.rest;
 }
 
-internal stack_size<T>(stck: stack<T>, out: int) {
+external size<T>(stck: stack<T>, out: int) {
     pointer ::= $stck;
     out := 0;
     until(pointer = null) {
@@ -22,7 +22,7 @@ internal stack_size<T>(stck: stack<T>, out: int) {
     }
 }
 
-internal stack_from_array<T>(a: T[], out: stack<T>) {
+external from_array<T>(a: T[], out: stack<T>) {
     out := null;
     for(i ::= 0; i < |a|; i +:= 1) 
         out := {a[i], out};

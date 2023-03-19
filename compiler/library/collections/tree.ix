@@ -1,0 +1,53 @@
+
+struct binary_tree<T> (left: binary_tree<T>, key: int, element: T, right: binary_tree<T>);
+
+external is_empty<T>(tree: locked binary_tree<T>, result: bool) {
+    if (tree = null) result := true;
+    else result := false;
+}
+
+external add<T>(tree: binary_tree<T>, key: int, element: T) {
+    if (tree = null) {
+        tree := new binary_tree(null, key, $element, null);
+    }
+    else {
+        if (key = tree.key) {
+            tree.element := $element;
+            stop;
+        }
+        if (key < tree.key) {
+            if (tree.left = null) tree.left := new binary_tree(null, key, $element, null);
+            else add(tree.left, key, element);
+        }
+        else {
+            if (tree.right = null) tree.right := new binary_tree(null, key, $element, null);
+            else add(tree.right, key, element);
+        }
+    }
+}
+
+external contains_key<T>(tree: locked binary_tree<T>, key: locked int, result: bool) {
+    if (tree = null) result := false;
+    else {
+        if (key = tree.key) result := true;
+        else if (key < tree.key) {
+            contains_key(tree.left, key, result);
+        }
+        else {
+            contains_key(tree.right, key, result);
+        }
+    }
+}
+
+external get<T>(tree: binary_tree<T>, key: locked int, result: T) {
+    if (tree = null) result := null;
+    else {
+        if (key = tree.key) result := $tree.element;
+        else if (key < tree.key) {
+            get(tree.left, key, result);
+        }
+        else {
+            get(tree.right, key, result);
+        }
+    }
+}
