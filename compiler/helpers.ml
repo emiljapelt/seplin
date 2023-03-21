@@ -77,7 +77,7 @@ let var_locked (name: string) var_env =
     | None -> 
       match lookup_globvar name var_env.globals with
       | Some (_,_,gl) -> gl
-      | None -> raise_error ("No such variable " ^ name)
+      | None -> raise_error ("No such variable: " ^ name)
 
 let var_type (name: string) var_env = 
   match lookup_localvar name var_env.locals with
@@ -85,7 +85,7 @@ let var_type (name: string) var_env =
   | None -> 
     match lookup_globvar name var_env.globals with
     | Some (_,gty,_) -> gty
-    | None -> raise_error ("No such variable " ^ name)
+    | None -> raise_error ("No such variable: " ^ name)
 
 let globvar_exists (name: string) globvars =
   Option.is_some (lookup_globvar name globvars)

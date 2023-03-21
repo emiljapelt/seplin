@@ -2,13 +2,22 @@
 At the top level global variables, structs, routines and file interactions exist. Everything defined at this level is accessible from anywhere else in the file.
 
 ___
-## Global Declaration
-This works exactly like usual [declarations](StatementsAndDeclarations.md#declarations), except that type inference is not currently available.
+## Variable Declaration
+This declares a variable accessible to the context, in which it is declared. Syntactically these are exactly like usual [declarations](StatementsAndDeclarations.md#declarations), except that type inference is not currently available.
+<br>
+**Example**
+```
+counter: int := 0;
+
+internal some_routine() {
+    ...
+}
+```
 ___
 ## File referencing
 **Syntax:** reference _file_path_ as _context_alias_ ;
 <br>
-**Explanation:** Create a reference to another .ix-file's context, under the given alias. This will make struct definitions and entry/external routines from the context available. Entry routines from the referenced context, will not be added to the list of entry points, but will be usable as external routines.
+**Explanation:** Create a reference to another .ix-file's context, under the given alias. This will make struct definitions and entry/external routines from the referenced context available. Entry routines from the referenced context, will not be added to the list of entry points, but will be usable as external routines.
 <br>
 **Example**
 ```

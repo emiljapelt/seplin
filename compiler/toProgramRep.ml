@@ -106,7 +106,7 @@ let get_globvar_dependencies gvs =
     | TypeDeclaration _ -> []
     | AssignDeclaration (_,_,_,expr) -> dependencies_from_assignable expr []
   in
-  List.map (fun (name,context,lock,ty,dec) -> ((name,context,lock,ty,dec), dependencies_from_declaration dec)) gvs
+  List.map (fun (name,context_name,lock,ty,dec) -> ((name,context_name,lock,ty,dec), dependencies_from_declaration dec)) gvs
 
 let extract_name t =
   match t with
@@ -211,7 +211,7 @@ let fetch_var_index (name: string) globvars localvars =
   | None -> 
     match lookup_globvar name globvars with
     | Some (gc,_,_) -> StackFetch(gc)
-    | None -> raise_error ("No such variable " ^ name)
+    | None -> raise_error ("No such variable: " ^ name)
 
 let rec compile_assignable_expr expr var_env acc =
   match expr with
@@ -664,8 +664,22 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     aux (List.rev exprs) acc
   )
 
-let compile_globalvars globvars structs acc =
-  compile_sod_list (List.map (fun (_,_,_,_,_,dec) -> Declaration (dec, "wtf", 0)) globvars) ({ context_name = ""; var_env = ({ locals = []; globals = globvars; structs = structs; typ_vars = []}); routine_env = []; file_refs = [] }) [] None None 0 acc
+let rec compile_globalvars globvars structs contexts acc =
+  match globvars with
+  | [] -> acc
+  | (name,context_name,_,_,_,dec)::t -> (
+    try (
+      match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
+      | None -> raise_error "Failed context lookup"
+      | Some(Context(_,env)) -> (
+        let (_,f) = compile_declaration dec ({ context_name = context_name; var_env = ({ locals = []; globals = env.var_env.globals; structs = structs; typ_vars = []}); routine_env = []; file_refs = [] }) in
+        compile_globalvars t structs contexts (f acc)
+      )
+    )
+    with
+    | Error msg -> raise_error msg
+    | e -> raise e
+  )
 
 let compress_path path =
   let rec compress parts acc =
@@ -759,4 +773,4 @@ let compile path parse =
         compile_routines t ((routine_head accmod name context_name path params)::(compile_stmt stmt ({ context_name = context_name; var_env = ({ locals = (List.rev params); globals = context_env.var_env.globals; structs = structs; typ_vars = typ_vars;}); routine_env = context_env.routine_env; file_refs = context_env.file_refs}) contexts None None 0 (addStop(acc))))
       )
   in
-  Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars globals_ordered structs ((ToStart :: (compile_routines routines [])))))
+  Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars (List.rev globals_ordered) structs contexts ((ToStart :: (compile_routines routines [])))))
