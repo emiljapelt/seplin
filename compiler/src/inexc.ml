@@ -1,7 +1,8 @@
-open AssemblyWriter
-open ToProgramRep
+open Inexclib.AssemblyWriter
+open Inexclib.ToProgramRep
 open Str
-open Exceptions
+open Inexclib.Exceptions
+
 
 type input_type =
 | IX
@@ -48,8 +49,8 @@ let (input, in_type) = resolve_input ()
 let output = resolve_output input
 let () = try (
   match in_type with
-  | IX -> AssemblyWriter.write (ToProgramRep.compile input (fun file -> Parser.main (Lexer.start file) (Lexing.from_string (read_file file)))) output
-  | IXA -> AssemblyWriter.write (AssemblyParser.main (AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
+  | IX -> write (compile input (fun file -> Inexclib.Parser.main (Inexclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
+  | IXA -> write (Inexclib.AssemblyParser.main (Inexclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
 ) with
 | Line_error (msg, file, line) -> (
   let lines = String.split_on_char '\n' (read_file file) in

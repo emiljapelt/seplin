@@ -1,0 +1,6 @@
+(executable
+ (public_name inexc)
+ (name inexc)
+ (modules inexc)
+ (libraries inexclib str) 
+)

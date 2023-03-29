@@ -27,7 +27,7 @@ let rec retrieve_labels program c acc =
     | h::t -> (
       match h with
       | Label (s) -> retrieve_labels t c ((s, c)::acc)
-      | EntryPoint (n,l,_) -> retrieve_labels t c ((l, c)::acc)
+      | EntryPoint (_,l,_) -> retrieve_labels t c ((l, c)::acc)
       | IntInstruction _ -> retrieve_labels t (c+9) acc
       | BoolInstruction _ -> retrieve_labels t (c+2) acc
       | CharInstruction _ -> retrieve_labels t (c+2) acc
@@ -58,14 +58,14 @@ let get_index list prop =
 
 (* Writers *)
 
-let rec write_type_info file lock ty structs =
+let write_type_info file lock ty structs =
   let rec write_type ty =
     fprintf file "%c" (Char.chr (ProgramRep.type_index ty)) ; 
     match ty with
     | T_Array sub -> write_type sub
     | T_Generic(c) -> fprintf file "%c" c;
-    | T_Struct (str_name, typ_vars) -> (
-      match get_index structs (fun (name, typ_vars, fields) -> str_name = name) with
+    | T_Struct (str_name, _) -> (
+      match get_index structs (fun (name, _, _) -> str_name = name) with
       | None -> failwith "struct not found while writing binary"
       | Some i -> write_word file (Int64.of_int i)
     )
@@ -83,7 +83,7 @@ let write_typ_vars file typ_vars =
   fprintf file "%c" (Char.chr (List.length typ_vars)) ;
   aux typ_vars
 
-let rec write_entry_point_info file name addr args structs =
+let write_entry_point_info file name addr args structs =
   fprintf file "%s%c" name '\x00';
   write_word file (Int64.of_int addr);
   fprintf file "%c" (Char.chr (List.length args));
@@ -94,14 +94,14 @@ let rec write_entry_point_info file name addr args structs =
   in
   print_args args
 
-let rec write_entry_points file pps structs =
+let write_entry_points file pps structs =
   write_word file (Int64.of_int (count_entry_points pps)) ;
   let rec aux parts addr =
     match parts with
     | [] -> ()
     | h::t -> match h with
       | Label _ -> aux t addr
-      | EntryPoint (name,label,args) -> write_entry_point_info file name addr args structs ; aux t addr
+      | EntryPoint (name,_,args) -> write_entry_point_info file name addr args structs ; aux t addr
       | IntInstruction _ -> aux t (addr+9)
       | BoolInstruction _ -> aux t (addr+2)
       | CharInstruction _ -> aux t (addr+2)
@@ -112,10 +112,10 @@ let rec write_entry_points file pps structs =
 
 
 
-let rec write_global_var_info file name lock ty structs =
+let write_global_var_info file name lock ty structs =
   fprintf file "%s%c" name '\x00' ; write_type_info file lock ty structs
 
-let rec write_global_vars file gvs structs =
+let write_global_vars file gvs structs =
   write_word file (Int64.of_int (List.length gvs)) ;
   let rec aux gs = 
     match gs with
@@ -126,7 +126,7 @@ let rec write_global_vars file gvs structs =
 
 
 
-let rec write_struct_info file name typ_vars fields structs =
+let write_struct_info file name typ_vars fields structs =
   fprintf file "%s%c" name '\x00'; write_typ_vars file typ_vars ; fprintf file "%c" (Char.chr (List.length fields)) ;
   let rec aux fs =
     match fs with

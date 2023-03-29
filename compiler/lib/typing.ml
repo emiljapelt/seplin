@@ -14,7 +14,7 @@ let rec type_string t =
   | T_Generic c -> String.make 1 c
 
 let rec type_equal type1 type2 =
-  let rec aux t1 t2 =
+  let aux t1 t2 =
     match (t1, t2) with
     | (T_Int, T_Int) -> true
     | (T_Bool, T_Bool) -> true
@@ -65,7 +65,7 @@ and type_reference ref_expr var_env =
     match ty with 
     | T_Struct (str_name, typ_args) -> (match lookup_struct str_name var_env.structs with
       | Some (typ_vars, fields) -> (
-        let resolved_fields = replace_generics fields typ_vars typ_args var_env.structs in
+        let resolved_fields = replace_generics fields typ_vars typ_args in
         let (field_lock, field_ty,_) = struct_field field resolved_fields in
         (lock || field_lock, field_ty)
       )
@@ -73,7 +73,7 @@ and type_reference ref_expr var_env =
     )
     | _ -> raise_error ("Field access on non-struct variable")
   )
-  | ArrayAccess (refer, expr) -> (
+  | ArrayAccess (refer, _) -> (
     let (lock, ty) =  type_reference refer var_env in
     match ty with 
     | T_Array array_typ -> (lock, array_typ)
@@ -84,8 +84,8 @@ and type_reference ref_expr var_env =
 and type_value val_expr var_env =
   match val_expr with
   | Binary_op (op, expr1, expr2) -> (
-    let (lock1, ty1) = type_assignable_expr expr1 var_env in
-    let (lock2, ty2) = type_assignable_expr expr2 var_env in
+    let (_, ty1) = type_assignable_expr expr1 var_env in
+    let (_, ty2) = type_assignable_expr expr2 var_env in
     match (op, ty1, ty2) with
     | ("&&", T_Bool, T_Bool) ->  (false, T_Bool)
     | ("||", T_Bool, T_Bool) -> (false, T_Bool)
@@ -109,13 +109,13 @@ and type_value val_expr var_env =
     | _ -> raise_error "Unknown binary operator, or type mismatch"
   )
   | Unary_op (op, expr) -> (
-    let (lock, ty) = type_assignable_expr expr var_env in
+    let (_, ty) = type_assignable_expr expr var_env in
     match (op, ty) with
     | ("!", T_Bool) -> (false, T_Bool)
     | _ -> raise_error "Unknown unary operator, or type mismatch"
   )
   | ArraySize (refer) ->  (
-    let (lock, ty) = type_reference refer var_env in
+    let (_, ty) = type_reference refer var_env in
     match ty with
     | T_Array _ -> (false, T_Int)
     | _ -> raise_error "Array size of non-array variable"
@@ -153,7 +153,7 @@ and type_value val_expr var_env =
     in
     aux (List.combine typ_vars typ_args)
   
-  and replace_generics lst typ_vars typ_args structs = 
+  and replace_generics lst typ_vars typ_args = 
     let rec replace element = 
       match element with
       | T_Generic(c) -> resolve_generic c typ_vars typ_args
@@ -223,7 +223,7 @@ let rec well_defined_type typ var_env =
   | T_Generic c -> if List.mem c var_env.typ_vars then true else false
   | _ -> true
 
-let rec check_topdecs topdecs structs =
+let check_topdecs topdecs structs =
   let rec aux tds =
     match tds with
     | [] -> ()
@@ -237,7 +237,7 @@ let rec check_topdecs topdecs structs =
       else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in struct: " ^ name)
       else aux t
     )
-    | h::t -> aux t
+    | _::t -> aux t
   in
   match topdecs with
   | Topdecs(tds) -> aux tds
@@ -246,7 +246,7 @@ let check_structs structs =
   let rec aux strs seen =
     match strs with
     | [] -> ()
-    | (name, typ_vars, fields)::t -> if List.mem name seen then failwith ("Duplicate struct name: " ^name) else aux t (name::seen) 
+    | (name, _, _)::t -> if List.mem name seen then failwith ("Duplicate struct name: " ^name) else aux t (name::seen) 
   in
   aux structs []
 
@@ -254,15 +254,15 @@ let rec check_struct_literal struct_fields exprs var_env =
   let rec aux pairs =
     match pairs with
     | [] -> true 
-    | ((lock,T_Struct(name,typ_args),_),Value(StructLiteral(literal_fields)))::t -> (
+    | ((_,T_Struct(name,typ_args),_),Value(StructLiteral(literal_fields)))::_ -> (
       match lookup_struct name var_env.structs with
       | None -> false
       | Some(tvs,ps) -> (
-        let replaced = replace_generics ps tvs typ_args var_env.structs in
+        let replaced = replace_generics ps tvs typ_args in
         check_struct_literal replaced literal_fields var_env
       )
     )
-    | ((lock,T_Null,_),e)::t -> false
+    | ((_,T_Null,_),_)::_ -> false
     | ((lock,typ,_),e)::t -> (
       let (expr_lock, expr_typ) = type_assignable_expr e var_env in
       if not(type_equal typ expr_typ) then false else
@@ -280,7 +280,7 @@ let assignment_type_check target assign var_env =
     else match target_type with
     | T_Struct(name, typ_args) -> ( match lookup_struct name var_env.structs with
       | Some(typ_vars, params) -> (
-        if not(check_struct_literal (replace_generics params typ_vars typ_args var_env.structs) exprs var_env) then raise_error "Structure mismatch in assignment"
+        if not(check_struct_literal (replace_generics params typ_vars typ_args) exprs var_env) then raise_error "Structure mismatch in assignment"
         else target_type
       )
       | None -> raise_error ("No such struct: " ^ name)
@@ -303,7 +303,7 @@ let declaration_type_check name lock typ expr var_env =
       | Some(T_Struct(n,tas)) -> ( match lookup_struct n var_env.structs with
         | Some(tvs,ps) ->  (
           let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else raise_error "Struct literals cannot be infered to a type" in
-          if not(check_struct_literal (replace_generics ps tvs tas var_env.structs) exprs var_env) then raise_error ("Could not match struct literal with: '" ^ type_string typ ^ "'")
+          if not(check_struct_literal (replace_generics ps tvs tas) exprs var_env) then raise_error ("Could not match struct literal with: '" ^ type_string typ ^ "'")
           else typ
         )
         | None -> raise_error ("No such struct: " ^ n)
@@ -319,13 +319,13 @@ let declaration_type_check name lock typ expr var_env =
       else typ
     )
 
-let argument_type_check name lock typ expr var_env = 
+let argument_type_check lock typ expr var_env = 
   match expr with
   | Value(StructLiteral(exprs)) -> ( match typ with
     | Some(T_Struct(n,tas)) -> ( match lookup_struct n var_env.structs with
       | Some(tvs,ps) ->  (
         let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else raise_error "Struct literals cannot be infered to a type" in
-        if not(check_struct_literal (replace_generics ps tvs tas var_env.structs) exprs var_env) then raise_error ("Could not match struct literal with: '" ^ type_string typ ^ "'")
+        if not(check_struct_literal (replace_generics ps tvs tas) exprs var_env) then raise_error ("Could not match struct literal with: '" ^ type_string typ ^ "'")
         else typ
       )
       | None -> raise_error ("No such struct: " ^ n)

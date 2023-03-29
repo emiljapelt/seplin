@@ -1,9 +1,7 @@
 *.cmi
 *.cmo
-bin
-obj
-
 *.ixc
 *.exe
 
 .vscode
+_build

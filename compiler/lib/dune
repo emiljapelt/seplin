@@ -1,0 +1,18 @@
+(ocamllex assemblyLexer lexer)
+(ocamlyacc assemblyParser parser)
+(library
+ (name inexclib)
+ (modules
+   programRep
+   exceptions
+   absyn
+   assemblyLexer
+   assemblyParser
+   assemblyWriter
+   helpers
+   lexer
+   parser
+   toProgramRep
+   typing
+ )
+)

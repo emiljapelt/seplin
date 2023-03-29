@@ -52,13 +52,13 @@ let lookup_i f l =
   aux l ((List.length l)-1)
 
 let lookup_routine (name: string) routines =
-  lookup (fun (accmod,n,context,tvs,ps,stmt) -> if n = name then Some(accmod,tvs,ps) else None) routines
+  lookup (fun (accmod,n,_,tvs,ps,_) -> if n = name then Some(accmod,tvs,ps) else None) routines
 
 let lookup_struct (name: string) structs =
   lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs
 
 let lookup_globvar (name: string) globvars =
-  lookup (fun (n,c,cnt,l,ty,_) -> if n = name then Some(cnt,ty,l) else None) globvars
+  lookup (fun (n,_,cnt,l,ty,_) -> if n = name then Some(cnt,ty,l) else None) globvars
 
 let lookup_localvar (name: string) localvars =
   lookup_i (fun i (l,ty,n) -> if n = name then Some(i,ty,l) else None) localvars

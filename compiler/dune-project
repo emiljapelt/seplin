@@ -1,0 +1,26 @@
+(lang dune 3.7)
+
+(name inexc)
+
+(generate_opam_files true)
+
+(source
+ (github emiljapelt/inex))
+
+(authors "Emil Jäpelt")
+
+(maintainers "Emil Jäpelt")
+
+(license LICENSE)
+
+(documentation https://github.com/emiljapelt/inex)
+
+(package
+ (name inexc)
+ (synopsis "A compiler for the inex langauges.")
+ (description "A compiler for languages targeting the inex virtual machine.")
+ (depends ocaml dune)
+ (tags
+  (compiler)))
+
+; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
