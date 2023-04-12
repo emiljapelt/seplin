@@ -29,7 +29,7 @@
   
   let char_of_string s lexbuf = match s with
   | "\'\\n\'" -> '\n'
-  | _ when s.[1] = '\\' -> raise_line_error ("Unknown escape character: " ^ s) ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum)
+  | _ when s.[1] = '\\' -> raise (Error (Some((Lexing.lexeme_start_p lexbuf).pos_fname), Some((Lexing.lexeme_start_p lexbuf).pos_lnum), ("Unknown escape character: " ^ s)))
   | _ -> s.[1]
 
   let incr_linenum lexbuf = 
@@ -60,7 +60,7 @@ rule lex = parse
                     Hashtbl.find keyword_table id
                   with Not_found -> NAME id }
     |   ('.' '.'?)? ('/' ('.' '.'? | ['A'-'Z' 'a'-'z' '0'-'9' '_']+))* '/' ['A'-'Z' 'a'-'z' '0'-'9' '_' '.']+ '.' ['a' - 'z']+ as path { 
-        if Filename.extension path = ".ix" then PATH path else raise_line_error "Referenced file must in with .ix" ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum)
+        if Filename.extension path = ".ix" then PATH path else raise (Error (Some((Lexing.lexeme_start_p lexbuf).pos_fname), Some((Lexing.lexeme_start_p lexbuf).pos_lnum), ("Referenced files must with .ix")))
     }
     |   '+'           { PLUS }
     |   '*'           { TIMES }
@@ -88,7 +88,7 @@ rule lex = parse
     |   ';'           { SEMI }
     |   ':'           { COLON }
     |   '#'           { HASH }
-    |   _             { raise_line_error "Unknown token" ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum) }
+    |   _             { raise (Error(Some((Lexing.lexeme_start_p lexbuf).pos_fname), Some((Lexing.lexeme_start_p lexbuf).pos_lnum), ("Unknown token"))) }
     |   eof           { EOF }
 
 and start filename = parse

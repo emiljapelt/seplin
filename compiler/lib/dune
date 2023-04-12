@@ -1,5 +1,5 @@
 (ocamllex assemblyLexer lexer)
-(ocamlyacc assemblyParser parser)
+(menhir (modules assemblyParser parser))
 (library
  (name inexclib)
  (modules

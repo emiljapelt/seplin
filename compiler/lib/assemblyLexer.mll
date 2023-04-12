@@ -88,13 +88,13 @@ rule lex = parse
     |   ['#'] ['A'-'Z'] * as id 
                 { try
                     Hashtbl.find meta_table id
-                  with Not_found -> raise_line_error ("Unknown meta symbol \'" ^ id ^ "\'") ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum) }
+                  with Not_found -> raise (Error (Some((Lexing.lexeme_start_p lexbuf).pos_fname), Some((Lexing.lexeme_start_p lexbuf).pos_lnum), ("Unknown meta symbol \'" ^ id ^ "\'"))) }
     |   ['A'-'Z'] ['A'-'Z' '_' ] * as id
                 { try
                     Hashtbl.find instruction_table id
-                  with Not_found -> raise_line_error ("Unknown instruction \'" ^ id ^ "\'") ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum) }
+                  with Not_found -> raise (Error (Some((Lexing.lexeme_start_p lexbuf).pos_fname), Some((Lexing.lexeme_start_p lexbuf).pos_lnum), ("Unknown instruction \'" ^ id ^ "\'"))) }
     |   ['A'-'Z' 'a'-'z' '#'] ['A'-'Z' 'a'-'z' '0'-'9' '_' ] * as name   { NAME name }
-    | _                 { raise_line_error "Unknown token" ((Lexing.lexeme_start_p lexbuf).pos_fname) ((Lexing.lexeme_start_p lexbuf).pos_lnum) }
+    | _                 { raise (Error (Some((Lexing.lexeme_start_p lexbuf).pos_fname), Some((Lexing.lexeme_start_p lexbuf).pos_lnum), "Unknown token")) }
     | eof               { EOF }
 
 and start filename = parse

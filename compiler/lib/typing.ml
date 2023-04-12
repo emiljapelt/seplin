@@ -223,7 +223,7 @@ let rec well_defined_type typ var_env =
   | T_Generic c -> if List.mem c var_env.typ_vars then true else false
   | _ -> true
 
-let check_topdecs topdecs structs =
+let check_topdecs file structs =
   let rec aux tds =
     match tds with
     | [] -> ()
@@ -239,14 +239,14 @@ let check_topdecs topdecs structs =
     )
     | _::t -> aux t
   in
-  match topdecs with
-  | Topdecs(tds) -> aux tds
+  match file with
+  | File(tds) -> aux tds
 
 let check_structs structs =
   let rec aux strs seen =
     match strs with
     | [] -> ()
-    | (name, _, _)::t -> if List.mem name seen then failwith ("Duplicate struct name: " ^name) else aux t (name::seen) 
+    | (name, _, _)::t -> if List.mem name seen then raise_error ("Duplicate struct name: " ^ name) else aux t (name::seen) 
   in
   aux structs []
 

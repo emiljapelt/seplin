@@ -15,6 +15,8 @@
 
 (documentation https://github.com/emiljapelt/inex)
 
+(using menhir 2.1)
+
 (package
  (name inexc)
  (synopsis "A compiler for the inex langauges.")

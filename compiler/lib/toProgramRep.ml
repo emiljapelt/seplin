@@ -33,7 +33,7 @@ let count_decl stmt_dec_list =
   let rec aux sdl c =
     match sdl with
     | [] -> c
-    | (Declaration (dec, _, _))::t -> (
+    | (Declaration(dec,_))::t -> (
       match dec with
       | TypeDeclaration _ -> aux t (c+1)
       | AssignDeclaration _ -> aux t (c+1)
@@ -43,7 +43,7 @@ let count_decl stmt_dec_list =
   aux stmt_dec_list 0
 
 (*    list of: string * access_mod * char list * (bool * typ * string) list * statement    *)
-let get_routines (tds : topdecs) =
+let get_routines file =
   let rec aux topdecs acc =
     match topdecs with
     | [] -> acc
@@ -55,11 +55,11 @@ let get_routines (tds : topdecs) =
         )
       | _ -> aux t acc
     )
-  in match tds with
-  | Topdecs l -> aux l []
+  in match file with
+  | File (tds) -> aux tds []
 
 (*    list of: string * char list * (bool * typ * string) list   *)
-let get_structs (tds : topdecs) =
+let get_structs file =
   let rec aux topdecs acc =
     match topdecs with
     | [] -> acc
@@ -71,8 +71,8 @@ let get_structs (tds : topdecs) =
         )
       | _ -> aux t acc
     )
-  in match tds with
-  | Topdecs l -> aux l []
+  in match file with
+  | File (tds) -> aux tds []
 
 
 (*** Global variable handling ***)
@@ -569,17 +569,17 @@ let rec compile_sod_list sod_list env contexts break continue cleanup acc =
   | [] -> acc
   | h::t -> (
     match h with
-    | Statement (stmt, file, line) -> (try (
-      compile_stmt stmt env contexts break continue cleanup (compile_sod_list t env contexts break continue cleanup (acc))
-    ) with
-      | Error msg -> raise_line_error msg file line
+    | Statement(stmt, line) -> ( try (
+        compile_stmt stmt env contexts break continue cleanup (compile_sod_list t env contexts break continue cleanup (acc))
+      ) with
+      | Error(_,line_opt,expl) when Option.is_none line_opt -> raise (Error(None, Some(line), expl))
       | e -> raise e
     )
-    | Declaration (dec, file, line) -> (try (
-      let (new_env, f) = compile_declaration dec env in
-      f (compile_sod_list t new_env contexts break continue (cleanup+1) acc)
-    ) with
-      | Error msg -> raise_line_error msg file line
+    | Declaration(dec, line) -> ( try (
+        let (new_env, f) = compile_declaration dec env in
+        f (compile_sod_list t new_env contexts break continue (cleanup+1) acc)
+      ) with
+      | Error(_,line_opt,expl) when Option.is_none line_opt -> raise (Error(None, Some(line), expl))
       | e -> raise e
     )
   )
@@ -677,7 +677,6 @@ let rec compile_globalvars globvars structs contexts acc =
       )
     )
     with
-    | Error msg -> raise_error msg
     | e -> raise e
   )
 
@@ -718,21 +717,21 @@ let gather_context_infos base_path parse =
   in
   let rec get_contexts path parse acc =
     let path = complete_path base_path path in
-    let topdecs = parse path in
-    let context_env = get_context_environment path (match topdecs with Topdecs(t) -> t) [][][][] in
+    let file = parse path in
+    let context_env = get_context_environment path (match file with File(t) -> t) [][][][] in
     let (_,_,_,_,file_refs) = context_env in
     List.fold_right (fun (_,ref_path) acc -> 
       if List.exists (fun (_,(p,_,_,_,_)) -> p = ref_path) acc then acc
       else get_contexts ref_path parse (acc)
-    ) file_refs ((topdecs,context_env)::acc)
+    ) file_refs ((file,context_env)::acc)
   in
   get_contexts base_path parse []
 
 let merge_contexts contexts =
   let rec aux cs topdecs globals structs routines =
     match cs with
-    | [] -> (Topdecs(topdecs), globals, structs, routines)
-    | (Topdecs(tds),(_,c_globals,c_structs,c_routines,_))::t -> (
+    | [] -> (File(topdecs), globals, structs, routines)
+    | (File(tds),(_,c_globals,c_structs,c_routines,_))::t -> (
       aux t 
         (List.rev_append topdecs tds) 
         (List.rev_append globals c_globals) 
@@ -760,7 +759,7 @@ let create_contexts globals context_infos : context list =
 let compile path parse =
   let path = (compress_path (total_path path)) in
   let context_infos = gather_context_infos path parse in
-  let (topdecs,globals,structs,routines) = merge_contexts context_infos in
+  let (topdecs,globals,structs,_) = merge_contexts context_infos in
   let globals_ordered = (order_dep_globvars (get_globvar_dependencies globals)) in
   let contexts = create_contexts globals_ordered context_infos in
   let () = check_topdecs topdecs structs in
@@ -773,4 +772,14 @@ let compile path parse =
         compile_routines t ((routine_head accmod name context_name path params)::(compile_stmt stmt ({ context_name = context_name; var_env = ({ locals = (List.rev params); globals = context_env.var_env.globals; structs = structs; typ_vars = typ_vars;}); routine_env = context_env.routine_env; file_refs = context_env.file_refs}) contexts None None 0 (addStop(acc))))
       )
   in
-  Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars (List.rev globals_ordered) structs contexts ((ToStart :: (compile_routines routines [])))))
+  let rec compile_contexts cts acc =
+    match cts with
+    | [] -> acc
+    | Context(path, env)::t -> ( 
+      try (
+        compile_contexts t (compile_routines env.routine_env acc)
+      ) with
+        | Error(_,line_opt,expl_opt) -> raise (Error(Some(path),line_opt,expl_opt))
+    )
+  in
+  Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars (List.rev globals_ordered) structs contexts ((ToStart :: (compile_contexts contexts [])))))

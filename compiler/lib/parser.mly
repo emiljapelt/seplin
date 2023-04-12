@@ -2,6 +2,7 @@
   open Absyn
   open ProgramRep
   open Exceptions
+  open Lexing
 
   type var_name_generator = { mutable next : int }
   let vg = ( {next = 0;} )
@@ -9,9 +10,6 @@
     let number = vg.next in
     let () = vg.next <- vg.next+1 in
     Int.to_string number
-
-  let get_filename () = ((symbol_start_pos ()).pos_fname)
-  let get_linenum () = ((symbol_start_pos ()).pos_lnum)
 %}
 %token <int> CSTINT
 %token INT
@@ -36,20 +34,18 @@
 %token LOCKED STRUCT NULL NEW
 %token PRINT HASH
 
-%right ASSIGNMENT
 %left ELSE
 %left EQ NEQ
 %left GT LT GTEQ LTEQ
 %left PLUS MINUS LOGIC_OR
 %left TIMES LOGIC_AND
-%right HASH
-%nonassoc NOT
+%nonassoc NOT HASH
 
 %start main
-%type <Absyn.topdecs> main
+%type <Absyn.file> main
 %%
 main:
-  topdecs EOF     { Topdecs $1 }
+  topdecs EOF     { File $1 }
 ;
 
 topdecs:
@@ -64,7 +60,7 @@ topdec:
   | EXTERNAL NAME LPAR params RPAR block                    { Routine (External, $2, [], $4, $6) }
   | EXTERNAL NAME LT typ_vars GT LPAR params RPAR block     { Routine (External, $2, $4, $7, $9) }
   | ENTRY NAME LPAR simple_params RPAR block                { Routine (Entry, $2, [], $4, $6) }
-  | ENTRY NAME LT typ_vars GT LPAR simple_params RPAR block { raise_line_error "Entrypoints cannot be generic" (get_filename ()) (get_linenum ()) }
+  | ENTRY NAME LT typ_vars GT LPAR simple_params RPAR block { raise_error "Entrypoints cannot be generic" }
   | STRUCT NAME LPAR params RPAR SEMI                       { Struct ($2, [], $4) }
   | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI        { Struct ($2, $4, $7) }
   | REFERENCE PATH AS NAME SEMI                             { FileReference($4, $2) }
@@ -84,7 +80,6 @@ simple_typ:
     INT                 { T_Int }
   | BOOL                { T_Bool }
   | CHAR                { T_Char }
-  | error { raise_line_error "Entrypoints can only take simple types as arguments" (get_filename ()) (get_linenum ()) }
 ;
 
 typ:
@@ -152,7 +147,6 @@ arguments:
 arguments1:
     expression                     { [$1] }
   | expression COMMA arguments1    { $1 :: $3 }
-  | error { raise_line_error "Error in arguments" (get_filename ()) (get_linenum ()) }
 ;
 
 stmtOrDecSeq:
@@ -161,8 +155,8 @@ stmtOrDecSeq:
 ;
 
 stmtOrDec:
-    stmt                                                     { Statement ($1, (get_filename ()), (get_linenum ())) }
-  | dec                                                      { Declaration ($1, (get_filename ()), (get_linenum ())) }
+    stmt                                                     { Statement ($1, $symbolstartpos.pos_lnum) }
+  | dec                                                      { Declaration ($1, $symbolstartpos.pos_lnum) }
 ;
 
 dec:
@@ -180,31 +174,31 @@ stmt:
   | IF LPAR expression RPAR stmt                  { If ($3, $5, Block []) }
   | WHILE LPAR expression RPAR stmt               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec expression SEMI non_control_flow_stmt RPAR stmt    { Block([Declaration($3, (get_filename ()), (get_linenum ())); Statement(While($4, Block([Statement($8, (get_filename ()), (get_linenum ())); Statement($6, (get_filename ()), (get_linenum ()));])), (get_filename ()), (get_linenum ()));]) }
+  | FOR LPAR dec expression SEMI non_control_flow_stmt RPAR stmt    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($4, Block([Statement($8,$symbolstartpos.pos_lnum); Statement($6,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
   | REPEAT LPAR value RPAR stmt { 
     let var_name = new_var () in
     Block([
-      Declaration(TypeDeclaration(false, T_Int, var_name), (get_filename ()), (get_linenum ())); 
+      Declaration(TypeDeclaration(false, T_Int, var_name), $symbolstartpos.pos_lnum); 
       Statement(While(Value(Binary_op("<", Reference(VariableAccess var_name), Value $3)), 
         Block([
-          Statement($5, (get_filename ()), (get_linenum ())); 
-          Statement(Assign(VariableAccess(var_name), Value(Binary_op("+", Value(Int 1), Reference(VariableAccess var_name)))), (get_filename ()), (get_linenum ()));
+          Statement($5,$symbolstartpos.pos_lnum); 
+          Statement(Assign(VariableAccess(var_name), Value(Binary_op("+", Value(Int 1), Reference(VariableAccess var_name)))), $symbolstartpos.pos_lnum);
         ])
-      ), (get_filename ()), (get_linenum ()));
+      ),$symbolstartpos.pos_lnum);
     ]) 
   }
   | REPEAT LPAR reference RPAR stmt { 
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(false, Some T_Int, limit_name, Value(ValueOf($3))), (get_filename ()), (get_linenum ())); 
-      Declaration(TypeDeclaration(false, T_Int, count_name), (get_filename ()), (get_linenum ())); 
+      Declaration(AssignDeclaration(false, Some T_Int, limit_name, Value(ValueOf($3))), $symbolstartpos.pos_lnum); 
+      Declaration(TypeDeclaration(false, T_Int, count_name), $symbolstartpos.pos_lnum); 
       Statement(While(Value(Binary_op("<", Reference(VariableAccess count_name), Reference(VariableAccess limit_name))), 
         Block([
-          Statement($5, (get_filename ()), (get_linenum ())); 
-          Statement(Assign(VariableAccess count_name, Value(Binary_op("+", Value(Int 1), Reference(VariableAccess count_name)))), (get_filename ()), (get_linenum ()));
+          Statement($5, $symbolstartpos.pos_lnum); 
+          Statement(Assign(VariableAccess count_name, Value(Binary_op("+", Value(Int 1), Reference(VariableAccess count_name)))), $symbolstartpos.pos_lnum);
         ])
-      ), (get_filename ()), (get_linenum ()));
+      ), $symbolstartpos.pos_lnum);
     ]) 
   }
   | STOP SEMI                                       { Stop }

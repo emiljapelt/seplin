@@ -17,8 +17,8 @@ and declaration =
     | AssignDeclaration of bool * typ option * string * expression
 
 and statement_or_declaration =
-    | Statement of statement * string * int (*   statement * file_name * line_number   *)
-    | Declaration of declaration * string * int (*   declaration * file_name * line_number   *)
+    | Statement of statement * int (*   statement * line_number   *)
+    | Declaration of declaration * int (*   declaration * line_number   *)
     
 and expression =
     | Reference of reference
@@ -55,5 +55,5 @@ and access_mod =
     | External
     | Entry
 
-and topdecs = 
-    | Topdecs of top_declaration list
+and file = 
+    | File of top_declaration list

@@ -47,17 +47,25 @@ let read_file path =
     
 let (input, in_type) = resolve_input ()
 let output = resolve_output input
+
 let () = try (
   match in_type with
   | IX -> write (compile input (fun file -> Inexclib.Parser.main (Inexclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
   | IXA -> write (Inexclib.AssemblyParser.main (Inexclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
 ) with
-| Line_error (msg, file, line) -> (
-  let lines = String.split_on_char '\n' (read_file file) in
-  let () = Printf.printf "Error in %s:\n%s, on line %i:\n" file msg line in
-  let printer =  print_line lines in match line with
-  | 1 -> printer 0 ; printer 1
-  | n when n = (List.length lines)-1 -> printer (n-2) ; printer (n-1)
-  | _ ->  printer (line-2) ; printer (line-1) ; printer line
+| Error(file_opt, line_opt, expl) -> (
+  Printf.printf "%s\n" expl ;
+  if Option.is_some file_opt then (
+    Printf.printf "%s:\n" (Option.get file_opt) ;
+    if Option.is_some line_opt then (
+      let line = Option.get line_opt in
+      let lines = String.split_on_char '\n' (read_file (Option.get file_opt)) in
+      let printer =  print_line lines in match line with
+      | 1 -> printer 0 ; printer 1
+      | n when n = (List.length lines)-1 -> printer (n-2) ; printer (n-1)
+      | _ ->  printer (line-2) ; printer (line-1) ; printer line
+    )
+    else Printf.printf "\n" ;
+  )
+  else () ;
 )
-| Error msg -> Printf.printf "%s\n" msg
