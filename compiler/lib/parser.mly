@@ -10,6 +10,14 @@
     let number = vg.next in
     let () = vg.next <- vg.next+1 in
     Int.to_string number
+
+  let string_to_array_literal str =
+    let rec explode idx acc =
+      match idx with
+      | i when i >= (String.length str)-1 -> ArrayLiteral (List.rev acc)
+      | i -> explode (idx+1) ((Value(Char(str.[i])))::acc)
+    in
+    explode 1 []
 %}
 %token <int> CSTINT
 %token INT
@@ -17,6 +25,7 @@
 %token BOOL
 %token <char> CSTCHAR
 %token CHAR
+%token <string> CSTSTRING
 %token INTERNAL EXTERNAL ENTRY
 %token <string> NAME
 %token REFERENCE AS
@@ -119,6 +128,7 @@ simple_value:
   | VALUE reference                                       { ValueOf $2 }
   | NEW typ LBRAKE expression RBRAKE                      { NewArray ($2, $4) }
   | LBRAKE arguments RBRAKE                               { ArrayLiteral $2 }
+  | CSTSTRING                                             { string_to_array_literal $1 }
   | NEW NAME LPAR arguments RPAR                          { NewStruct ($2, [], $4) }
   | NEW NAME LT typ_args GT LPAR arguments RPAR           { NewStruct ($2, $4, $7) }
   | LBRACE arguments RBRACE                               { StructLiteral $2 }

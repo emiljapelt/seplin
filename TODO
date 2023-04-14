@@ -7,3 +7,4 @@
     - Some thing like: "if (T is int) { ... } "
     - Would strengthen type composition
 - Fix assembly compiler
+- Implement escape characters in string literals

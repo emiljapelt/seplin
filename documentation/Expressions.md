@@ -65,6 +65,22 @@ ___
 '\n'
 ```
 ___
+## String
+**Flavour:** value
+<br>
+**Syntax:** " .* "
+<br>
+**Type:** _char_ [ ]
+<br>
+**Explaination:** A string is simply a char array. Escape characters are not supported yet.
+<br>
+**Examples:**
+```
+"Hello world!"
+"The next one is the empty string"
+""
+```
+___
 ## Null
 **Flavour:** reference
 <br>

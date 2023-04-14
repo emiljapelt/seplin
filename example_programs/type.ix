@@ -36,3 +36,16 @@ entry main2() {
         print truth, '\n';
     }
 }
+
+entry main3() {
+
+    print_string("");
+
+}
+
+internal print_string(str: char[]) {
+    for(i ::= 0; i < |str|; i +:= 1) {
+        print str[i];
+    }
+    print '\n';
+}
