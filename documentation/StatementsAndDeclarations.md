@@ -1,5 +1,5 @@
 # Declarations
-To use some variable name, it must first be declared. This can be done withing a routine to define a variable locally, or outside of routines to define a variable globally. Variables declared without an assignment, will initially be _null_. <br>
+To use some variable name, it must first be declared. This can be done withing a routine to define a variable locally, or outside of routines to define a variable globally. <br>
 When declaring a local variable with an assignment of some [expression](Expressions.md), unless that expression is a [struct literal](Expressions.md#structliteral), the type can be left out and the compiler will infer the type.
 <br>
 **Syntax:** <br>_variable_name_ : _type_ ;  <br>  _variable_name_ : _type_ := _expression_ ;
@@ -18,7 +18,7 @@ ___
 ## If
 **Syntax:** <br> if ( _bool_expression_ ) _statement_ <br> if ( _bool_expression_ ) _statement_ else _statement_
 <br>
-**Explaination:** Conditionally execute some code
+**Explaination:** Conditionally execute some code.
 <br>
 **Examples:**
 ```
@@ -29,7 +29,7 @@ ___
 ## While
 **Syntax:** while ( _bool_expression_ ) _statement_
 <br>
-**Explaination:** Keep executing some code, as long as some condition holds
+**Explaination:** Keep executing some code, as long as some condition holds.
 <br>
 **Examples:**
 ```
@@ -39,12 +39,12 @@ ___
 ## Block
 **Syntax:** { _statement_or_declaration_list_ }
 <br>
-**Explaination:** Execute the contained code sequentially. Variables declared within a block, disapper when exiting the block.
+**Explaination:** Execute the contained code sequentially. Variables declared within a block, disappear when exiting the block.
 <br>
 **Examples:**
 ```
-while (x < 10) {
-    x +:= 1;
+{
+    x ::= 12;
     print x;
 } 
 ```
@@ -85,7 +85,7 @@ ___
 ## Stop
 **Syntax:** stop ;
 <br>
-**Explaination:** Stop executing the current routine, and return to the previose routine. If there is no previous routine, the program halts. 
+**Explaination:** Stop executing the current routine, and return to the previous routine. If there is no previous routine, the program halts. 
 <br>
 **Examples:**
 ```
@@ -98,7 +98,7 @@ ___
 ## Halt
 **Syntax:** halt ;
 <br>
-**Explaination:** Halt the machine.
+**Explaination:** Halt the program.
 <br>
 **Examples:**
 ```
@@ -128,11 +128,19 @@ ___
 **Explaination:** Stop executing the current loop iteration, and go to the conditional check.
 <br>
 **Examples:**
+```
+arr ::= [1,2,3,4,5,6];
+sum ::= 0;
+for(i ::= 0; i < |arr|; i +:= 1) {
+    if (arr[i] < 3) continue;
+    sum +:= arr[i];
+}
+```
 ___
 ## Print
 **Syntax:** print _expressions_ ;
 <br>
-**Explaination:** Print out the values of some expressions. For structs and arrays, the printed value is their memory address.
+**Explaination:** Print out the value of some expressions. For structs and arrays, the printed value is their memory address.
 <br>
 **Examples:**
 ```

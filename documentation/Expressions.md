@@ -72,7 +72,7 @@ ___
 <br>
 **Type:** N/A
 <br>
-**Explaination:** A null reference.
+**Explaination:** A reference to nothing.
 <br>
 **Examples:**
 ```
@@ -84,7 +84,7 @@ ___
 <br>
 **Syntax:** _variable_name_
 <br>
-**Type:** the type of the variable
+**Type:** the type of the variable.
 <br>
 **Explaination:** Reference a variable.
 <br>
@@ -99,7 +99,7 @@ ___
 <br>
 **Syntax:** _reference_ [ _int_expression_ ]
 <br>
-**Type:** the type of the array elements
+**Type:** the type of the array elements.
 <br>
 **Explaination:** Reference an index in an array, the index must be an integer.
 <br>
@@ -114,9 +114,9 @@ ___
 <br>
 **Syntax:** _reference_ . _field_
 <br>
-**Type:** the type of the field
+**Type:** the type of the field.
 <br>
-**Explaination:** Reference a field in a struct.
+**Explaination:** Reference a field of a struct.
 <br>
 **Examples:**
 ```
@@ -159,7 +159,7 @@ ___
 <br>
 **Syntax:** $ _reference_
 <br>
-**Type:** the type of the reference
+**Type:** the type of the reference.
 <br>
 **Explaination:** Explicitly get the value from a reference.
 <br>
@@ -219,7 +219,7 @@ ___
 <br>
 **Syntax:** [ _expressions_ ]
 <br>
-**Type:** depends on the expressions
+**Type:** depends on the expressions.
 <br>
 **Explaination:** Create a filled array.
 <br>
@@ -240,8 +240,8 @@ ___
 <br>
 **Examples:**
 ```
-new tuple<int,int>(1,2)
 new list<int>(1,null)
+new tuple(1,2)
 ```
 ___
 ## StructLiteral
@@ -249,9 +249,9 @@ ___
 <br>
 **Syntax:** { _expressions_ }
 <br>
-**Type:** depends on explicit type of the assignment
+**Type:** any struct type matching the structure of the expression.
 <br>
-**Explaination:** Create a new struct instance
+**Explaination:** Create a new struct instance.
 <br>
 **Examples:**
 ```
