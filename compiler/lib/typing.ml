@@ -69,15 +69,15 @@ and type_reference ref_expr var_env =
         let (field_lock, field_ty,_) = struct_field field resolved_fields in
         (lock || field_lock, field_ty)
       )
-      | None -> raise_error ("No such struct: " ^ str_name)
+      | None -> raise_error ("No such struct '" ^ str_name ^ "'")
     )
-    | _ -> raise_error ("Field access on non-struct variable")
+    | _ -> raise_error ("Field access of non-struct value")
   )
   | ArrayAccess (refer, _) -> (
     let (lock, ty) =  type_reference refer var_env in
     match ty with 
     | T_Array array_typ -> (lock, array_typ)
-    | _ -> raise_error ("Array access on non-array variable")
+    | _ -> raise_error ("Array access of non-array value")
   )
   | Null -> (false, T_Null)
 
@@ -118,7 +118,7 @@ and type_value val_expr var_env =
     let (_, ty) = type_reference refer var_env in
     match ty with
     | T_Array _ -> (false, T_Int)
-    | _ -> raise_error "Array size of non-array variable"
+    | _ -> raise_error "Array size of non-array value"
   )
   | GetInput ty -> (false, ty)
   | Bool _ -> (false, T_Bool)
@@ -141,7 +141,7 @@ and type_value val_expr var_env =
       )
       else (false, T_Struct(name, typ_args)) (* Not generic *)
     )
-    | None -> raise_error ("No such struct: " ^ name)
+    | None -> raise_error ("No such struct '" ^ name ^ "'")
   )
   | StructLiteral _ -> raise_error "Cannot infere a type from a struct literal"
 
@@ -174,7 +174,7 @@ and type_value val_expr var_env =
       | (T_Generic g, _) -> if g = c then Some(et) else None
       | (T_Array(sub_t), T_Array(sub_et)) -> aux sub_t sub_et
       | (T_Struct(name_t, param1), T_Struct(name_et, param2)) when name_t = name_et -> infere_generic c param1 param2
-      | _ -> None (* raise_error "Parameter/Argument structure mismatch in generic inference" *)
+      | _ -> None 
     in match (param_tys, arg_tys) with
     | (param_t::tp, arg_t::ta) -> ( match aux param_t arg_t with
       | None -> infere_generic c tp ta
@@ -228,13 +228,13 @@ let check_topdecs file structs =
     match tds with
     | [] -> ()
     | Routine(_,name,typ_vars,params,_)::t -> (
-      if not(elements_unique typ_vars) then raise_error ("Non-unique type variables in routine definition: " ^ name)
-      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in routine: " ^ name)
+      if not(elements_unique typ_vars) then raise_error ("Non-unique type variables in routine definition '" ^ name ^ "'")
+      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in routine '" ^ name ^ "'")
       else aux t
     )
     | Struct(name,typ_vars,params)::t -> ( 
-      if not(elements_unique typ_vars) then raise_error ("Non-unique type variables in struct definition: " ^ name)
-      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in struct: " ^ name)
+      if not(elements_unique typ_vars) then raise_error ("Non-unique type variables in struct definition '" ^ name ^ "'")
+      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in struct '" ^ name ^ "'")
       else aux t
     )
     | _::t -> aux t
@@ -246,7 +246,7 @@ let check_structs structs =
   let rec aux strs seen =
     match strs with
     | [] -> ()
-    | (name, _, _)::t -> if List.mem name seen then raise_error ("Duplicate struct name: " ^ name) else aux t (name::seen) 
+    | (name, _, _)::t -> if List.mem name seen then raise_error ("Duplicate struct name '" ^ name ^ "'") else aux t (name::seen) 
   in
   aux structs []
 
@@ -283,9 +283,9 @@ let assignment_type_check target assign var_env =
         if not(check_struct_literal (replace_generics params typ_vars typ_args) exprs var_env) then raise_error "Structure mismatch in assignment"
         else target_type
       )
-      | None -> raise_error ("No such struct: " ^ name)
+      | None -> raise_error ("No such struct '" ^ name ^ "'")
     )
-    | _ -> raise_error ("Struct literal assignment to a variable of type: " ^ type_string target_type)
+    | _ -> raise_error ("Struct literal assignment to a variable of type '" ^ type_string target_type ^ "'")
   )
   | _ -> (
     let (target_lock, target_type) = type_reference target var_env in
@@ -297,16 +297,16 @@ let assignment_type_check target assign var_env =
   )
   
 let declaration_type_check name lock typ expr var_env = 
-    if localvar_exists name var_env.locals then raise_error ("Duplicate variable name: " ^ name)
+    if localvar_exists name var_env.locals then raise_error ("Duplicate variable name '" ^ name ^ "'")
     else match expr with
     | Value(StructLiteral(exprs)) -> ( match typ with
       | Some(T_Struct(n,tas)) -> ( match lookup_struct n var_env.structs with
         | Some(tvs,ps) ->  (
           let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else raise_error "Struct literals cannot be infered to a type" in
-          if not(check_struct_literal (replace_generics ps tvs tas) exprs var_env) then raise_error ("Could not match struct literal with: '" ^ type_string typ ^ "'")
+          if not(check_struct_literal (replace_generics ps tvs tas) exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string typ ^ "'")
           else typ
         )
-        | None -> raise_error ("No such struct: " ^ n)
+        | None -> raise_error ("No such struct '" ^ n ^ "'")
       )
       | _ -> raise_error "Struct literals must be assigned to variables with a explict struct type"
     )
@@ -325,10 +325,10 @@ let argument_type_check lock typ expr var_env =
     | Some(T_Struct(n,tas)) -> ( match lookup_struct n var_env.structs with
       | Some(tvs,ps) ->  (
         let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else raise_error "Struct literals cannot be infered to a type" in
-        if not(check_struct_literal (replace_generics ps tvs tas) exprs var_env) then raise_error ("Could not match struct literal with: '" ^ type_string typ ^ "'")
+        if not(check_struct_literal (replace_generics ps tvs tas) exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string typ ^ "'")
         else typ
       )
-      | None -> raise_error ("No such struct: " ^ n)
+      | None -> raise_error ("No such struct '" ^ n ^ "'")
     )
     | _ -> raise_error "Struct literals must be assigned to variables with a explict struct type"
   )

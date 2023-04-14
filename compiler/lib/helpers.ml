@@ -66,7 +66,7 @@ let lookup_localvar (name: string) localvars =
 let struct_field field params =
   let rec aux ps c =
     match ps with
-    | [] -> raise_error ("No such field, " ^ field)
+    | [] -> raise_error ("No such field '" ^ field ^ "'")
     | (l,ty,n)::t -> if n = field then (l,ty,c) else aux t (c+1)
   in
   aux params 0
@@ -77,7 +77,7 @@ let var_locked (name: string) var_env =
     | None -> 
       match lookup_globvar name var_env.globals with
       | Some (_,_,gl) -> gl
-      | None -> raise_error ("No such variable: " ^ name)
+      | None -> raise_error ("No such variable '" ^ name ^ "'")
 
 let var_type (name: string) var_env = 
   match lookup_localvar name var_env.locals with
@@ -85,7 +85,7 @@ let var_type (name: string) var_env =
   | None -> 
     match lookup_globvar name var_env.globals with
     | Some (_,gty,_) -> gty
-    | None -> raise_error ("No such variable: " ^ name)
+    | None -> raise_error ("No such variable '" ^ name ^ "'")
 
 let globvar_exists (name: string) globvars =
   Option.is_some (lookup_globvar name globvars)

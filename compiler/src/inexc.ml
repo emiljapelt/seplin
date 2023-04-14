@@ -45,19 +45,20 @@ let read_file path =
   let () = close_in_noerr file in
   content
     
-let (input, in_type) = resolve_input ()
-let output = resolve_output input
-
+  
 let () = try (
+  let (input, in_type) = resolve_input () in
+  let output = resolve_output input in
   match in_type with
   | IX -> write (compile input (fun file -> Inexclib.Parser.main (Inexclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
   | IXA -> write (Inexclib.AssemblyParser.main (Inexclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
 ) with
 | Error(file_opt, line_opt, expl) -> (
-  Printf.printf "%s\n" expl ;
+  Printf.printf "%s" expl ;
   if Option.is_some file_opt then (
-    Printf.printf "%s:\n" (Option.get file_opt) ;
+    Printf.printf " in:\n%s" (Option.get file_opt) ;
     if Option.is_some line_opt then (
+      Printf.printf ", line %i: \n" (Option.get line_opt) ;
       let line = Option.get line_opt in
       let lines = String.split_on_char '\n' (read_file (Option.get file_opt)) in
       let printer =  print_line lines in match line with
@@ -67,5 +68,5 @@ let () = try (
     )
     else Printf.printf "\n" ;
   )
-  else () ;
+  else Printf.printf "\n" ;
 )

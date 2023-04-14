@@ -117,7 +117,7 @@ let order_dep_globvars dep_gvs =
   let rec aux dep_globvars count prev_count remain acc =
     match dep_globvars with
     | [] when remain = [] -> acc
-    | [] when count = prev_count -> raise_error "Cannot resolve an ordering of the global variables"
+    | [] when count = prev_count -> raise_error "Could not resolve a global variable order, there might be a circular dependency"
     | [] -> aux remain count count [] acc
     | h::t -> ( match h with
       | ((name,context,lock,ty,dec), deps) -> (
@@ -211,7 +211,7 @@ let fetch_var_index (name: string) globvars localvars =
   | None -> 
     match lookup_globvar name globvars with
     | Some (gc,_,_) -> StackFetch(gc)
-    | None -> raise_error ("No such variable: " ^ name)
+    | None -> raise_error ("No such variable '" ^ name ^ "'")
 
 let rec compile_assignable_expr expr var_env acc =
   match expr with
@@ -230,16 +230,16 @@ and compile_reference ref_expr var_env acc =
         let (_, _, index) = struct_field field params in
         compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: acc)
       )
-      | None -> raise_error ("No such struct: " ^ name)
+      | None -> raise_error ("No such struct '" ^ name ^ "'")
     )
-    | _ -> raise_error ("Struct field lookup type failure")
+    | _ -> raise_error ("Struct field lookup on non-struct value")
   )
   | ArrayAccess (refer, index) -> (
     let (_, ref_ty) = Typing.type_reference refer var_env in
     let (_, idx_ty) = Typing.type_assignable_expr index var_env in
     match (ref_ty, idx_ty) with
     | (T_Array (_), T_Int) -> compile_reference refer var_env (FetchFull :: (compile_assignable_expr_as_value index var_env (FieldFetch :: acc)))
-    | _ -> raise_error ("Array lookup type failure")
+    | _ -> raise_error ("Array indexed with non-integer value")
   )
   | Null -> PlaceInt(0) :: acc
 
@@ -267,7 +267,7 @@ and compile_value val_expr var_env acc =
     let (_, ref_ty) = Typing.type_reference refer var_env in
     match ref_ty with
     | T_Array _ -> compile_reference refer var_env  (FetchFull :: SizeOf :: acc)
-    | _ -> raise_error "Array size only makes sense for arrays"
+    | _ -> raise_error "Array size called on non-array value"
   )
   | GetInput ty -> ( match type_index ty with
     | -1 -> raise_error "Unsupported GetInput variant"
@@ -288,7 +288,7 @@ and compile_value val_expr var_env acc =
     let (_, s_ty) = Typing.type_assignable_expr size_expr var_env in
     match s_ty with
     | T_Int -> compile_assignable_expr_as_value (optimize_assignable_expr size_expr var_env) var_env (DeclareStruct :: IncrRef :: acc)
-    | _ -> raise_error ("Init array with non-int size")
+    | _ -> raise_error ("Initializing array with non-integer size")
   )
   | ArrayLiteral elements -> (
     let (_,ty) = Typing.type_array_literal (List.map (fun e -> Typing.type_assignable_expr e var_env) elements) in
@@ -317,7 +317,7 @@ and compile_value val_expr var_env acc =
       | (ha::ta, (field_lock,field_ty,_)::tf) -> (
         let (ha_lock, ha_ty) = Typing.type_assignable_expr ha var_env in
         if not (Typing.type_equal field_ty ha_ty) then raise_error ("Struct argument type mismatch")
-        else if ha_lock && (not field_lock) then raise_error "Cannot give a locked variable as a parameter that is not locked"
+        else if ha_lock && (not field_lock) then raise_error "Locked variable given as a parameter that is not locked"
         else let optha = optimize_assignable_expr ha var_env in
         match optha with
         | Value _ -> (
@@ -333,7 +333,7 @@ and compile_value val_expr var_env acc =
           | _ -> aux ta tf (c-1) (CloneFull :: PlaceInt(c) :: compile_assignable_expr optha var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
         )
       )
-      | (_,_) -> raise_error ("Struct argument count mismatch")
+      | (_,_) -> raise_error ("Expected " ^(string_of_int (List.length fields))^ " arguments, but was given " ^(string_of_int (List.length args))) 
     in
     match lookup_struct name var_env.structs with
     | Some (typ_vars, params) -> (
@@ -345,13 +345,13 @@ and compile_value val_expr var_env acc =
         else if (List.length typ_args) = (List.length typ_vars) then (
           PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args)) ((List.length params)-1) acc)
         )
-        else raise_error ("Amount of type arguments does not match required amount") 
+        else raise_error ("Expected " ^(string_of_int (List.length typ_vars))^ " type arguments, but was given " ^(string_of_int (List.length typ_args))) 
       )
       else ( (* Not generic *)
         PlaceInt(List.length params) :: DeclareStruct :: (aux (List.rev args) (List.rev params) ((List.length params)-1) acc)
       ) 
     )
-    | None -> raise_error ("No such struct: " ^ name)
+    | None -> raise_error ("No such struct '" ^ name ^ "'")
   )
   | StructLiteral (exprs) -> (
     let rec aux es c acc =
@@ -425,7 +425,7 @@ let compile_arguments args var_env acc =
         | T_Array _ -> aux t (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
         | T_Struct _ -> aux t (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))
         | T_Null -> aux t (compile_assignable_expr_as_value opteh var_env (acc))
-        | T_Generic _ -> raise_error "Generic variables not yet supported, in call arguments"
+        | T_Generic _ -> aux t (compile_assignable_expr_as_value opteh var_env (IncrRef :: acc))(*raise_error "Generic variables not yet supported, in call arguments"*)
       )
       | Reference r -> ( match r with
         | VariableAccess _ -> aux t (compile_reference r var_env (IncrRef :: acc)) 
@@ -461,7 +461,7 @@ let compile_assignment target assign var_env acc =
   )
   | (StructAccess(refer, field), Value v) -> ( match Typing.type_reference refer var_env with
     | (_,T_Struct (str_name, _)) -> ( match lookup_struct str_name var_env.structs with
-      | None -> raise_error ("Could not find struct: " ^ str_name)
+      | None -> raise_error ("Could not find struct '" ^ str_name ^ "'")
       | Some (_, fields) -> ( match struct_field field fields with
         | (_,_,index) -> ( match assign_type with
           | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: FieldFetch :: FetchFull :: (compile_value v var_env (AssignFull :: acc)))
@@ -474,11 +474,11 @@ let compile_assignment target assign var_env acc =
         )
       )
     )
-    | (_,t) -> raise_error ("Struct assignment to variable of type: " ^ Typing.type_string t) 
+    | (_,t) -> raise_error ("Struct field assignment to variable of type '" ^ Typing.type_string t ^ "'") 
   )
   | (StructAccess(refer, field), Reference re) -> ( match Typing.type_reference refer var_env with
     | (_,T_Struct (str_name, _)) -> ( match lookup_struct str_name var_env.structs with
-      | None -> raise_error ("Could not find struct: " ^ str_name)
+      | None -> raise_error ("Could not find struct '" ^ str_name ^ "'")
       | Some (_, fields) -> ( match struct_field field fields with
         | (_, _, index) -> ( match assign_type with
           | T_Int -> compile_reference refer var_env (FetchFull :: PlaceInt(index) :: (compile_reference re var_env (FetchFull :: IncrRef :: FieldAssign :: acc)))
@@ -491,7 +491,7 @@ let compile_assignment target assign var_env acc =
         )
       )
     )
-    | (_,t) -> raise_error ("Struct assignment to variable of type: " ^ Typing.type_string t) 
+    | (_,t) -> raise_error ("Struct field assignment to variable of type '" ^ Typing.type_string t ^ "'") 
   )
   | (ArrayAccess(refer, index), Value v) -> ( match Typing.type_reference refer var_env with
     | (_,T_Array _) -> ( match Typing.type_assignable_expr index var_env with
@@ -506,7 +506,7 @@ let compile_assignment target assign var_env acc =
       )
       | (_,_) -> raise_error "Array index must be of type 'int'"
     )
-    | (_,t) -> raise_error ("Array assignment to variable of type: " ^ Typing.type_string t) 
+    | (_,t) -> raise_error ("Array assignment to variable of type '" ^ Typing.type_string t ^ "'") 
   )
   | (ArrayAccess(refer, index), Reference re) -> ( match Typing.type_reference refer var_env with
     | (_,T_Array _) -> ( match Typing.type_assignable_expr index var_env with 
@@ -521,7 +521,7 @@ let compile_assignment target assign var_env acc =
       )
       | (_,_) -> raise_error "Array index must be of type 'int'"
     )
-    | (_,t) -> raise_error ("Array assignment to variable of type: " ^ Typing.type_string t) 
+    | (_,t) -> raise_error ("Array assignment to variable of type '" ^ Typing.type_string t ^ "'") 
   )
   
 
@@ -531,8 +531,8 @@ let update_locals env lock typ name =
 let compile_declaration dec env =
   match dec with
   | TypeDeclaration (lock, typ, name) -> (
-    if localvar_exists name env.var_env.locals then raise_error ("Duplicate variable name: " ^ name)
-    else if not(well_defined_type typ env.var_env) then raise_error "Not a well defined type"
+    if localvar_exists name env.var_env.locals then raise_error ("Duplicate variable name '" ^ name ^ "'")
+    else if not(well_defined_type typ env.var_env) then raise_error "Ill defined type"
     else 
     ( update_locals env lock typ name,
       match typ with
@@ -611,14 +611,14 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     let context_env = 
       if Option.is_none context_opt then env
       else match List.find_opt (fun (alias, _) -> alias = (Option.get context_opt)) env.file_refs with
-      | None -> raise_error ("No such context: " ^ (Option.get context_opt))
+      | None -> raise_error ("No such context '" ^ (Option.get context_opt) ^ "'")
       | Some((_,c)) -> ( match List.find_opt (fun e -> match e with Context(cn,_) -> cn = c) contexts with
-        | None -> raise_error ("Failed lookup of context: " ^ c)
+        | None -> raise_error ("Failed lookup of context '" ^ c ^ "'")
         | Some(Context(_,c_env)) -> c_env
       )
     in
     match lookup_routine name context_env.routine_env with
-    | None -> raise_error ("Call to undefined routine: " ^ name)
+    | None -> raise_error ("Call to undefined routine '" ^ name ^ "'")
     | Some (accmod,typ_vars,params) -> (
       if Option.is_some context_opt && accmod = Internal then raise_error ("Call to internal routine of another context") else
       if List.length params != List.length args then raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length params)) ^ " arguments, but was given " ^  (Int.to_string (List.length args)))
@@ -701,7 +701,7 @@ let gather_context_infos base_path parse =
     match topdecs with
     | [] -> (complete_path base_path path, globals, structs, routines, file_refs)
     | (FileReference(alias, ref_path))::t -> (
-      if List.exists (fun (a,_) -> a = alias) file_refs then failwith ("Duplicate context alias: " ^ alias) else
+      if List.exists (fun (a,_) -> a = alias) file_refs then failwith ("Duplicate context alias '" ^ alias ^ "'") else
       let ref_path = complete_path path ref_path in
       get_context_environment path t ((alias,ref_path)::file_refs) globals structs routines
     )
@@ -728,18 +728,17 @@ let gather_context_infos base_path parse =
   get_contexts base_path parse []
 
 let merge_contexts contexts =
-  let rec aux cs topdecs globals structs routines =
+  let rec aux cs topdecs globals structs =
     match cs with
-    | [] -> (File(topdecs), globals, structs, routines)
-    | (File(tds),(_,c_globals,c_structs,c_routines,_))::t -> (
+    | [] -> (File(topdecs), globals, structs)
+    | (File(tds),(_,c_globals,c_structs,_,_))::t -> (
       aux t 
         (List.rev_append topdecs tds) 
         (List.rev_append globals c_globals) 
         (List.rev_append structs c_structs) 
-        (List.rev_append routines c_routines)
     )
   in
-  aux contexts [][][][]
+  aux contexts [][][]
 
 let create_contexts globals context_infos : context list =
   let get_globalvar_info var_name context_name = 
@@ -759,7 +758,7 @@ let create_contexts globals context_infos : context list =
 let compile path parse =
   let path = (compress_path (total_path path)) in
   let context_infos = gather_context_infos path parse in
-  let (topdecs,globals,structs,_) = merge_contexts context_infos in
+  let (topdecs,globals,structs) = merge_contexts context_infos in
   let globals_ordered = (order_dep_globvars (get_globvar_dependencies globals)) in
   let contexts = create_contexts globals_ordered context_infos in
   let () = check_topdecs topdecs structs in
