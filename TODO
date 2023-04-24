@@ -14,4 +14,3 @@
     - "fixed": fixed pointer/The variable cannot be reassigned, but the underlying data can be modified.
         - Not sure how this is useful. So it might not be nessecary.
     - "const": both "stable" and "fixed", only reading is allowed.
-    

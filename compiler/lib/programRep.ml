@@ -1,8 +1,9 @@
+
 type program =
-  | Program of (string * char list * (bool * typ * string) list) list * (bool * typ * string) list * program_part list
+  | Program of (string * char list * (var_mod * typ * string) list) list * (var_mod * typ * string) list * program_part list
 
 and program_part =
-  | EntryPoint of string * string * (bool * typ) list
+  | EntryPoint of string * string * (var_mod * typ) list
   | Label of string
   | Instruction of int
   | IntInstruction of int * int
@@ -19,6 +20,11 @@ and typ =
   | T_Null
   | T_Generic of char
 
+and var_mod =
+  | Open
+  | Stable
+  | Const
+
 let type_index ty =
   match ty with
   | T_Int -> 0
@@ -30,7 +36,7 @@ let type_index ty =
   | T_Null -> failwith "typing a null"
 
 type concrete_program_part =
-  | CEntryPoint of string * string * (bool * typ) list
+  | CEntryPoint of string * string * (var_mod * typ) list
   | CLabel of string
   | CHalt
   | CStop

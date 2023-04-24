@@ -40,7 +40,7 @@
 %token IF ELSE
 %token WHILE UNTIL FOR REPEAT
 %token BREAK CONTINUE
-%token LOCKED STRUCT NULL NEW
+%token CONST STABLE STRUCT NULL NEW
 %token PRINT HASH
 
 %left ELSE
@@ -170,12 +170,15 @@ stmtOrDec:
 ;
 
 dec:
-    NAME COLON typ SEMI                                      { TypeDeclaration (false, $3, $1) }
-  | NAME COLON LOCKED typ SEMI                               { TypeDeclaration (true, $4, $1) }
-  | NAME COLON typ ASSIGNMENT expression SEMI     { AssignDeclaration (false, Some $3, $1, $5) }
-  | NAME COLON LOCKED typ ASSIGNMENT expression SEMI    { AssignDeclaration (true, Some $4, $1, $6) }
-  | NAME COLON ASSIGNMENT expression SEMI           { AssignDeclaration (false, None, $1, $4) }
-  | NAME COLON LOCKED ASSIGNMENT expression SEMI    { AssignDeclaration (true, None, $1, $5) }
+    NAME COLON typ SEMI                                      { TypeDeclaration (Open, $3, $1) }
+  | NAME COLON STABLE typ SEMI                               { TypeDeclaration (Stable, $4, $1) }
+  | NAME COLON CONST typ SEMI                                { TypeDeclaration (Const, $4, $1) }
+  | NAME COLON typ ASSIGNMENT expression SEMI                { AssignDeclaration (Open, Some $3, $1, $5) }
+  | NAME COLON STABLE typ ASSIGNMENT expression SEMI         { AssignDeclaration (Stable, Some $4, $1, $6) }
+  | NAME COLON CONST typ ASSIGNMENT expression SEMI          { AssignDeclaration (Const, Some $4, $1, $6) }
+  | NAME COLON ASSIGNMENT expression SEMI                    { AssignDeclaration (Open, None, $1, $4) }
+  | NAME COLON STABLE ASSIGNMENT expression SEMI             { AssignDeclaration (Stable, None, $1, $5) }
+  | NAME COLON CONST ASSIGNMENT expression SEMI              { AssignDeclaration (Const, None, $1, $5) }
 ;
 
 stmt:
@@ -188,7 +191,7 @@ stmt:
   | REPEAT LPAR value RPAR stmt { 
     let var_name = new_var () in
     Block([
-      Declaration(TypeDeclaration(false, T_Int, var_name), $symbolstartpos.pos_lnum); 
+      Declaration(TypeDeclaration(Open, T_Int, var_name), $symbolstartpos.pos_lnum); 
       Statement(While(Value(Binary_op("<", Reference(VariableAccess var_name), Value $3)), 
         Block([
           Statement($5,$symbolstartpos.pos_lnum); 
@@ -201,8 +204,8 @@ stmt:
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(false, Some T_Int, limit_name, Value(ValueOf($3))), $symbolstartpos.pos_lnum); 
-      Declaration(TypeDeclaration(false, T_Int, count_name), $symbolstartpos.pos_lnum); 
+      Declaration(AssignDeclaration(Open, Some T_Int, limit_name, Value(ValueOf($3))), $symbolstartpos.pos_lnum); 
+      Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
       Statement(While(Value(Binary_op("<", Reference(VariableAccess count_name), Reference(VariableAccess limit_name))), 
         Block([
           Statement($5, $symbolstartpos.pos_lnum); 
@@ -242,8 +245,9 @@ simple_params1:
 ;
 
 simple_param:
-    NAME COLON LOCKED simple_typ           { (true, $4, $1) }
-  | NAME COLON simple_typ                  { (false, $3, $1) }
+    NAME COLON simple_typ                  { (Open, $3, $1) }
+  | NAME COLON STABLE simple_typ           { (Stable, $4, $1) }
+  | NAME COLON CONST simple_typ            { (Const, $4, $1) }
 ;
 
 params:
@@ -257,6 +261,7 @@ params1:
 ;
 
 param:
-    NAME COLON LOCKED typ           { (true, $4, $1) }
-  | NAME COLON typ                  { (false, $3, $1) }
+  | NAME COLON typ                  { (Open, $3, $1) }
+  | NAME COLON STABLE typ           { (Stable, $4, $1) }
+  | NAME COLON CONST typ            { (Const, $4, $1) }
 ;

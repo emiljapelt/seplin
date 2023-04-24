@@ -133,6 +133,6 @@ program:
 
 type_list:
         {[]}
-    | INT type_list { (false, T_Int) :: $2 }
-    | BOOL type_list { (false, T_Bool) :: $2 }
+    | INT type_list { (Open, T_Int) :: $2 }
+    | BOOL type_list { (Open, T_Bool) :: $2 }
 ;

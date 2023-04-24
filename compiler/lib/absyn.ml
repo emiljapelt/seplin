@@ -5,7 +5,7 @@ type statement =
     | While of expression * statement
     | Block of statement_or_declaration list
     | Assign of reference * expression
-    | Call of string option * string * typ list * expression list (* context_nick_name * routine_name * type_arguments * arguments *)
+    | Call of string option * string * typ list * expression list (* context_alias * routine_name * type_arguments * arguments *)
     | Stop
     | Halt
     | Break
@@ -13,8 +13,8 @@ type statement =
     | Print of expression list
 
 and declaration =
-    | TypeDeclaration of bool * typ * string
-    | AssignDeclaration of bool * typ option * string * expression
+    | TypeDeclaration of var_mod * typ * string
+    | AssignDeclaration of var_mod * typ option * string * expression
 
 and statement_or_declaration =
     | Statement of statement * int (*   statement * line_number   *)
@@ -45,9 +45,9 @@ and value =
     | StructLiteral of expression list
 
 and top_declaration =
-    | Routine of access_mod * string * char list * (bool * typ * string) list * statement
+    | Routine of access_mod * string * char list * (var_mod * typ * string) list * statement
     | GlobalDeclaration of declaration
-    | Struct of string * char list * ((bool * typ * string) list)
+    | Struct of string * char list * ((var_mod * typ * string) list)
     | FileReference of string * string (* alias * file_path *)
 
 and access_mod =

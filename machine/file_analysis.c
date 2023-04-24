@@ -166,7 +166,8 @@ void print_type(byte_t* ptr, byte_t* struct_seg) {
 }
 
 void print_type_info(byte_t* ptr, byte_t* struct_seg) {
-    if (*ptr == 1) printf("locked ");
+    if (*ptr == 1) printf("stable ");
+    else if (*ptr == 2) printf("const ");
     ptr += 1;
     print_type(ptr, struct_seg);
 }

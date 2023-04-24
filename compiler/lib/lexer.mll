@@ -14,7 +14,8 @@
                         "as", AS;
                         "new", NEW;
                         "null", NULL;
-                        "locked", LOCKED;
+                        "const", CONST;
+                        "stable", STABLE;
                         "if", IF;
                         "else", ELSE;
                         "while", WHILE;

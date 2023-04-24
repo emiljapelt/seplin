@@ -4,16 +4,16 @@ open Absyn
 
 (*** Types ***)
 type variable_environment = { 
-  locals: (bool * typ * string) list; (* Lock, type, name *)
-  globals: (string * string * int * bool * typ * declaration) list; (* name, stack_index, lock, type, expression *)
-  structs: (string * char list * (bool * typ * string) list) list; (* name, type_vars, parameters(lock, type, name) *)
+  locals: (var_mod * typ * string) list; (* modifier, type, name *)
+  globals: (string * string * int * var_mod * typ * declaration) list; (* name, stack_index, modifier, type, expression *)
+  structs: (string * char list * (var_mod * typ * string) list) list; (* name, type_vars, parameters(modifier, type, name) *)
   typ_vars: char list;
 }
 
 type environment = { 
   context_name: string;
   var_env: variable_environment;
-  routine_env: (access_mod * string * string * char list * (bool * typ * string) list * statement) list; (* name, type_vars, parameters(lock, type, name) *)
+  routine_env: (access_mod * string * string * char list * (var_mod * typ * string) list * statement) list; (* name, type_vars, parameters(modifier, type, name) *)
   file_refs: (string * string) list
 }
 
@@ -58,25 +58,30 @@ let lookup_struct (name: string) structs =
   lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs
 
 let lookup_globvar (name: string) globvars =
-  lookup (fun (n,_,cnt,l,ty,_) -> if n = name then Some(cnt,ty,l) else None) globvars
+  lookup (fun (n,_,cnt,vmod,ty,_) -> if n = name then Some(cnt,ty,vmod) else None) globvars
 
 let lookup_localvar (name: string) localvars =
-  lookup_i (fun i (l,ty,n) -> if n = name then Some(i,ty,l) else None) localvars
+  lookup_i (fun i (vmod,ty,n) -> if n = name then Some(i,ty,vmod) else None) localvars
 
 let struct_field field params =
   let rec aux ps c =
     match ps with
     | [] -> raise_error ("No such field '" ^ field ^ "'")
-    | (l,ty,n)::t -> if n = field then (l,ty,c) else aux t (c+1)
+    | (vmod,ty,n)::t -> if n = field then (vmod,ty,c) else aux t (c+1)
   in
   aux params 0
 
-let var_locked (name: string) var_env = 
+let strictest_mod m1 m2 =
+  if m1 = Const || m2 = Const then Const
+  else if m1 = Stable || m2 = Stable then Stable
+  else Open
+
+let var_modifier (name: string) var_env = 
   match lookup_localvar name var_env.locals with
-    | Some (_,_,ll) -> ll
+    | Some (_,_,l_vmod) -> l_vmod
     | None -> 
       match lookup_globvar name var_env.globals with
-      | Some (_,_,gl) -> gl
+      | Some (_,_,g_vmod) -> g_vmod
       | None -> raise_error ("No such variable '" ^ name ^ "'")
 
 let var_type (name: string) var_env = 

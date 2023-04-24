@@ -27,18 +27,17 @@ let rec type_equal type1 type2 =
   in aux type1 type2 || aux type2 type1
 
 let type_array_literal lst =
-  let rec aux_type ty lo li =
+  let rec aux_type ty vmod li =
     match li with
-    | [] -> (lo,ty)
-    | (lock,h)::t -> (
+    | [] -> (vmod,ty)
+    | (expr_vmod,h)::t -> (
       if not (type_equal h ty) then raise_error "Array literal containing expressions of differing types"
-      else if lock then aux_type ty true t
-      else aux_type ty lo t
+      else aux_type ty (strictest_mod vmod expr_vmod) t
     )
   in
   match lst with 
-  | [] -> (false, T_Null)
-  | (lock,h)::t -> aux_type h lock t
+  | [] -> (Open, T_Null)
+  | (vmod,h)::t -> aux_type h vmod t
 
 let default_value t =
   match t with
@@ -52,94 +51,94 @@ let simple_type t =
     | T_Int | T_Bool | T_Char -> true
     | _ -> false
   
-let rec type_assignable_expr expr var_env =
+let rec type_expr expr var_env =
   match expr with
   | Reference ref_expr -> type_reference ref_expr var_env
   | Value val_expr -> type_value val_expr var_env
 
 and type_reference ref_expr var_env =
   match ref_expr with
-  | VariableAccess name -> (var_locked name var_env, var_type name var_env)
+  | VariableAccess name -> (var_modifier name var_env, var_type name var_env)
   | StructAccess (refer, field) -> (
-    let (lock, ty) =  type_reference refer var_env in
+    let (vmod, ty) =  type_reference refer var_env in
     match ty with 
     | T_Struct (str_name, typ_args) -> (match lookup_struct str_name var_env.structs with
       | Some (typ_vars, fields) -> (
         let resolved_fields = replace_generics fields typ_vars typ_args in
-        let (field_lock, field_ty,_) = struct_field field resolved_fields in
-        (lock || field_lock, field_ty)
+        let (field_mod, field_ty,_) = struct_field field resolved_fields in
+        ((if vmod = Open then field_mod else Const), field_ty)
       )
       | None -> raise_error ("No such struct '" ^ str_name ^ "'")
     )
     | _ -> raise_error ("Field access of non-struct value")
   )
   | ArrayAccess (refer, _) -> (
-    let (lock, ty) =  type_reference refer var_env in
+    let (vmod, ty) =  type_reference refer var_env in
     match ty with 
-    | T_Array array_typ -> (lock, array_typ)
+    | T_Array array_typ -> (vmod, array_typ)
     | _ -> raise_error ("Array access of non-array value")
   )
-  | Null -> (false, T_Null)
+  | Null -> (Const, T_Null)
 
 and type_value val_expr var_env =
   match val_expr with
   | Binary_op (op, expr1, expr2) -> (
-    let (_, ty1) = type_assignable_expr expr1 var_env in
-    let (_, ty2) = type_assignable_expr expr2 var_env in
+    let (_, ty1) = type_expr expr1 var_env in
+    let (_, ty2) = type_expr expr2 var_env in
     match (op, ty1, ty2) with
-    | ("&&", T_Bool, T_Bool) ->  (false, T_Bool)
-    | ("||", T_Bool, T_Bool) -> (false, T_Bool)
-    | ("=", _, T_Null) -> (false, T_Bool)
-    | ("=", T_Null, _) -> (false, T_Bool)
-    | ("=", T_Bool, T_Bool) -> (false, T_Bool)
-    | ("=", T_Char, T_Char) -> (false, T_Bool)
-    | ("=", T_Int, T_Int) -> (false, T_Bool)
-    | ("!=", _, T_Null) -> (false, T_Bool)
-    | ("!=", T_Null, _) -> (false, T_Bool)
-    | ("!=", T_Bool, T_Bool) -> (false, T_Bool)
-    | ("!=", T_Char, T_Char) -> (false, T_Bool)
-    | ("!=", T_Int, T_Int) -> (false, T_Bool)
-    | ("<=", T_Int, T_Int) -> (false, T_Bool) 
-    | ("<", T_Int, T_Int) -> (false, T_Bool)
-    | (">=", T_Int, T_Int) -> (false, T_Bool)
-    | (">", T_Int, T_Int) -> (false, T_Bool)
-    | ("+", T_Int, T_Int) -> (false, T_Int)
-    | ("-", T_Int, T_Int) -> (false, T_Int)
-    | ("*", T_Int, T_Int) -> (false, T_Int)
+    | ("&&", T_Bool, T_Bool) ->  (Open, T_Bool)
+    | ("||", T_Bool, T_Bool) -> (Open, T_Bool)
+    | ("=", _, T_Null) -> (Open, T_Bool)
+    | ("=", T_Null, _) -> (Open, T_Bool)
+    | ("=", T_Bool, T_Bool) -> (Open, T_Bool)
+    | ("=", T_Char, T_Char) -> (Open, T_Bool)
+    | ("=", T_Int, T_Int) -> (Open, T_Bool)
+    | ("!=", _, T_Null) -> (Open, T_Bool)
+    | ("!=", T_Null, _) -> (Open, T_Bool)
+    | ("!=", T_Bool, T_Bool) -> (Open, T_Bool)
+    | ("!=", T_Char, T_Char) -> (Open, T_Bool)
+    | ("!=", T_Int, T_Int) -> (Open, T_Bool)
+    | ("<=", T_Int, T_Int) -> (Open, T_Bool) 
+    | ("<", T_Int, T_Int) -> (Open, T_Bool)
+    | (">=", T_Int, T_Int) -> (Open, T_Bool)
+    | (">", T_Int, T_Int) -> (Open, T_Bool)
+    | ("+", T_Int, T_Int) -> (Open, T_Int)
+    | ("-", T_Int, T_Int) -> (Open, T_Int)
+    | ("*", T_Int, T_Int) -> (Open, T_Int)
     | _ -> raise_error "Unknown binary operator, or type mismatch"
   )
   | Unary_op (op, expr) -> (
-    let (_, ty) = type_assignable_expr expr var_env in
+    let (_, ty) = type_expr expr var_env in
     match (op, ty) with
-    | ("!", T_Bool) -> (false, T_Bool)
+    | ("!", T_Bool) -> (Open, T_Bool)
     | _ -> raise_error "Unknown unary operator, or type mismatch"
   )
   | ArraySize (refer) ->  (
     let (_, ty) = type_reference refer var_env in
     match ty with
-    | T_Array _ -> (false, T_Int)
+    | T_Array _ -> (Open, T_Int)
     | _ -> raise_error "Array size of non-array value"
   )
-  | GetInput ty -> (false, ty)
-  | Bool _ -> (false, T_Bool)
-  | Int _ -> (false, T_Int)
-  | Char _ -> (false, T_Char)
+  | GetInput ty -> (Open, ty)
+  | Bool _ -> (Open, T_Bool)
+  | Int _ -> (Open, T_Int)
+  | Char _ -> (Open, T_Char)
   | ValueOf (refer) -> type_reference refer var_env
-  | NewArray (ty, _) -> (false, T_Array(ty))
-  | ArrayLiteral elements -> (match type_array_literal (List.map (fun e -> type_assignable_expr e var_env) elements) with (lo,ety) -> (lo, T_Array(ety)))
+  | NewArray (ty, _) -> (Open, T_Array(ty))
+  | ArrayLiteral elements -> (match type_array_literal (List.map (fun e -> type_expr e var_env) elements) with (vmod,ety) -> (vmod, T_Array(ety)))
   | NewStruct (name, typ_args, args) -> ( match lookup_struct name var_env.structs with
     | Some (typ_vars, params) -> (
       if (List.length typ_vars > 0) then ( (* Generic *)
         if (typ_args = []) then (
           let typ_args = infere_generics typ_vars params args var_env in
-          (false, T_Struct(name, typ_args))
+          (Open, T_Struct(name, typ_args))
         )
         else if (List.length typ_args) = (List.length typ_vars) then (
-          (false, T_Struct(name, typ_args))
+          (Open, T_Struct(name, typ_args))
         )
         else raise_error ("Amount of type arguments does not match required amount") 
       )
-      else (false, T_Struct(name, typ_args)) (* Not generic *)
+      else (Open, T_Struct(name, typ_args)) (* Not generic *)
     )
     | None -> raise_error ("No such struct '" ^ name ^ "'")
   )
@@ -163,7 +162,7 @@ and type_value val_expr var_env =
     in
     let aux element =
       match element with
-      | (lock, ty, name) -> (lock, replace ty, name)
+      | (vmod, ty, name) -> (vmod, replace ty, name)
     in
     List.map (fun e -> aux e) lst
     
@@ -184,7 +183,7 @@ and type_value val_expr var_env =
   
   and infere_generics typ_vars params args var_env =
     let param_tys = List.map (fun p -> match p with (_,t,_) -> t ) params in
-    let arg_tys = List.map (fun a -> match type_assignable_expr a var_env with (_,t) -> t) args in
+    let arg_tys = List.map (fun a -> match type_expr a var_env with (_,t) -> t) args in
     List.map (fun tv -> (
       match infere_generic tv param_tys arg_tys with
       | Some(t) -> t
@@ -263,40 +262,46 @@ let rec check_struct_literal struct_fields exprs var_env =
       )
     )
     | ((_,T_Null,_),_)::_ -> false
-    | ((lock,typ,_),e)::t -> (
-      let (expr_lock, expr_typ) = type_assignable_expr e var_env in
+    | ((vmod,typ,_),e)::t -> (
+      let (expr_vmod, expr_typ) = type_expr e var_env in
       if not(type_equal typ expr_typ) then false else
-      if expr_lock && not(lock) then false else
+      if vmod = Open && (expr_vmod = Stable || expr_vmod = Const) then false else
       aux t
     )
   in 
   aux (List.combine struct_fields exprs)
 
 let assignment_type_check target assign var_env =
-  match assign with
-  | Value(StructLiteral(exprs)) -> (
-    let (target_lock, target_type) = type_reference target var_env in
-    if target_lock then raise_error "Assignment to a locked variable"
-    else match target_type with
+  let (target_vmod, target_type) = type_reference target var_env in
+  let assign_vmod = match assign with
+  | Value(StructLiteral(exprs)) -> ( match target_type with
     | T_Struct(name, typ_args) -> ( match lookup_struct name var_env.structs with
       | Some(typ_vars, params) -> (
         if not(check_struct_literal (replace_generics params typ_vars typ_args) exprs var_env) then raise_error "Structure mismatch in assignment"
-        else target_type
+        else Open
       )
       | None -> raise_error ("No such struct '" ^ name ^ "'")
     )
     | _ -> raise_error ("Struct literal assignment to a variable of type '" ^ type_string target_type ^ "'")
   )
   | _ -> (
-    let (target_lock, target_type) = type_reference target var_env in
-    let (assign_lock, assign_type) = type_assignable_expr assign var_env in
-    if target_lock then raise_error "Assignment to a locked variable"
-    else if assign_lock then raise_error "Cannot assign a locked variable, to another variable"
-    else if not (type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(type_string target_type)^"' but got '" ^(type_string assign_type)^ "'")
-    else assign_type
+    let (assign_vmod, assign_type) = type_expr assign var_env in
+    if not (type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(type_string target_type)^"' but got '" ^(type_string assign_type)^ "'") 
+    else assign_vmod
   )
+  in
+  match target_vmod with
+  | Open -> (
+    if assign_vmod != Open then raise_error "Assignment of protected variable, to non-protected variable"
+    else target_type
+  )
+  | Stable -> ( match assign with
+    | Value _ -> raise_error "Attempt to overwrite stable data"
+    | Reference _ -> target_type
+  )
+  | Const -> raise_error "Assignment to a protected variable"
   
-let declaration_type_check name lock typ expr var_env = 
+let declaration_type_check name vmod typ expr var_env = 
     if localvar_exists name var_env.locals then raise_error ("Duplicate variable name '" ^ name ^ "'")
     else match expr with
     | Value(StructLiteral(exprs)) -> ( match typ with
@@ -311,15 +316,15 @@ let declaration_type_check name lock typ expr var_env =
       | _ -> raise_error "Struct literals must be assigned to variables with a explict struct type"
     )
     | _ -> (
-      let (expr_lock, expr_ty) = type_assignable_expr expr var_env in
+      let (expr_vmod, expr_ty) = type_expr expr var_env in
       if (Option.is_none typ) && (expr_ty = T_Null) then raise_error "Cannot infere a type from 'null'" else
       let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else expr_ty in
-      if expr_lock && (not lock) then raise_error "Cannot use a locked variable as a non-locked variable"
+      if vmod = Open && expr_vmod != Open then raise_error "Cannot assign a protected variable to an open variable"
       else if not (type_equal typ expr_ty) then raise_error ("Type mismatch: expected '" ^ (type_string typ) ^ "', got '" ^ (type_string expr_ty) ^ "'")
       else typ
     )
 
-let argument_type_check lock typ expr var_env = 
+let argument_type_check vmod typ expr var_env = 
   match expr with
   | Value(StructLiteral(exprs)) -> ( match typ with
     | Some(T_Struct(n,tas)) -> ( match lookup_struct n var_env.structs with
@@ -333,10 +338,11 @@ let argument_type_check lock typ expr var_env =
     | _ -> raise_error "Struct literals must be assigned to variables with a explict struct type"
   )
   | _ -> (
-    let (expr_lock, expr_ty) = type_assignable_expr expr var_env in
+    let (expr_vmod, expr_ty) = type_expr expr var_env in
     if (Option.is_none typ) && (expr_ty = T_Null) then raise_error "Cannot infere a type from 'null'" else
     let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else expr_ty in
-    if expr_lock && (not lock) then raise_error "Cannot use a locked variable as a non-locked variable"
+    if vmod = Open && (expr_vmod != Open) then raise_error "Cannot use a protected variable as an open variable"
+    else if vmod = Stable && (expr_vmod = Const) then raise_error "Cannot use a constant variable as a stable parameter"
     else if not (type_equal typ expr_ty) then raise_error ("Type mismatch: expected '" ^ (type_string typ) ^ "', got '" ^ (type_string expr_ty) ^ "'")
     else typ
   )

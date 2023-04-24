@@ -58,7 +58,13 @@ let get_index list prop =
 
 (* Writers *)
 
-let write_type_info file lock ty structs =
+let variable_mod vmod =
+  match vmod with
+  | Open -> "\x00"
+  | Stable -> "\x01"
+  | Const -> "\x02"
+
+let write_type_info file vmod ty structs =
   let rec write_type ty =
     fprintf file "%c" (Char.chr (ProgramRep.type_index ty)) ; 
     match ty with
@@ -71,7 +77,7 @@ let write_type_info file lock ty structs =
     )
     | _ -> ()
   in
-  if lock then fprintf file "\x01" else fprintf file "\x00" ;
+  fprintf file "%s" (variable_mod vmod) ;
   write_type ty
 
 let write_typ_vars file typ_vars =
@@ -90,7 +96,7 @@ let write_entry_point_info file name addr args structs =
   let rec print_args a = 
     match a with
     | [] -> ()
-    | (lock,ty)::t -> write_type_info file lock ty structs ; print_args t
+    | (vmod,ty)::t -> write_type_info file vmod ty structs ; print_args t
   in
   print_args args
 

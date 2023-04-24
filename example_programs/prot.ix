@@ -1,0 +1,11 @@
+
+
+entry main() {
+    
+    o ::= 1;
+    s :stable:= 2;
+    c :const:= 3;
+
+    t : const int;
+    t := c;
+}
