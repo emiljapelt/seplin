@@ -52,7 +52,7 @@ let lookup_i f l =
   aux l ((List.length l)-1)
 
 let lookup_routine (name: string) routines =
-  lookup (fun (accmod,n,_,tvs,ps,_) -> if n = name then Some(accmod,tvs,ps) else None) routines
+  lookup (fun (accmod,n,cn,tvs,ps,stmt) -> if n = name then Some(accmod,n,cn,tvs,ps,stmt) else None) routines
 
 let lookup_struct (name: string) structs =
   lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs

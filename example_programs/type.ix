@@ -37,15 +37,23 @@ entry main2() {
     }
 }
 
+reference ../library/string.ix as string;
+
 entry main3() {
 
-    print_string("");
+    str ::= "meme";
 
-}
-
-internal print_string(str: char[]) {
-    for(i ::= 0; i < |str|; i +:= 1) {
-        print str[i];
-    }
+    string#out(str);
     print '\n';
+
+    string#compress(str);
+
+    string#out(str);
+    print '\n';
+
+    str[0] := 'b';
+
+    string#out(str);
+    print '\n';
+
 }

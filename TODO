@@ -2,7 +2,7 @@
 - Allow command_line argument to reference global variables in VM
 - Do some automated testing
 - Generalize PLACE_* instructions by size
-- Reintroduce context reduction, i.e. only compile routines reachable from an entrypoint of the main context.
+- Try to optimize the tracing compilation algorithm, also make it more readable.
 - Implement generic type resolution
     - Some thing like: "if (T is int) { ... } "
     - Would strengthen type composition

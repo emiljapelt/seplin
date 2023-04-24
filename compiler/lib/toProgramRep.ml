@@ -619,7 +619,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     in
     match lookup_routine name context_env.routine_env with
     | None -> raise_error ("Call to undefined routine '" ^ name ^ "'")
-    | Some (accmod,typ_vars,params) -> (
+    | Some (accmod,_,_,typ_vars,params,_) -> (
       if Option.is_some context_opt && accmod = Internal then raise_error ("Call to internal routine of another context") else
       if List.length params != List.length args then raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length params)) ^ " arguments, but was given " ^  (Int.to_string (List.length args)))
       else if typ_vars = [] then compile_arguments (List.combine params args) env.var_env (PlaceInt(List.length params) :: Call((context_env.context_name)^"#"^name) :: acc) 
@@ -755,6 +755,44 @@ let create_contexts globals context_infos : context list =
   in
   aux context_infos []
 
+let rec tracing_compile routine_info contexts structs path env compiled acc =
+  let rec trace_stmt stmt compiled acc =
+    match stmt with
+    | If(_, e, t) -> (
+      let (compiled, acc) = trace_stmt e compiled acc in
+      trace_stmt t compiled acc
+    )
+    | While(_, body) -> trace_stmt body compiled acc
+    | Block(body) -> trace_stmt_dec_list body compiled acc
+    | Call (context_opt, name, _, _) -> (
+      let context_env = 
+        if Option.is_none context_opt then env
+        else match List.find_opt (fun (alias, _) -> alias = (Option.get context_opt)) env.file_refs with
+        | None -> raise_error ("No such context '" ^ (Option.get context_opt) ^ "'")
+        | Some((_,c)) -> ( match List.find_opt (fun e -> match e with Context(cn,_) -> cn = c) contexts with
+          | None -> raise_error ("Failed lookup of context '" ^ c ^ "'")
+          | Some(Context(_,c_env)) -> c_env
+        )
+      in
+      match lookup_routine name context_env.routine_env with
+      | None -> raise_error ("Call to undefined routine '" ^ name ^ "'")
+      | Some info -> tracing_compile info contexts structs path context_env compiled acc
+    )
+    | _ -> (compiled, acc)
+  and trace_stmt_dec_list lst compiled acc =
+    match lst with
+    | [] -> (compiled, acc)
+    | Statement(stmt,_)::t -> (
+      let (compiled, acc) = trace_stmt stmt compiled acc in
+      trace_stmt_dec_list t compiled acc
+    )
+    | _::t -> trace_stmt_dec_list t compiled acc
+  in
+  match routine_info with
+  | (accmod,name,context_name,typ_vars,params,body) -> 
+    if (List.mem (context_name^"#"^name) compiled) then (compiled, acc)
+    else (Printf.printf "compiling %s#%s in %s\n" context_name name env.context_name; trace_stmt body ((context_name^"#"^name)::compiled) ((routine_head accmod name context_name path params)::(compile_stmt body ({ context_name = context_name; var_env = ({ locals = (List.rev params); globals = env.var_env.globals; structs = structs; typ_vars = typ_vars;}); routine_env = env.routine_env; file_refs = env.file_refs}) contexts None None 0 (addStop(acc)))))
+
 let compile path parse =
   let path = (compress_path (total_path path)) in
   let context_infos = gather_context_infos path parse in
@@ -763,22 +801,25 @@ let compile path parse =
   let contexts = create_contexts globals_ordered context_infos in
   let () = check_topdecs topdecs structs in
   let () = check_structs structs in
-  let rec compile_routines routines acc =
+  let rec compile_entrypoints routines compiled acc =
     match routines with
     | [] -> acc
-    | (accmod,name,context_name,typ_vars,params,stmt)::t -> ( match List.find (fun c -> match c with Context(cn,_) -> cn = context_name) contexts with 
-      | Context(context_name, context_env) ->
-        compile_routines t ((routine_head accmod name context_name path params)::(compile_stmt stmt ({ context_name = context_name; var_env = ({ locals = (List.rev params); globals = context_env.var_env.globals; structs = structs; typ_vars = typ_vars;}); routine_env = context_env.routine_env; file_refs = context_env.file_refs}) contexts None None 0 (addStop(acc))))
+    | (accmod,name,context_name,typ_vars,params,stmt)::t -> ( match accmod with
+      | Entry -> (match List.find (fun c -> match c with Context(cn,_) -> cn = context_name) contexts with 
+        | Context(context_name, context_env) ->
+          let (compiled, acc) = (tracing_compile (accmod,name,context_name,typ_vars,params,stmt) contexts structs path ({ context_name = context_name; var_env = ({ locals = (List.rev params); globals = context_env.var_env.globals; structs = structs; typ_vars = typ_vars;}); routine_env = context_env.routine_env; file_refs = context_env.file_refs}) compiled acc) in
+          compile_entrypoints t compiled acc
+      )
+      | _ -> compile_entrypoints t compiled acc
       )
   in
-  let rec compile_contexts cts acc =
-    match cts with
-    | [] -> acc
-    | Context(path, env)::t -> ( 
+  let compile_main cts =
+    match List.find (fun c -> match c with Context(name, _) -> name = path) cts with
+    | Context(_, env) -> (
       try (
-        compile_contexts t (compile_routines env.routine_env acc)
+        compile_entrypoints env.routine_env [] []
       ) with
-        | Error(_,line_opt,expl_opt) -> raise (Error(Some(path),line_opt,expl_opt))
+      | Error(_,line_opt,expl_opt) -> raise (Error(Some(path),line_opt,expl_opt))
     )
   in
-  Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars (List.rev globals_ordered) structs contexts ((ToStart :: (compile_contexts contexts [])))))
+  Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars (List.rev globals_ordered) structs contexts ((ToStart :: (compile_main contexts)))))
