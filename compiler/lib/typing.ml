@@ -277,6 +277,7 @@ let assignment_type_check target assign var_env =
   | Value(StructLiteral(exprs)) -> ( match target_type with
     | T_Struct(name, typ_args) -> ( match lookup_struct name var_env.structs with
       | Some(typ_vars, params) -> (
+        let typ_args = if typ_args = [] then infere_generics typ_vars params exprs var_env else typ_args in
         if not(check_struct_literal (replace_generics params typ_vars typ_args) exprs var_env) then raise_error "Structure mismatch in assignment"
         else Open
       )
@@ -305,15 +306,17 @@ let declaration_type_check name vmod typ expr var_env =
     if localvar_exists name var_env.locals then raise_error ("Duplicate variable name '" ^ name ^ "'")
     else match expr with
     | Value(StructLiteral(exprs)) -> ( match typ with
-      | Some(T_Struct(n,tas)) -> ( match lookup_struct n var_env.structs with
-        | Some(tvs,ps) ->  (
-          let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else raise_error "Struct literals cannot be infered to a type" in
-          if not(check_struct_literal (replace_generics ps tvs tas) exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string typ ^ "'")
-          else typ
+      | Some(T_Struct(name,typ_args)) -> ( match lookup_struct name var_env.structs with
+        | Some(typ_vars,params) ->  (
+          if Option.is_none typ then raise_error "Struct literals cannot be infered to a type" else
+          let typ_args = if typ_args = [] then infere_generics typ_vars params exprs var_env else typ_args in
+          if well_defined_type (T_Struct(name,typ_args)) var_env then Option.get typ else 
+          if not(check_struct_literal (replace_generics params typ_vars typ_args) exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
+          else T_Struct(name,typ_args)
         )
-        | None -> raise_error ("No such struct '" ^ n ^ "'")
+        | None -> raise_error ("No such struct '" ^ name ^ "'")
       )
-      | _ -> raise_error "Struct literals must be assigned to variables with a explict struct type"
+      | _ -> raise_error "Struct literals assigned to non-struct variable"
     )
     | _ -> (
       let (expr_vmod, expr_ty) = type_expr expr var_env in
@@ -329,13 +332,14 @@ let argument_type_check vmod typ expr var_env =
   | Value(StructLiteral(exprs)) -> ( match typ with
     | Some(T_Struct(n,tas)) -> ( match lookup_struct n var_env.structs with
       | Some(tvs,ps) ->  (
-        let typ = if Option.is_some typ then (if well_defined_type (Option.get typ) var_env then Option.get typ else raise_error "Not a well defined type") else raise_error "Struct literals cannot be infered to a type" in
-        if not(check_struct_literal (replace_generics ps tvs tas) exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string typ ^ "'")
-        else typ
+        let tas = if tas = [] then infere_generics tvs ps exprs var_env else tas in
+        if well_defined_type (Option.get typ) var_env then T_Struct(n,tas) else
+        if not(check_struct_literal (replace_generics ps tvs tas) exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(n,tas)) ^ "'")
+        else T_Struct(n,tas)
       )
       | None -> raise_error ("No such struct '" ^ n ^ "'")
     )
-    | _ -> raise_error "Struct literals must be assigned to variables with a explict struct type"
+    | _ -> raise_error "Struct literal given as a non-struct argument"
   )
   | _ -> (
     let (expr_vmod, expr_ty) = type_expr expr var_env in

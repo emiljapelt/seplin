@@ -425,7 +425,7 @@ let compile_arguments args var_env acc =
         | T_Array _ -> aux t (compile_expr_as_value opteh var_env (IncrRef :: acc))
         | T_Struct _ -> aux t (compile_expr_as_value opteh var_env (IncrRef :: acc))
         | T_Null -> aux t (compile_expr_as_value opteh var_env (acc))
-        | T_Generic _ -> aux t (compile_expr_as_value opteh var_env (IncrRef :: acc))(*raise_error "Generic variables not yet supported, in call arguments"*)
+        | T_Generic _ -> aux t (compile_expr_as_value opteh var_env (IncrRef :: acc))
       )
       | Reference r -> ( match r with
         | VariableAccess _ -> aux t (compile_reference r var_env (IncrRef :: acc)) 

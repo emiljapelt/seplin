@@ -1,4 +1,5 @@
 
+struct tuple<T,U>(fst: T, snd: U);
 
 entry main() {
     
@@ -6,6 +7,16 @@ entry main() {
     s :stable:= 2;
     c :const:= 3;
 
-    t : const int;
-    t := c;
+    t :tuple:= {o,2};
+
+
+    t := {o, 5};
+
+    tuple_swap({1,2});
+}
+
+internal tuple_swap<T,U>(t: tuple<T,U>) {
+    tmp ::= t.fst;
+    t.fst := t.snd;
+    t.snd := tmp;
 }
