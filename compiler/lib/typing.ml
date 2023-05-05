@@ -221,7 +221,11 @@ let parameters_check typ_vars structs params =
     | T_Null -> false
     | T_Array(sub_ty) -> check sub_ty
     | T_Generic(c) -> if List.mem c typ_vars then true else false
-    | T_Struct(name, field_typs) -> if Helpers.struct_exists name structs then List.fold_right (fun field_ty acc -> (check field_ty) && acc) field_typs true else false
+    | T_Struct(name, typ_args) -> ( match lookup_struct name structs with
+      | Some(tvs, _) -> List.length tvs = List.length typ_args && List.fold_right (fun field_ty acc -> (check field_ty) && acc) typ_args true
+      | None -> false
+      (* if Helpers.struct_exists name structs then List.fold_right (fun field_ty acc -> (check field_ty) && acc) field_typs true else false *)
+    )
   in
   List.fold_right (fun (_,ty,_) acc -> (check ty) && acc) params true
 
