@@ -12,11 +12,22 @@ entry main() {
 
     t := {o, 5};
 
+
     tuple_swap({1,2});
+
+    x ::= 4;
+    y ::= 6;
+    swap(x,y);
 }
 
-internal tuple_swap<T,U>(t: tuple<T,U>) {
+internal tuple_swap<T>(t: tuple<T,T>) {
     tmp ::= t.fst;
     t.fst := t.snd;
     t.snd := tmp;
+}
+
+internal swap<T>(x: T, y: T) {
+    tmp ::= x;
+    x := y;
+    y := tmp;
 }
