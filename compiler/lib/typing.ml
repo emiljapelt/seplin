@@ -246,12 +246,12 @@ let check_topdecs file structs =
     | [] -> ()
     | Routine(_,name,typ_vars,params,_)::t -> (
       if not(elements_unique typ_vars) then raise_error ("Non-unique type variables in routine definition '" ^ name ^ "'")
-      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in routine '" ^ name ^ "'")
+      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in defenition of routine '" ^ name ^ "'")
       else aux t
     )
     | Struct(name,typ_vars,params)::t -> ( 
       if not(elements_unique typ_vars) then raise_error ("Non-unique type variables in struct definition '" ^ name ^ "'")
-      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in struct '" ^ name ^ "'")
+      else if not(parameters_check typ_vars structs params) then raise_error ("illegal parameters in defenition of struct '" ^ name ^ "'")
       else aux t
     )
     | _::t -> aux t
