@@ -371,7 +371,7 @@ let argument_type_check vmod typ expr var_env =
     | _ -> raise_error "Struct literal given as a non-struct argument"
   )
   | _ -> (
-    let (expr_vmod, expr_ty) = type_expr expr var_env in Printf.printf "%s %s\n" (type_string typ) (type_string expr_ty);
+    let (expr_vmod, expr_ty) = type_expr expr var_env in
     if vmod = Open && (expr_vmod != Open) then raise_error "Cannot use a protected variable as an open variable"
     else if vmod = Stable && (expr_vmod = Const) then raise_error "Cannot use a constant variable as a stable parameter"
     else if not (type_equal typ expr_ty) then raise_error ("Type mismatch: expected '" ^ (type_string typ) ^ "', got '" ^ (type_string expr_ty) ^ "'")
