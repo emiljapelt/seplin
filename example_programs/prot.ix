@@ -4,7 +4,7 @@ struct list<T>(head: T, tail: list<T>);
 entry main() {
 
     l :list<int>:= null;
-    l2 :protected list<int>:= {1,{2,{3,null}}};
+    l2 :stable list<int>:= {1,{2,{3,null}}};
     to_list([1,2,3], l);
     i : int;
     sum(l,i);
