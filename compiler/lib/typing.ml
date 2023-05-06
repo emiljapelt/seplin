@@ -78,7 +78,7 @@ and type_reference ref_expr var_env =
     | T_Array array_typ -> (vmod, array_typ)
     | _ -> raise_error ("Array access of non-array value")
   )
-  | Null -> (Const, T_Null)
+  | Null -> (Open, T_Null)
 
 and type_value val_expr var_env =
   match val_expr with

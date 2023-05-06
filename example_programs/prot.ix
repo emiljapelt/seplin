@@ -1,36 +1,28 @@
 
-struct tuple<T,U>(fst: T, snd: U);
+struct list<T>(head: T, tail: list<T>);
 
 entry main() {
-    
-    o ::= 1;
-    s :stable:= 2;
-    c :const:= 3;
 
-    t :tuple:= {o,2};
-
-
-    t := {o, 5};
-
-    print t.fst,t.snd,'\n';
-    tuple_swap(t);
-    print t.fst,t.snd,'\n';
-
-    x ::= 4;
-    y ::= 6;
-    print x,y,'\n';
-    swap(x,y);
-    print x,y,'\n';
+    l :list<int>:= null;
+    l2 :protected list<int>:= {1,{2,{3,null}}};
+    to_list([1,2,3], l);
+    i : int;
+    sum(l,i);
+    print i, '\n';
+    sum(l2,i);
+    print i, '\n';
 }
 
-internal tuple_swap<S>(t: tuple<S,S>) {
-    tmp ::= $t.fst;
-    t.fst := t.snd;
-    t.snd := tmp;
+internal to_list<T>(a: T[], l: list<T>) {
+    for(i ::= 0; i < |a|; i +:= 1) l := {a[i], l};
 }
 
-internal swap<F>(x: F, y: F) {
-    tmp ::= $x;
-    x := y;
-    y := tmp;
+
+internal sum(l: const list<int>, i: int) {
+    handle :stable:= l;
+    i := 0;
+    while(handle != null) {
+        i +:= handle.head;
+        handle := handle.tail;
+    }
 }
