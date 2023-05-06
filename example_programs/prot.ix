@@ -12,22 +12,25 @@ entry main() {
 
     t := {o, 5};
 
-
-    tuple_swap({1,2});
+    //print t.fst,t.snd,'\n';
+    tuple_swap(t);
+    //print t.fst,t.snd,'\n';
 
     x ::= 4;
     y ::= 6;
+    print x,y,'\n';
     swap(x,y);
+    print x,y,'\n';
 }
 
-internal tuple_swap<T>(t: tuple<T,T>) {
-    tmp ::= t.fst;
+internal tuple_swap<S>(t: tuple<S,S>) {
+    tmp ::= $t.fst;
     t.fst := t.snd;
     t.snd := tmp;
 }
 
-internal swap<T>(x: T, y: T) {
-    tmp ::= x;
+internal swap<F>(x: F, y: F) {
+    tmp ::= $x;
     x := y;
     y := tmp;
 }

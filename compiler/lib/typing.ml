@@ -150,7 +150,7 @@ and type_value val_expr var_env =
       | [] -> failwith "Could not resolve generic index"
       | (v,a)::t -> if v = c then a else aux t
     in
-    aux (List.combine typ_vars typ_args) 
+    aux (try List.combine typ_vars typ_args with | _ -> raise_error "meme") 
   
   and replace_generics lst typ_vars typ_args = 
     let rec replace element = 
@@ -172,6 +172,21 @@ and type_value val_expr var_env =
     | (T_Array(param_sub), T_Array(arg_sub)) -> infere_array c param_sub arg_sub
     | _ -> None
     
+  and match_generics c param_ts arg_ts =
+    let rec aux pt at =
+      match (pt, at) with
+      | (_, T_Null) -> None
+      | (T_Generic g, _) -> if g = c then (Printf.printf "infered %c to %s\n" g (type_string at); Some(at)) else None
+      | (T_Array(sub_t), T_Array(sub_et)) -> aux sub_t sub_et
+      | (T_Struct(name_t, param1), T_Struct(name_et, param2)) when name_t = name_et -> match_generics c param1 param2
+      | _ -> None 
+    in match (param_ts, arg_ts) with
+    | (param_t::tp, arg_t::ta) -> ( match aux param_t arg_t with
+      | None -> match_generics c tp ta
+      | Some(t) -> Some(t)
+    )
+    | _ -> None
+  
   and infere_generic c param_tys args var_env =
     let rec aux param_t expr =
       match (param_t, expr) with
@@ -180,24 +195,19 @@ and type_value val_expr var_env =
       | (T_Array(sub_t), Value(ArrayLiteral(exprs))) -> if exprs = [] then None else aux sub_t (List.hd exprs)
       | (T_Array(sub_t)), Value(NewArray(typ, _)) -> infere_array c sub_t typ
       | (T_Struct(_,field_ts), Value(StructLiteral(exprs))) -> infere_generic c field_ts exprs var_env
-      | (T_Struct(type_name,field_ts), Value(NewStruct(name, _, exprs))) -> (
-        if not(type_name = name) then None else infere_generic c field_ts exprs var_env
+      | (T_Struct(type_name,typ_args), Value(NewStruct(name, _, exprs))) -> (
+        if not(type_name = name) then None else infere_generic c typ_args exprs var_env
       )
-      | _ -> None
-      (* | (_, T_Null) -> None
-      | (T_Array(sub_t), T_Array(sub_et)) -> aux sub_t sub_et
-      | (T_Struct(name_t, param1), T_Struct(name_et, param2)) when name_t = name_et -> infere_generic c param1 param2
-      | _ -> None  *)
+      | _ -> match type_expr expr var_env with (_,expr_t) -> Printf.printf "!!%s\n" (type_string expr_t) ; match_generics c [param_t] [expr_t]
     in match (param_tys, args) with
     | (param_t::tp, arg::ta) -> ( match aux param_t arg with
       | None -> infere_generic c tp ta var_env
-      | Some(t) -> Some(t)
+      | Some(t) -> (Printf.printf "infered %c to %s\n" c (type_string t); Some(t))
     )
     | _ -> None
   
   and infere_generics typ_vars params args var_env =
     let param_tys = List.map (fun p -> match p with (_,t,_) -> t ) params in
-    (* let arg_tys = List.map (fun a -> match type_expr a var_env with (_,t) -> t) args in *)
     List.map (fun tv -> (
       match infere_generic tv param_tys args var_env with
       | Some(t) -> t
@@ -360,7 +370,7 @@ let argument_type_check vmod typ expr var_env =
     | _ -> raise_error "Struct literal given as a non-struct argument"
   )
   | _ -> (
-    let (expr_vmod, expr_ty) = type_expr expr var_env in
+    let (expr_vmod, expr_ty) = type_expr expr var_env in Printf.printf "%s %s\n" (type_string typ) (type_string expr_ty);
     if vmod = Open && (expr_vmod != Open) then raise_error "Cannot use a protected variable as an open variable"
     else if vmod = Stable && (expr_vmod = Const) then raise_error "Cannot use a constant variable as a stable parameter"
     else if not (type_equal typ expr_ty) then raise_error ("Type mismatch: expected '" ^ (type_string typ) ^ "', got '" ^ (type_string expr_ty) ^ "'")
