@@ -171,12 +171,13 @@ and type_value val_expr var_env =
     | (T_Generic g, _) -> if g = c then Some arg_t else None
     | (T_Array(param_sub), T_Array(arg_sub)) -> infere_array c param_sub arg_sub
     | _ -> None
-    
+  
+  (* arg_ts is sometimes empty after a recursion from T_Struct,TStruct case *)
   and match_generics c param_ts arg_ts =
     let rec aux pt at =
       match (pt, at) with
       | (_, T_Null) -> None
-      | (T_Generic g, _) -> if g = c then (Printf.printf "infered %c to %s\n" g (type_string at); Some(at)) else None
+      | (T_Generic g, _) -> if g = c then Some(at) else None
       | (T_Array(sub_t), T_Array(sub_et)) -> aux sub_t sub_et
       | (T_Struct(name_t, param1), T_Struct(name_et, param2)) when name_t = name_et -> match_generics c param1 param2
       | _ -> None 
@@ -198,11 +199,11 @@ and type_value val_expr var_env =
       | (T_Struct(type_name,typ_args), Value(NewStruct(name, _, exprs))) -> (
         if not(type_name = name) then None else infere_generic c typ_args exprs var_env
       )
-      | _ -> match type_expr expr var_env with (_,expr_t) -> Printf.printf "!!%s\n" (type_string expr_t) ; match_generics c [param_t] [expr_t]
+      | _ -> match type_expr expr var_env with (_,expr_t) -> match_generics c [param_t] [expr_t]
     in match (param_tys, args) with
     | (param_t::tp, arg::ta) -> ( match aux param_t arg with
       | None -> infere_generic c tp ta var_env
-      | Some(t) -> (Printf.printf "infered %c to %s\n" c (type_string t); Some(t))
+      | Some(t) -> Some(t)
     )
     | _ -> None
   
@@ -336,14 +337,14 @@ let declaration_type_check name vmod typ expr var_env =
     | Value(StructLiteral(exprs)) -> ( match typ with
       | Some(T_Struct(name,typ_args)) -> ( match lookup_struct name var_env.structs with
         | Some(typ_vars,params) ->  (
-          if Option.is_none typ then raise_error "Struct literals cannot be infered to a type" else
-          let typ_args = if typ_args = [] then infere_generics typ_vars params exprs var_env else typ_args in
-          if well_defined_type (T_Struct(name,typ_args)) var_env then Option.get typ else 
-          if not(check_struct_literal (replace_generics params typ_vars typ_args) exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
-          else T_Struct(name,typ_args)
+          let typ_args = if well_defined_type (Option.get typ) var_env then typ_args else infere_generics typ_vars params exprs var_env in
+          let params = replace_generics params typ_vars typ_args in
+          if not(check_struct_literal params exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
+          else (T_Struct(name,typ_args))
         )
         | None -> raise_error ("No such struct '" ^ name ^ "'")
       )
+      | None -> raise_error "Struct literals cannot be infered to a type"
       | _ -> raise_error "Struct literals assigned to non-struct variable"
     )
     | _ -> (

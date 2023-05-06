@@ -12,9 +12,9 @@ entry main() {
 
     t := {o, 5};
 
-    //print t.fst,t.snd,'\n';
+    print t.fst,t.snd,'\n';
     tuple_swap(t);
-    //print t.fst,t.snd,'\n';
+    print t.fst,t.snd,'\n';
 
     x ::= 4;
     y ::= 6;
