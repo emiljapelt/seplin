@@ -302,13 +302,13 @@ let rec check_struct_literal struct_fields exprs var_env =
 
 let assignment_type_check target assign var_env =
   let (target_vmod, target_type) = type_reference target var_env in
-  let assign_vmod = match assign with
+  let (assign_vmod, assign_type) = match assign with
   | Value(StructLiteral(exprs)) -> ( match target_type with
     | T_Struct(name, typ_args) -> ( match lookup_struct name var_env.structs with
       | Some(typ_vars, params) -> (
         let typ_args = if typ_args = [] then infere_generics typ_vars params exprs var_env else typ_args in
         if not(check_struct_literal (replace_generics params typ_vars typ_args) exprs var_env) then raise_error "Structure mismatch in assignment"
-        else Open
+        else (Open, T_Struct(name, typ_args))
       )
       | None -> raise_error ("No such struct '" ^ name ^ "'")
     )
@@ -317,17 +317,17 @@ let assignment_type_check target assign var_env =
   | _ -> (
     let (assign_vmod, assign_type) = type_expr assign var_env in
     if not (type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(type_string target_type)^"' but got '" ^(type_string assign_type)^ "'") 
-    else assign_vmod
+    else (assign_vmod, assign_type)
   )
   in
   match target_vmod with
   | Open -> (
     if assign_vmod != Open then raise_error "Assignment of protected variable, to non-protected variable"
-    else target_type
+    else assign_type
   )
   | Stable -> ( match assign with
     | Value _ -> raise_error "Attempt to overwrite stable data"
-    | Reference _ -> target_type
+    | Reference _ -> assign_type
   )
   | Const -> raise_error "Assignment to a protected variable"
   

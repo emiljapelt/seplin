@@ -1,7 +1,7 @@
 
 struct list<T>(head: T, tail: list<T>);
 
-entry main() {
+entry main1() {
 
     l :list<int>:= null;
     l2 :stable list<int>:= {1,{2,{3,null}}};
@@ -25,4 +25,58 @@ internal sum(l: const list<int>, i: int) {
         i +:= handle.head;
         handle := handle.tail;
     }
+}
+
+struct dbl_list<T>(prev: dbl_list<T>, data: T, next: dbl_list<T>);
+
+entry main2() {
+
+    dl :dbl_list<int>;
+    add(dl, 1);
+    add(dl, 2);
+    add(dl, 3);
+    add(dl, 4);
+
+    print dl.data, '\n';
+    find(3, dl);
+    print dl.data, '\n';
+
+}
+
+internal find(i: int, dl: stable dbl_list<int>) {
+
+    if (dl = null) halt;
+
+    while(dl.prev != null) dl := dl.prev;
+
+    while(dl.next != null) {
+        if (dl.data = i) stop;
+        dl := dl.next;
+    }
+
+    halt;
+
+}
+
+internal add(dl: dbl_list<int>, i: int) {
+    node :dbl_list<int>:= {null, i, dl};
+
+    if (dl = null) {
+        dl := node;
+    } else {
+        dl.prev := node;
+        dl := node;
+    }
+}
+
+reference ../library/collections/stack.ix as stack;
+
+entry main3() {
+
+    stk : stack<int>;
+    stack#from_array([1,2,3], stk);
+
+    i : int;
+    stack#size(stk, i);
+    print i, '\n';
 }

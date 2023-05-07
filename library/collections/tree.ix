@@ -1,9 +1,8 @@
 
 struct binary_tree<T> (left: binary_tree<T>, key: int, element: T, right: binary_tree<T>);
 
-external is_empty<T>(tree: locked binary_tree<T>, result: bool) {
-    if (tree = null) result := true;
-    else result := false;
+external is_empty<T>(tree: const binary_tree<T>, result: bool) {
+    result := (tree = null);
 }
 
 external add<T>(tree: binary_tree<T>, key: int, element: T) {
@@ -26,7 +25,7 @@ external add<T>(tree: binary_tree<T>, key: int, element: T) {
     }
 }
 
-external contains_key<T>(tree: locked binary_tree<T>, key: locked int, result: bool) {
+external contains_key<T>(tree: const binary_tree<T>, key: const int, result: bool) {
     if (tree = null) result := false;
     else {
         if (key = tree.key) result := true;
@@ -39,7 +38,7 @@ external contains_key<T>(tree: locked binary_tree<T>, key: locked int, result: b
     }
 }
 
-external get<T>(tree: binary_tree<T>, key: locked int, result: T) {
+external get<T>(tree: binary_tree<T>, key: const int, result: T) {
     if (tree = null) result := null;
     else {
         if (key = tree.key) result := $tree.element;

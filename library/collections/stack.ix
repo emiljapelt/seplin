@@ -13,8 +13,8 @@ external pop<T>(stck: stack<T>, out: T) {
     stck := stck.rest;
 }
 
-external size<T>(stck: stack<T>, out: int) {
-    pointer ::= $stck;
+external size<T>(stck: const stack<T>, out: int) {
+    pointer :stable:= $stck;
     out := 0;
     until(pointer = null) {
         out +:= 1;
