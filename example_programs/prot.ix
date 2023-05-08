@@ -70,13 +70,21 @@ internal add(dl: dbl_list<int>, i: int) {
 }
 
 reference ../library/collections/stack.ix as stack;
+reference ../library/string.ix as string;
 
 entry main3() {
 
-    stk : stack<int>;
-    stack#from_array([1,2,3], stk);
+    stk : stack<char[]>;
+    stack#from_array(["meme1","meme2","meme3"], stk);
 
     i : int;
     stack#size(stk, i);
     print i, '\n';
+
+    str: char[];
+    for(x ::= 0; x < i; x +:= 1) {
+        stack#pop(stk, str);
+        string#out(str);
+        print '\n';
+    }
 }
