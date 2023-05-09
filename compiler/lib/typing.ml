@@ -235,7 +235,6 @@ let parameters_check typ_vars structs params =
     | T_Struct(name, typ_args) -> ( match lookup_struct name structs with
       | Some(tvs, _) -> List.length tvs = List.length typ_args && List.fold_right (fun field_ty acc -> (check field_ty) && acc) typ_args true
       | None -> false
-      (* if Helpers.struct_exists name structs then List.fold_right (fun field_ty acc -> (check field_ty) && acc) field_typs true else false *)
     )
   in
   List.fold_right (fun (_,ty,_) acc -> (check ty) && acc) params true

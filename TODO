@@ -1,4 +1,5 @@
 - Refine error printing for the compiler, especially for references to other contexts
+- Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
 - Allow command_line argument to reference global variables in VM
 - Do some automated testing
 - Generalize PLACE_* instructions by size
@@ -8,9 +9,3 @@
     - Would strengthen type composition
 - Fix assembly compiler
 - Implement escape characters in string literals
-- Consider implementing more flexible variable modifiers
-    - "stable": stable structure/Underlying data cannot be modified, but the variable can still be reassigned.
-        - Useful for recursive reading routines, as it allows for getting a handle deeper and deeper in a structure, while still protecting the integrety.
-    - "fixed": fixed pointer/The variable cannot be reassigned, but the underlying data can be modified.
-        - Not sure how this is useful. So it might not be nessecary.
-    - "const": both "stable" and "fixed", only reading is allowed.
