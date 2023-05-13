@@ -9,8 +9,8 @@ char* instruction_to_string(int inst) {
         case CALL: return "CALL";
         case GOTO: return "GOTO";
         case IF_TRUE: return "IF_TRUE";
-        case PLACE_BOOL: return "PLACE_BOOL";
-        case PLACE_INT: return "PLACE_INT";
+        case PLACE_BYTE: return "PLACE_BYTE";
+        case PLACE_FULL: return "PLACE_FULL";
         case CLONE_FULL: return "CLONE_FULL";
         case CLONE_HALF: return "CLONE_HALF";
         case CLONE_SHORT: return "CLONE_SHORT";
@@ -45,7 +45,6 @@ char* instruction_to_string(int inst) {
         case MODSP: return "MODSP";
         case FREE_VAR: return "FREE_VAR";
         case FREE_VARS: return "FREE_VARS";
-        case PRINT_VAR: return "PRINT_VAR";
         case PRINT_INT: return "PRINT_INT";
         case PRINT_BOOL: return "PRINT_BOOL";
         case STACK_FETCH: return "STACK_FETCH";
@@ -54,7 +53,6 @@ char* instruction_to_string(int inst) {
         case TO_START: return "TO_START";
         case REF_FETCH: return "REF_FETCH";
         case INCR_REF: return "INCR_REF";
-        case PLACE_CHAR: return "PLACE_CHAR";
         case PRINT_CHAR: return "PRINT_CHAR";
         case GET_INPUT: return "GET_INPUT";
         case HALF_EQ: return "HALF_EQ";
@@ -70,8 +68,8 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "CALL") == 0) return CALL;
     if (strcmp(str, "GOTO") == 0) return GOTO;
     if (strcmp(str, "IF_TRUE") == 0) return IF_TRUE;
-    if (strcmp(str, "PLACE_BOOL") == 0) return PLACE_BOOL;
-    if (strcmp(str, "PLACE_INT") == 0) return PLACE_INT;
+    if (strcmp(str, "PLACE_BYTE") == 0) return PLACE_BYTE;
+    if (strcmp(str, "PLACE_FULL") == 0) return PLACE_FULL;
     if (strcmp(str, "CLONE_FULL") == 0) return CLONE_FULL;
     if (strcmp(str, "CLONE_HALF") == 0) return CLONE_HALF;
     if (strcmp(str, "CLONE_SHORT") == 0) return CLONE_SHORT;
@@ -105,7 +103,6 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "MODSP") == 0) return MODSP;
     if (strcmp(str, "FREE_VAR") == 0) return FREE_VAR;
     if (strcmp(str, "FREE_VARS") == 0) return FREE_VARS;
-    if (strcmp(str, "PRINT_VAR") == 0) return PRINT_VAR;
     if (strcmp(str, "PRINT_INT") == 0) return PRINT_INT;
     if (strcmp(str, "PRINT_BOOL") == 0) return PRINT_BOOL;
     if (strcmp(str, "STACK_FETCH") == 0) return STACK_FETCH;
@@ -114,7 +111,6 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "TO_START") == 0) return TO_START;
     if (strcmp(str, "REF_FETCH") == 0) return REF_FETCH;
     if (strcmp(str, "INCR_REF") == 0) return INCR_REF;
-    if (strcmp(str, "PLACE_CHAR") == 0) return PLACE_CHAR;
     if (strcmp(str, "PRINT_CHAR") == 0) return PRINT_CHAR;
     if (strcmp(str, "HALF_EQ") == 0) return HALF_EQ;
     if (strcmp(str, "SHORT_EQ") == 0) return SHORT_EQ;

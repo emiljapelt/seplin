@@ -84,8 +84,8 @@ program:
     | CALL NAME program { LabelInstruction(2, $2) :: $3 }
     | GOTO NAME program { LabelInstruction(3, $2) :: $3 }
     | IF_TRUE NAME program { LabelInstruction(4, $2) :: $3 }
-    | PLACE_BOOL CST_BOOL program { BoolInstruction(5, $2) :: $3 }
-    | PLACE_INT CST_INT program { IntInstruction(6, $2) :: $3 }
+    | PLACE_BOOL CST_BOOL program { ByteInstruction(5, C_Bool $2) :: $3 }
+    | PLACE_INT CST_INT program { FullInstruction(6, C_Int $2) :: $3 }
     | CLONE_FULL program { Instruction(7) :: $2 }
     | CLONE_HALF program { Instruction(8) :: $2 }
     | CLONE_SHORT program { Instruction(9) :: $2 }
@@ -117,14 +117,14 @@ program:
     | BOOL_OR program { Instruction(35) :: $2 }
     | GETSP program { Instruction(36) :: $2 }
     | GETBP program { Instruction(37) :: $2 }
-    | MODSP CST_INT program { IntInstruction(38, $2) :: $3 }
+    | MODSP CST_INT program { FullInstruction(38, C_Int $2) :: $3 }
     | FREE_VAR program { Instruction(39) :: $2 }
-    | FREE_VARS CST_INT program { IntInstruction(40, $2) :: $3 }
+    | FREE_VARS CST_INT program { FullInstruction(40, C_Int $2) :: $3 }
     | PRINT_VAR program { Instruction(41) :: $2 }
     | PRINT_INT program { Instruction(42) :: $2 }
     | PRINT_BOOL program { Instruction(43) :: $2 }
-    | STACK_FETCH CST_INT program { IntInstruction(44, $2) :: $3 }
-    | BP_FETCH CST_INT program { IntInstruction(45, $2) :: $3 }
+    | STACK_FETCH CST_INT program { FullInstruction(44, C_Int $2) :: $3 }
+    | BP_FETCH CST_INT program { FullInstruction(45, C_Int $2) :: $3 }
     | SIZE_OF program { Instruction(46) :: $2 }
     | TO_START program { Instruction(47) :: $2 }
     | REF_FETCH program { Instruction(48) :: $2 }

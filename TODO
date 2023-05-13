@@ -2,7 +2,6 @@
 - Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
 - Allow command_line argument to reference global variables in VM
 - Do some automated testing
-- Generalize PLACE_* instructions by size
 - Try to optimize the tracing compilation algorithm, also make it more readable.
 - Implement generic type resolution
     - Some thing like: "if (T is int) { ... } "

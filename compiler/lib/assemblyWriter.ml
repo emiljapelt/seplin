@@ -28,9 +28,8 @@ let rec retrieve_labels program c acc =
       match h with
       | Label (s) -> retrieve_labels t c ((s, c)::acc)
       | EntryPoint (_,l,_) -> retrieve_labels t c ((l, c)::acc)
-      | IntInstruction _ -> retrieve_labels t (c+9) acc
-      | BoolInstruction _ -> retrieve_labels t (c+2) acc
-      | CharInstruction _ -> retrieve_labels t (c+2) acc
+      | FullInstruction _ -> retrieve_labels t (c+9) acc
+      | ByteInstruction _ -> retrieve_labels t (c+2) acc
       | LabelInstruction _ -> retrieve_labels t (c+9) acc
       | _ -> retrieve_labels t (c+1) acc
     )
@@ -108,9 +107,8 @@ let write_entry_points file pps structs =
     | h::t -> match h with
       | Label _ -> aux t addr
       | EntryPoint (name,_,args) -> write_entry_point_info file name addr args structs ; aux t addr
-      | IntInstruction _ -> aux t (addr+9)
-      | BoolInstruction _ -> aux t (addr+2)
-      | CharInstruction _ -> aux t (addr+2)
+      | FullInstruction _ -> aux t (addr+9)
+      | ByteInstruction _ -> aux t (addr+2)
       | LabelInstruction _ -> aux t (addr+9)
       | _ -> aux t (addr+1)
   in
@@ -168,19 +166,17 @@ let rec write_program_parts f pp labels =
       fprintf f "%c" (Char.chr i);
       write_program_parts f t labels
     )
-    | IntInstruction (i, v) -> (
+    | FullInstruction (i, v) -> (
       fprintf f "%c" (Char.chr i);
-      write_word f (Int64.of_int v);
+      match v with
+      | C_Int i -> write_word f (Int64.of_int i);
       write_program_parts f t labels
     )
-    | BoolInstruction (i, v) -> (
+    | ByteInstruction (i, v) -> (
       fprintf f "%c" (Char.chr i);
-      if v then fprintf f "\x01" else fprintf f "\x00";
-      write_program_parts f t labels
-    )
-    | CharInstruction (i, c) -> (
-      fprintf f "%c" (Char.chr i);
-      fprintf f "%c" (c);
+      match v with
+      | C_Bool b -> if b then fprintf f "\x01" else fprintf f "\x00"
+      | C_Char c -> fprintf f "%c" (c);
       write_program_parts f t labels
     )
     | LabelInstruction (i, l) -> (

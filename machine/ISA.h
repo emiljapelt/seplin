@@ -26,12 +26,12 @@ int string_to_instruction(char* str);
 // Change the instruction pointer to the following 'word', if the boolean value 'true' is at the top of the stack, then remove the boolean
 // [s,b,_ => s,_]
 
-#define PLACE_BOOL 0x05
-// Place boolean value 'b' on the stack.
+#define PLACE_BYTE 0x05
+// Place single byte value 'b' on the stack.
 // [s,_ => s,b,_]
 
-#define PLACE_INT 0x06
-// Place integer value 'i' on the stack.
+#define PLACE_FULL 0x06
+// Place 8B value 'i' on the stack.
 // [s,_ => s,i,_]
 
 #define CLONE_FULL 0x07
@@ -115,36 +115,30 @@ int string_to_instruction(char* str);
 
 #define FREE_VARS 0x28
 
-#define PRINT_VAR 0x29
-// Print a variable
-// [s,addr,_ => s,_]
-
-#define PRINT_INT 0x2a
+#define PRINT_INT 0x29
 // Print an int of the stack
 // [s,i,_ => s,_]
 
-#define PRINT_BOOL 0x2b
+#define PRINT_BOOL 0x2a
 // Print an int of the stack
 // [s,b,_ => s,_]
 
-#define STACK_FETCH 0x2c
+#define STACK_FETCH 0x2b
 
-#define BP_FETCH 0x2d
+#define BP_FETCH 0x2c
 
-#define SIZE_OF 0x2e
+#define SIZE_OF 0x2d
 
-#define TO_START 0x2f
+#define TO_START 0x2e
 
-#define REF_FETCH 0x30
+#define REF_FETCH 0x2f
 
-#define INCR_REF 0x31
+#define INCR_REF 0x30
 
-#define PLACE_CHAR 0x32
+#define PRINT_CHAR 0x31
 
-#define PRINT_CHAR 0x33
+#define GET_INPUT 0x32
 
-#define GET_INPUT 0x34
-
-#define HALF_EQ 0x35
-#define SHORT_EQ 0x36
-#define BYTE_EQ 0x37
+#define HALF_EQ 0x33
+#define SHORT_EQ 0x34
+#define BYTE_EQ 0x35

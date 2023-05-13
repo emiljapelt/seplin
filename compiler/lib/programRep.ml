@@ -1,4 +1,11 @@
 
+type byte_container =
+  | C_Bool of bool
+  | C_Char of char
+
+type full_container =
+  | C_Int of int
+
 type program =
   | Program of (string * char list * (var_mod * typ * string) list) list * (var_mod * typ * string) list * program_part list
 
@@ -6,9 +13,8 @@ and program_part =
   | EntryPoint of string * string * (var_mod * typ) list
   | Label of string
   | Instruction of int
-  | IntInstruction of int * int
-  | BoolInstruction of int * bool
-  | CharInstruction of int * char
+  | FullInstruction of int * full_container
+  | ByteInstruction of int * byte_container
   | LabelInstruction of int * string
 
 and typ =
@@ -43,8 +49,8 @@ type concrete_program_part =
   | Call of string
   | GoTo of string
   | IfTrue of string
-  | PlaceBool of bool
-  | PlaceInt of int
+  | PlaceByte of byte_container
+  | PlaceFull of full_container
   | CloneFull
   | CloneHalf
   | CloneShort
@@ -79,7 +85,6 @@ type concrete_program_part =
   | ModSP of int
   | FreeVar
   | FreeVars of int
-  | PrintVar
   | PrintInt
   | PrintBool
   | StackFetch of int
@@ -88,12 +93,13 @@ type concrete_program_part =
   | ToStart
   | RefFetch
   | IncrRef
-  | PlaceChar of char
   | PrintChar
   | GetInput of int
   | HalfEq
   | ShortEq
   | ByteEq
+
+
 
 let translate concrete_list =
   let rec aux cl acc =
@@ -108,8 +114,8 @@ let translate concrete_list =
     | Call (s) -> aux t (LabelInstruction(2, s)::acc)
     | GoTo (s) -> aux t (LabelInstruction(3, s)::acc)
     | IfTrue (s) -> aux t (LabelInstruction(4, s)::acc)
-    | PlaceBool (b) -> aux t (BoolInstruction(5, b)::acc)
-    | PlaceInt (i) -> aux t (IntInstruction(6, i)::acc)
+    | PlaceByte (b) -> aux t (ByteInstruction(5, b)::acc)
+    | PlaceFull (i) -> aux t (FullInstruction(6, i)::acc)
     | CloneFull -> aux t (Instruction(7)::acc)
     | CloneHalf -> aux t (Instruction(8)::acc)
     | CloneShort -> aux t (Instruction(9)::acc)
@@ -141,23 +147,21 @@ let translate concrete_list =
     | BoolOr -> aux t (Instruction(35)::acc)
     | GetSP -> aux t (Instruction(36)::acc)
     | GetBP -> aux t (Instruction(37)::acc)
-    | ModSP (i) -> aux t (IntInstruction(38, i)::acc)
+    | ModSP (i) -> aux t (FullInstruction(38, C_Int i)::acc)
     | FreeVar -> aux t (Instruction(39)::acc)
-    | FreeVars (i) -> aux t (IntInstruction(40, i)::acc)
-    | PrintVar -> aux t (Instruction(41)::acc)
-    | PrintInt -> aux t (Instruction(42)::acc)
-    | PrintBool -> aux t (Instruction(43)::acc)
-    | StackFetch (i) -> aux t (IntInstruction(44, i)::acc)
-    | BPFetch (i) -> aux t (IntInstruction(45, i)::acc)
-    | SizeOf -> aux t (Instruction(46)::acc)
-    | ToStart -> aux t (Instruction(47)::acc)
-    | RefFetch -> aux t (Instruction(48)::acc)
-    | IncrRef -> aux t (Instruction(49)::acc)
-    | PlaceChar (c) -> aux t (CharInstruction(50, c)::acc)
-    | PrintChar -> aux t (Instruction(51)::acc)
-    | GetInput (i) -> aux t (IntInstruction(52, i)::acc)
-    | HalfEq -> aux t (Instruction(53)::acc)
-    | ShortEq -> aux t (Instruction(54)::acc)
-    | ByteEq -> aux t (Instruction(55)::acc)
+    | FreeVars (i) -> aux t (FullInstruction(40, C_Int i)::acc)
+    | PrintInt -> aux t (Instruction(41)::acc)
+    | PrintBool -> aux t (Instruction(42)::acc)
+    | StackFetch (i) -> aux t (FullInstruction(43, C_Int i)::acc)
+    | BPFetch (i) -> aux t (FullInstruction(44, C_Int i)::acc)
+    | SizeOf -> aux t (Instruction(45)::acc)
+    | ToStart -> aux t (Instruction(46)::acc)
+    | RefFetch -> aux t (Instruction(47)::acc)
+    | IncrRef -> aux t (Instruction(48)::acc)
+    | PrintChar -> aux t (Instruction(49)::acc)
+    | GetInput (i) -> aux t (FullInstruction(50, C_Int i)::acc)
+    | HalfEq -> aux t (Instruction(51)::acc)
+    | ShortEq -> aux t (Instruction(52)::acc)
+    | ByteEq -> aux t (Instruction(53)::acc)
   )
   in aux concrete_list []

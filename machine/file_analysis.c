@@ -259,8 +259,7 @@ void dissas(byte_t* origin, byte_t* instr, full_t file_len) {
     for(int i = 0; i < instr_segment_length; i++) {
         char* name_string = instruction_to_string(instr[i]);
         switch (instr[i]) {
-            case PLACE_CHAR:
-            case PLACE_BOOL:
+            case PLACE_BYTE:
                 printf("    %i: %s %x\n", i, name_string, *((byte_t*)(instr+i+1)));
                 i+=1;
                 break;
@@ -268,7 +267,7 @@ void dissas(byte_t* origin, byte_t* instr, full_t file_len) {
             case CALL:
             case GOTO:
             case IF_TRUE:
-            case PLACE_INT:
+            case PLACE_FULL:
             case MODSP:
             case FREE_VARS:
             case STACK_FETCH:

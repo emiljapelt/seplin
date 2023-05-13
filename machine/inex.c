@@ -166,25 +166,18 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                 }
                 break;
             }
-            case PLACE_BOOL: {
+            case PLACE_BYTE: {
                 full_t value = *(byte_t*)(p + ip + 1);
                 *(byte_t*)(stack + sp) = value;
                 sp += MOVE(BYTE, 1);
                 ip += MOVE(BYTE, 1) + 1;
                 break;
             }
-            case PLACE_INT: {
+            case PLACE_FULL: {
                 full_t value = *(full_t*)(p + ip + 1);
                 *(full_t*)(stack + sp) = value;
                 sp += MOVE(FULL, 1);
                 ip += MOVE(FULL, 1) + 1;
-                break;
-            }
-            case PLACE_CHAR: {
-                full_t value = *(byte_t*)(p + ip + 1);
-                *(byte_t*)(stack + sp) = value;
-                sp += MOVE(BYTE, 1);
-                ip += MOVE(BYTE, 1) + 1;
                 break;
             }
             case CLONE_FULL: {
@@ -476,13 +469,6 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                 ip += MOVE(FULL, 1) + 1;
                 break;
             }
-            // case PRINT_VAR: {
-            //     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-            //     print_var(target);
-            //     sp -= MOVE(FULL, 1);
-            //     ip++;
-            //     break;
-            // }
             case PRINT_INT: {
                 full_t value = *(full_t*)(stack + sp + MOVE(FULL, -1));
                 printf("%lld", value);
