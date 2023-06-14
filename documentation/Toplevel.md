@@ -40,7 +40,7 @@ ___
 <br> external _routine_name_ < _type_variables_ > ( _parameters_ ) [_block_](StatementsAndDeclarations.md#block)
 <br> entry _routine_name_ ( _simple_parameters_ ) [_block_](StatementsAndDeclarations.md#block)
 <br>
-**Explaination:** Type variables are a single capital letter, and parameters consist of a variable name and its type. Internal routines are only available in the file in which it is defined, or from a merged file. External routines are available in the file in which it is declared, from merged or inserted files. Entry routines are available everywhere, including as entrypoints, but they cannot be generic or have structs or arrays as parameters.
+**Explaination:** Type variables are a single capital letter, and parameters consist of a variable name and its type. Internal routines are only available in the context in which it is defined. External routines are available in the context in which it is declared, and to other contexts. Entry routines are available everywhere, including as entrypoints, but they cannot be generic or have structs or arrays as parameters.
 <br>
 **Examples**
 ```

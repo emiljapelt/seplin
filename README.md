@@ -19,7 +19,7 @@
 
 
 ## Documentation Index
-### [Types](./documentation/Types.md)
+### [Types](./documentation/TypesAndProtection.md)
 ### [Expressions](./documentation/Expressions.md)
 ### [Statements and declarations](./documentation/StatementsAndDeclarations.md)
 ### [Top level](./documentation/Toplevel.md)
