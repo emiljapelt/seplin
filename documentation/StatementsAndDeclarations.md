@@ -52,7 +52,7 @@ ___
 ## Assign
 **Syntax:** _variable_name_ := [_expression_](Expressions.md) ;
 <br>
-**Explaination:** Assign a new value to a variable. If the assignment operator is prefixed with an operator is behaves differently.
+**Explaination:** Assign a new value to a variable. If the assignment operator is prefixed with an operator, it behaves differently.
 <br>
 **Examples:**
 ```
@@ -68,7 +68,7 @@ ___
 <br>
  _context_alias_ # _routine_name_ < _type_arguments_ > ( _arguments_ ) ;
 <br>
-**Explaination:** Call a routine. In some cases the type arguments can be left out, and the compiler will infer the types from the arguments. Types cannot be infered from _null_ and [struct literals](Expressions.md#structliteral). If a context alias is provided, the routine lookup will happen if the aliased context, otherwise the lookup will happen in the local context.
+**Explaination:** Call a routine. In some cases the type arguments can be left out, and the compiler will infer the types from the arguments. Types cannot be infered from _null_ and [struct literals](Expressions.md#structliteral). If a context alias is provided, the routine lookup will happen in the aliased context, otherwise the lookup will happen in the local context.
 <br>
 **Examples:**
 ```
