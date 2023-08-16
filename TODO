@@ -8,3 +8,6 @@
     - Would strengthen type composition
 - Fix assembly compiler
 - Implement escape characters in string literals
+- Implement more flexible generic inference
+    - It would be cool to be able to infere stuff like: "meme : tuple<tuple,tuple<int,int>> := {{1,2},{3,4}};"
+    - Currently, if any generic type is explicitly defined, all of them must be explicit

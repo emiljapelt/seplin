@@ -42,7 +42,7 @@ epc{
 
 type_info:
 
-[lock]{type}
+[varmod]{type}
 
 int:
 [0]
@@ -57,7 +57,7 @@ array:
 [3]{type}
 
 struct:
-[4]8[struct_idx]
+[4]8[struct_index]
 
 generic:
 [5][character]
@@ -66,6 +66,7 @@ generic:
 
 number_meaning:
 
-lock:
-unlocked: 0
-locked: 1
+varmod:
+stable: 1
+const: 2
+open: *

@@ -41,7 +41,7 @@
 %token WHILE UNTIL FOR REPEAT
 %token BREAK CONTINUE
 %token CONST STABLE STRUCT NULL NEW
-%token PRINT HASH
+%token PRINT HASH UNDERSCORE
 
 %left ELSE
 %left EQ NEQ
@@ -81,8 +81,10 @@ typ_vars:
 ;
 
 typ_args:
-    typ                 { [$1] }
-  | typ COMMA typ_args  { $1 :: $3 }
+    typ                 { [Some $1] }
+  | UNDERSCORE          { [None] }
+  | typ COMMA typ_args  { (Some $1) :: $3 }
+  | UNDERSCORE COMMA typ_args { None :: $3 }
 ;
 
 simple_typ:

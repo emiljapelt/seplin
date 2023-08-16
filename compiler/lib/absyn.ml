@@ -5,7 +5,7 @@ type statement =
     | While of expression * statement
     | Block of statement_or_declaration list
     | Assign of reference * expression
-    | Call of string option * string * typ list * expression list (* context_alias * routine_name * type_arguments * arguments *)
+    | Call of string option * string * typ option list * expression list (* context_alias * routine_name * type_arguments * arguments *)
     | Stop
     | Halt
     | Break
@@ -41,7 +41,7 @@ and value =
     | ValueOf of reference
     | NewArray of typ * expression
     | ArrayLiteral of expression list
-    | NewStruct of string * typ list * expression list
+    | NewStruct of string * typ option list * expression list
     | StructLiteral of expression list
 
 and top_declaration =

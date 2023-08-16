@@ -25,7 +25,8 @@ external main1(){
     print chars.snd, '\n';
 
 
-    wild ::= new tuple<tuple<int,int>, tuple<int,int>>(new tuple<int,int>(1,2), new tuple<int,int>(3,4));
+    // wild ::= new tuple<tuple<int,int>, tuple<int,int>>(new tuple<int,int>(1,2), new tuple<int,int>(3,4));
+    wild : tuple<tuple,tuple<int,int>> := {{1,2},{3,4}};
 
     print wild.fst.fst, '\n';
     print wild.fst.snd, '\n';
@@ -59,7 +60,7 @@ internal append(v: int, target: list<int>) {
     target := new list<int>($v, target);
 }
 
-internal print_int_list(target: locked list<int>) {
+internal print_int_list(target: const list<int>) {
     if (target = null) stop;
     print target.head, '\n';
     print_int_list(target.tail);
@@ -81,7 +82,7 @@ external main3() {
 
 }
 
-internal print_int_array(target: locked int[]) {
+internal print_int_array(target: const int[]) {
     for(i ::= 0; i < |target|; i +:= 1) {
         print target[i], ' ';
     }

@@ -22,7 +22,7 @@ and typ =
   | T_Bool
   | T_Char
   | T_Array of typ
-  | T_Struct of string * typ list
+  | T_Struct of string * typ option list
   | T_Null
   | T_Generic of char
 
