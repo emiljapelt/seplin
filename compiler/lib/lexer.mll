@@ -90,6 +90,7 @@ rule lex = parse
     |   ';'           { SEMI }
     |   ':'           { COLON }
     |   '#'           { HASH }
+    |   '_'           { UNDERSCORE }
     |   _             { raise (Error(Some((Lexing.lexeme_start_p lexbuf).pos_fname), Some((Lexing.lexeme_start_p lexbuf).pos_lnum), ("Unknown token"))) }
     |   eof           { EOF }
 

@@ -9,7 +9,7 @@ let rec type_string t =
   | T_Int -> "int"
   | T_Char -> "char"
   | T_Array arr_ty -> (type_string arr_ty)^"[]"
-  | T_Struct(n,typ_args) -> n ^ "<" ^ (String.concat ","  (List.map (fun e -> (type_string e)) typ_args)) ^ ">"
+  | T_Struct(n,typ_args) -> n ^ "<" ^ (String.concat ","  (List.map (fun e -> (type_string (Option.get e))) typ_args)) ^ ">"
   | T_Null -> "null"
   | T_Generic c -> String.make 1 c
 
@@ -20,7 +20,7 @@ let rec type_equal type1 type2 =
     | (T_Bool, T_Bool) -> true
     | (T_Char, T_Char) -> true
     | (T_Array at1, T_Array at2) -> type_equal at1 at2
-    | (T_Struct(n1,ta1), T_Struct(n2, ta2)) when n1 = n2 && (List.length ta1) = (List.length ta2) -> true && (List.fold_right (fun e acc -> (type_equal (fst e) (snd e)) && acc) (List.combine ta1 ta2) true)
+    | (T_Struct(n1,ta1), T_Struct(n2, ta2)) when n1 = n2 && (List.length ta1) = (List.length ta2) -> true && (List.fold_right (fun e acc -> (type_equal (Option.get (fst e)) (Option.get (snd e))) && acc) (List.combine ta1 ta2) true)
     | (T_Null, _) -> true
     | (T_Generic c1, T_Generic c2) -> c1 = c2
     | _ -> false
@@ -129,7 +129,7 @@ and type_value val_expr var_env =
   | NewStruct (name, typ_args, args) -> ( match lookup_struct name var_env.structs with
     | Some (typ_vars, params) -> (
       if (List.length typ_vars > 0) then ( (* Generic *)
-        if (typ_args = []) then (
+        if (typ_args = [] || (List.length typ_args) = (List.length typ_vars)) then (
           let typ_args = infere_generics typ_vars params args var_env in
           (Open, T_Struct(name, typ_args))
         )
@@ -156,15 +156,15 @@ and type_value val_expr var_env =
     let rec replace element = 
       match element with
       | T_Generic(c) -> resolve_generic c typ_vars typ_args
-      | T_Array(sub) -> T_Array(replace sub)
-      | T_Struct(str_name, ta) -> T_Struct(str_name, List.map (fun e -> replace e) ta)
-      | e -> e
+      | T_Array(sub) -> Some (T_Array(Option.get (replace sub)))
+      | T_Struct(str_name, ta) -> Some (T_Struct(str_name, List.map (fun e -> replace (Option.get e)) ta))
+      | e -> Some e
     in
     let aux element =
       match element with
       | (vmod, ty, name) -> (vmod, replace ty, name)
     in
-    List.map (fun e -> aux e) lst
+    List.map (fun e -> match aux e with (a,t,b) -> (a,Option.get t,b)) lst
 
   and infere_array c param_t arg_t =
     match (param_t, arg_t) with
@@ -182,7 +182,7 @@ and type_value val_expr var_env =
       | (T_Struct(name_t, param1), T_Struct(name_et, param2)) when name_t = name_et -> match_generics c param1 param2
       | _ -> None 
     in match (param_ts, arg_ts) with
-    | (param_t::tp, arg_t::ta) -> ( match aux param_t arg_t with
+    | (param_t::tp, arg_t::ta) -> ( match aux (Option.get param_t) (Option.get arg_t) with
       | None -> match_generics c tp ta
       | Some(t) -> Some(t)
     )
@@ -199,17 +199,17 @@ and type_value val_expr var_env =
       | (T_Struct(type_name,typ_args), Value(NewStruct(name, _, exprs))) -> (
         if not(type_name = name) then None else infere_generic c typ_args exprs var_env
       )
-      | _ -> match type_expr expr var_env with (_,expr_t) -> match_generics c [param_t] [expr_t]
+      | _ -> match type_expr expr var_env with (_,expr_t) -> match_generics c [Some param_t] [Some expr_t]
     in match (param_tys, args) with
-    | (param_t::tp, arg::ta) -> ( match aux param_t arg with
+    | (param_t::tp, arg::ta) -> ( match aux (Option.get param_t) arg with
       | None -> infere_generic c tp ta var_env
       | Some(t) -> Some(t)
     )
     | _ -> None
   
   and infere_generics typ_vars params args var_env =
-    let param_tys = List.map (fun p -> match p with (_,t,_) -> t ) params in
-    List.map (fun tv -> (
+    let param_tys = List.map (fun p -> match p with (_,t,_) -> Some t) params in
+    List.map (fun tv -> Some (
       match infere_generic tv param_tys args var_env with
       | Some(t) -> t
       | None -> raise_error "Could not infere a type for all type variables"
@@ -233,7 +233,7 @@ let parameters_check typ_vars structs params =
     | T_Array(sub_ty) -> check sub_ty
     | T_Generic(c) -> if List.mem c typ_vars then true else false
     | T_Struct(name, typ_args) -> ( match lookup_struct name structs with
-      | Some(tvs, _) -> List.length tvs = List.length typ_args && List.fold_right (fun field_ty acc -> (check field_ty) && acc) typ_args true
+      | Some(tvs, _) -> List.length tvs = List.length typ_args && List.fold_right (fun field_ty acc -> (check (Option.get field_ty)) && acc) typ_args true
       | None -> false
     )
   in
@@ -244,7 +244,7 @@ let rec well_defined_type typ var_env =
   | T_Struct(name,typ_args) -> (
     match lookup_struct name var_env.structs with
     | None -> false
-    | Some(typ_vars,_) -> (List.length typ_args == List.length typ_vars) && (List.fold_right (fun e acc -> (well_defined_type e var_env) && acc ) typ_args true)
+    | Some(typ_vars,_) -> (List.length typ_args == List.length typ_vars) && (List.fold_right (fun e acc -> (well_defined_type (Option.get e) var_env) && acc ) typ_args true)
   )
   | T_Array sub -> well_defined_type sub var_env
   | T_Generic c -> List.mem c var_env.typ_vars
@@ -344,7 +344,7 @@ let declaration_type_check name vmod typ expr var_env =
         | None -> raise_error ("No such struct '" ^ name ^ "'")
       )
       | None -> raise_error "Struct literals cannot be infered to a type"
-      | _ -> raise_error "Struct literals assigned to non-struct variable"
+      | _ -> raise_error "Struct literal assigned to non-struct variable"
     )
     | _ -> (
       let (expr_vmod, expr_ty) = type_expr expr var_env in
