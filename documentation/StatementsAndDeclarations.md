@@ -1,6 +1,6 @@
 # Declarations
 To use some variable name, it must first be declared. This can be done withing a routine to define a variable locally, or outside of routines to define a variable globally. <br>
-When declaring a local variable with an assignment of some [expression](Expressions.md), unless that expression is a [struct literal](Expressions.md#structliteral), the type can be left out and the compiler will infer the type.
+When declaring a local variable with an assignment of some [expression](Expressions.md), the type can be, partially or entirely, left out and the compiler will attempt [infer](TypesAndProtection.md#Inference) the type from the expression.
 <br>
 **Syntax:** <br>_variable_name_ : _type_ ;  <br>  _variable_name_ : _type_ := _expression_ ;
 <br>
@@ -68,7 +68,7 @@ ___
 <br>
  _context_alias_ # _routine_name_ < _type_arguments_ > ( _arguments_ ) ;
 <br>
-**Explaination:** Call a routine. In some cases the type arguments can be left out, and the compiler will infer the types from the arguments. Types cannot be infered from _null_ and [struct literals](Expressions.md#structliteral). If a context alias is provided, the routine lookup will happen in the aliased context, otherwise the lookup will happen in the local context.
+**Explaination:** Call a routine. In some cases the type arguments can be left out, and the compiler will [infer](TypesAndProtection.md#Inference) the types from the arguments. Types cannot be infered from _null_. If a context alias is provided, the routine lookup will happen in the aliased context, otherwise the lookup will happen in the local context.
 <br>
 **Examples:**
 ```
