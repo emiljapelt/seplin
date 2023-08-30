@@ -95,7 +95,7 @@ simple_typ:
 
 typ:
     simple_typ          { $1 }
-  | typ LBRAKE RBRAKE   { T_Array $1 }
+  | typ LBRAKE RBRAKE   { T_Array (Some $1) }
   | NAME                { T_Struct ($1, []) }
   | NAME LT typ_args GT { T_Struct ($1, $3) }
   | TYPE_VAR            { T_Generic $1 }
