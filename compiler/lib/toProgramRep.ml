@@ -338,14 +338,8 @@ and compile_value val_expr var_env acc =
     match lookup_struct name var_env.structs with
     | Some (typ_vars, params) -> (
       if (List.length typ_vars > 0) then ( (* Generic *)
-        if (typ_args = []) then (
-          let typ_args = infere_generics typ_vars params args var_env in
-          PlaceFull(C_Int (List.length params)) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args)) ((List.length params)-1) acc)
-        )
-        else if (List.length typ_args) = (List.length typ_vars) then (
-          PlaceFull(C_Int (List.length params)) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args)) ((List.length params)-1) acc)
-        )
-        else raise_error ("Expected " ^(string_of_int (List.length typ_vars))^ " type arguments, but was given " ^(string_of_int (List.length typ_args))) 
+        let typ_args = resolve_type_args typ_vars typ_args params args var_env in
+        PlaceFull(C_Int (List.length params)) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args)) ((List.length params)-1) acc)
       )
       else ( (* Not generic *)
         PlaceFull(C_Int (List.length params)) :: DeclareStruct :: (aux (List.rev args) (List.rev params) ((List.length params)-1) acc)
@@ -624,11 +618,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       if List.length params != List.length args then raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length params)) ^ " arguments, but was given " ^  (Int.to_string (List.length args)))
       else if typ_vars = [] then compile_arguments (List.combine params args) env.var_env (PlaceFull(C_Int (List.length params)) :: Call((context_env.context_name)^"#"^name) :: acc) 
       else (
-        let typ_args = (
-          if List.length typ_args = List.length typ_vars then typ_args 
-          else if typ_args = [] then infere_generics typ_vars params args env.var_env 
-          else raise_error (name ^ "(...) requires " ^ (Int.to_string (List.length typ_vars)) ^ " type arguments, but was given " ^  (Int.to_string (List.length typ_args)))
-        ) in
+        let typ_args = resolve_type_args typ_vars typ_args params args env.var_env in
         compile_arguments (List.combine (replace_generics params typ_vars typ_args) args) env.var_env (PlaceFull(C_Int (List.length params)) :: Call((context_env.context_name)^"#"^name) :: acc)
       )
     )

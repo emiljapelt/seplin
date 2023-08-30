@@ -67,7 +67,7 @@ let write_type_info file vmod ty structs =
   let rec write_type ty =
     fprintf file "%c" (Char.chr (ProgramRep.type_index ty)) ; 
     match ty with
-    | T_Array sub -> write_type sub
+    | T_Array sub -> write_type (Option.get sub)
     | T_Generic(c) -> fprintf file "%c" c;
     | T_Struct (str_name, _) -> (
       match get_index structs (fun (name, _, _) -> str_name = name) with

@@ -21,7 +21,7 @@ and typ =
   | T_Int
   | T_Bool
   | T_Char
-  | T_Array of typ
+  | T_Array of typ option
   | T_Struct of string * typ option list
   | T_Null
   | T_Generic of char

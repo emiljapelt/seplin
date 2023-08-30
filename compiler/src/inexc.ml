@@ -3,6 +3,7 @@ open Inexclib.ToProgramRep
 open Str
 open Inexclib.Exceptions
 
+let () = Printexc.record_backtrace true
 
 type input_type =
 | IX
