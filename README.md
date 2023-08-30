@@ -8,8 +8,8 @@
 | True global top-level | At the top-level of a context, order does not matter. Every routine can use all global variables, all structs and all routines. The compiler will resolve an ordering of global variables, such that circular dependencies will be detected. |
 | Multi entry point | Routines are marked either 'internal', 'external' or 'entry'. When running the program, any of the entry routines can be used as the entry point. |
 | Generic types | Both structs and routines can be generic. |
-| Type inference | Both generic types, and the type of non-global variable declarations, can be infered in most cases.  |
-| Tracing compilation | The compiler will only compiler routines, which are reachable from an entrypoint of the compiled source file, keeping the size of the binary file to a minimum. |
+| Flexible type inference | Both generic structures, routines, and the type of non-global variable declarations, can be infered in most cases.  |
+| Tracing compilation | The compiler will only include routines, which are reachable from an entrypoint of the compiled source file, keeping the size of the binary file to a minimum. |
 
 
 ## Special words
