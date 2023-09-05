@@ -809,7 +809,6 @@ let compile path parse =
       try (
         compile_entrypoints env.routine_env [] []
       ) with
-      | Error(_,line_opt,expl_opt) -> raise (Error(Some(path),line_opt,expl_opt))
-    )
+      | Error(_,line_opt,expl_opt) -> raise (Error(Some(path),line_opt,expl_opt)))
   in
   Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars (List.rev globals_ordered) structs contexts ((ToStart :: (compile_main contexts)))))
