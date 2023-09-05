@@ -53,7 +53,7 @@ let () = try (
   match in_type with
   | IX -> write (compile input (fun file -> Inexclib.Parser.main (Inexclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
   | IXA -> write (Inexclib.AssemblyParser.main (Inexclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
-) with
+) with 
 | Error(file_opt, line_opt, expl) -> (
   Printf.printf "%s" expl ;
   if Option.is_some file_opt then (

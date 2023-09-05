@@ -218,6 +218,10 @@ and type_value val_expr var_env =
                 match related_exprs with
                 | [] -> raise_error "Could not infer a type from context"
                 | Value(StructLiteral(exprs))::t -> (try (Some(T_Struct(name, resolve_type_args tvs tas ps exprs var_env))) with | _ -> infer_from_related t)
+                | Value(NewStruct(name,tas,exprs))::t -> ( match lookup_struct name var_env.structs with
+                  | Some(tvs,ps) -> (try (Some(T_Struct(name, resolve_type_args tvs tas ps exprs var_env))) with | _ -> infer_from_related t)
+                  | None -> raise_error ("No such struct: " ^ name)
+                )
                 | Reference(Null)::t -> infer_from_related t
                 | _::t -> infer_from_related t
               in
@@ -292,16 +296,16 @@ let check_structs structs =
   in
   aux structs []
 
-let rec check_struct_literal struct_fields exprs var_env =
+let rec check_struct_literal struct_fields expr var_env =
   let rec aux pairs =
     match pairs with
     | [] -> true 
-    | ((_,T_Struct(name,typ_args),_),Value(StructLiteral(literal_fields)))::_ -> (
+    | ((_,T_Struct(name,typ_args),_),expr)::_ -> (
       match lookup_struct name var_env.structs with
       | None -> false
       | Some(tvs,ps) -> (
         let replaced = replace_generics ps tvs typ_args in
-        check_struct_literal replaced literal_fields var_env
+        check_struct_literal replaced expr var_env
       )
     )
     | ((_,T_Null,_),_)::_ -> false
@@ -311,8 +315,10 @@ let rec check_struct_literal struct_fields exprs var_env =
       if vmod = Open && (expr_vmod = Stable || expr_vmod = Const) then false else
       aux t
     )
-  in 
-  try aux (List.combine struct_fields exprs) with | _ -> false
+  in match expr with
+  | Value(StructLiteral(exprs)) -> (try aux (List.combine struct_fields exprs) with | _ -> false)
+  | Reference(Null) -> true
+  | _ -> false
 
 let assignment_type_check target assign var_env =
   let (target_vmod, target_type) = type_reference target var_env in
@@ -321,7 +327,7 @@ let assignment_type_check target assign var_env =
     | T_Struct(name, typ_args) -> ( match lookup_struct name var_env.structs with
       | Some(typ_vars, params) -> (
         let typ_args = resolve_type_args typ_vars typ_args params exprs var_env in
-        if not(check_struct_literal (replace_generics params typ_vars typ_args) exprs var_env) then raise_error "Structure mismatch in assignment"
+        if not(check_struct_literal (replace_generics params typ_vars typ_args) (Value(StructLiteral exprs)) var_env) then raise_error "Structure mismatch in assignment"
         else (Open, T_Struct(name, typ_args))
       )
       | None -> raise_error ("No such struct '" ^ name ^ "'")
@@ -344,6 +350,17 @@ let assignment_type_check target assign var_env =
     | Reference _ -> assign_type
   )
   | Const -> raise_error "Assignment to a protected variable"
+
+let rec meme typ_vars typ_args params array_exprs var_env =
+  match array_exprs with
+  | [] -> raise_error "Fuck dig"
+  | Value(StructLiteral(exprs))::t -> ( try (
+    let typ_args = resolve_type_args typ_vars typ_args params exprs var_env in
+    let params = replace_generics params typ_vars typ_args in
+    if not(List.fold_left (fun acc array_expr -> check_struct_literal params array_expr var_env && acc) true array_exprs) then raise_error ("?1")
+    else typ_args
+  ) with _ -> meme typ_vars typ_args params t var_env)
+  | _::t -> meme typ_vars typ_args params t var_env
   
 let declaration_type_check name vmod typ expr var_env = 
     if localvar_exists name var_env.locals then raise_error ("Duplicate variable name '" ^ name ^ "'")
@@ -353,13 +370,20 @@ let declaration_type_check name vmod typ expr var_env =
         | Some(typ_vars,params) ->  (
           let typ_args = resolve_type_args typ_vars typ_args params exprs var_env in
           let params = replace_generics params typ_vars typ_args in
-          if not(check_struct_literal params exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
+          if not(check_struct_literal params (Value (StructLiteral exprs)) var_env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
           else (T_Struct(name,typ_args))
         )
         | None -> raise_error ("No such struct '" ^ name ^ "'")
       )
       | None -> raise_error "Struct literals cannot be infered to a type"
       | _ -> raise_error "Struct literal assigned to non-struct variable"
+    )
+    | Value(ArrayLiteral(exprs)) -> ( match typ with
+      | Some(T_Array(Some(T_Struct(name, typ_args)))) -> ( match lookup_struct name var_env.structs with
+        | Some(typ_vars,params) -> T_Array(Some(T_Struct(name, meme typ_vars typ_args params exprs var_env)))
+        | None -> raise_error ("No such struct '" ^ name ^ "'")
+      )
+      | _ -> raise_error "Array literal assigned to non-array variable"
     )
     | _ -> (
       let (expr_vmod, expr_ty) = type_expr expr var_env in
@@ -377,7 +401,7 @@ let argument_type_check vmod typ expr var_env =
       | Some(typ_vars,params) ->  (
         let typ_args = resolve_type_args typ_vars typ_args params exprs var_env in
         let params = replace_generics params typ_vars typ_args in
-        if not(check_struct_literal params exprs var_env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(n,typ_args)) ^ "'")
+        if not(check_struct_literal params (Value(StructLiteral(exprs))) var_env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(n,typ_args)) ^ "'")
         else T_Struct(n,typ_args)
       )
       | None -> raise_error ("No such struct '" ^ n ^ "'")
