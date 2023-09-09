@@ -258,6 +258,26 @@ and compile_expr_as_value expr var_env acc =
   )
   | _ -> compile_expr expr var_env acc
 
+and compile_structure_arg arg idx var_env acc =
+  let (_, ha_ty) = Typing.type_expr arg var_env in
+  let optha = optimize_assignable_expr arg var_env in
+  match optha with
+  | Value _ -> (
+    match ha_ty with
+    | T_Int -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha var_env (AssignFull :: FieldAssign :: acc))
+    | T_Char -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha var_env (AssignByte :: FieldAssign :: acc))
+    | T_Bool -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha var_env (AssignByte :: FieldAssign :: acc))
+    | _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha var_env (IncrRef :: FieldAssign :: acc))
+  )
+  | Reference r -> (
+    match r with
+    | Null -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha var_env (FieldAssign :: acc))
+    | _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
+  )
+
+and compile_structure args var_env acc =
+  PlaceFull(C_Int (List.length args)) :: DeclareStruct :: (List.fold_left (fun acc (arg, c) -> compile_structure_arg arg c var_env acc) acc (List.mapi (fun i a -> (a,i)) args))
+
 and compile_value val_expr var_env acc =
   match val_expr with
   | Bool b -> PlaceByte(C_Bool b) :: acc
@@ -290,88 +310,9 @@ and compile_value val_expr var_env acc =
     | T_Int -> compile_expr_as_value (optimize_assignable_expr size_expr var_env) var_env (DeclareStruct :: IncrRef :: acc)
     | _ -> raise_error ("Initializing array with non-integer size")
   )
-  | ArrayLiteral elements -> (
-    let (_,ty) = Typing.type_array_literal (List.map (fun e -> Typing.type_expr e var_env) elements) in
-    let rec aux es c acc =
-      match es with
-      | [] -> acc
-      | h::t -> ( match h with
-        | Value _ -> ( match ty with
-          | T_Int -> aux t (c+1) (CloneFull :: PlaceFull(C_Int c) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr h var_env (AssignFull :: FieldAssign :: acc))
-          | T_Char -> aux t (c+1) (CloneFull :: PlaceFull(C_Int c) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr h var_env (AssignByte :: FieldAssign :: acc))
-          | T_Bool -> aux t (c+1) (CloneFull :: PlaceFull(C_Int c) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr h var_env (AssignByte :: FieldAssign :: acc))
-          | _ -> aux t (c+1) (CloneFull :: PlaceFull(C_Int c) :: compile_expr h var_env (IncrRef :: FieldAssign :: acc))
-        )
-        | Reference r -> ( match r with
-          | Null -> aux t (c+1) (CloneFull :: PlaceFull(C_Int c) :: compile_expr h var_env (FieldAssign :: acc))
-          | _ -> aux t (c+1) (CloneFull :: PlaceFull(C_Int c) :: compile_expr h var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
-        )
-      )
-    in
-    PlaceFull(C_Int (List.length elements)) :: DeclareStruct :: (aux elements 0 acc)
-  )
-  | NewStruct (name, typ_args, args) -> (
-    let rec aux ags fields c acc =
-      match (ags, fields) with
-      | ([], []) -> acc
-      | (ha::ta, (_,field_ty,_)::tf) -> (
-        let (_, ha_ty) = Typing.type_expr ha var_env in
-        if not (Typing.type_equal field_ty ha_ty) then raise_error ("Struct argument type mismatch")
-        (* else if ha_lock && (not field_lock) then raise_error "Locked variable given as a parameter that is not locked" *)
-        else let optha = optimize_assignable_expr ha var_env in
-        match optha with
-        | Value _ -> (
-          match ha_ty with
-          | T_Int -> aux ta tf (c-1) (CloneFull :: PlaceFull(C_Int c) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha var_env (AssignFull :: FieldAssign :: acc))
-          | T_Char -> aux ta tf (c-1) (CloneFull :: PlaceFull(C_Int c) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha var_env (AssignByte :: FieldAssign :: acc))
-          | T_Bool -> aux ta tf (c-1) (CloneFull :: PlaceFull(C_Int c) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha var_env (AssignByte :: FieldAssign :: acc))
-          | _ -> aux ta tf (c-1) (CloneFull :: PlaceFull(C_Int c) :: compile_expr optha var_env (IncrRef :: FieldAssign :: acc))
-        )
-        | Reference r -> (
-          match r with
-          | Null -> aux ta tf (c-1) (CloneFull :: PlaceFull(C_Int c) :: compile_expr optha var_env (FieldAssign :: acc))
-          | _ -> aux ta tf (c-1) (CloneFull :: PlaceFull(C_Int c) :: compile_expr optha var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
-        )
-      )
-      | (_,_) -> raise_error ("Expected " ^(string_of_int (List.length fields))^ " arguments, but was given " ^(string_of_int (List.length args))) 
-    in
-    match lookup_struct name var_env.structs with
-    | Some (typ_vars, params) -> (
-      if (List.length typ_vars > 0) then ( (* Generic *)
-        let typ_args = resolve_type_args typ_vars typ_args params args var_env in
-        PlaceFull(C_Int (List.length params)) :: DeclareStruct :: (aux (List.rev args) (List.rev (replace_generics params typ_vars typ_args)) ((List.length params)-1) acc)
-      )
-      else ( (* Not generic *)
-        PlaceFull(C_Int (List.length params)) :: DeclareStruct :: (aux (List.rev args) (List.rev params) ((List.length params)-1) acc)
-      ) 
-    )
-    | None -> raise_error ("No such struct '" ^ name ^ "'")
-  )
-  | StructLiteral (exprs) -> (
-    let rec aux es c acc =
-      match es with
-      | [] -> acc
-      | h::t -> (
-        let opt_h = optimize_assignable_expr h var_env in
-        match opt_h with
-        | Value(StructLiteral _) -> aux t (c-1) (CloneFull :: PlaceFull(C_Int c) :: (compile_expr opt_h var_env (FieldAssign :: acc)))
-        | Value _ -> (
-          let (_, h_ty) = type_expr opt_h var_env in
-          match h_ty with
-          | T_Int -> aux t (c-1) (CloneFull :: PlaceFull(C_Int c) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr opt_h var_env (AssignFull :: FieldAssign :: acc))
-          | T_Char -> aux t (c-1) (CloneFull :: PlaceFull(C_Int c) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr opt_h var_env (AssignByte :: FieldAssign :: acc))
-          | T_Bool -> aux t (c-1) (CloneFull :: PlaceFull(C_Int c) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr opt_h var_env (AssignByte :: FieldAssign :: acc))
-          | _ -> aux t (c-1) (CloneFull :: PlaceFull(C_Int c) :: compile_expr opt_h var_env (IncrRef :: FieldAssign :: acc))
-        )
-        | Reference r -> (
-          match r with
-          | Null -> aux t (c-1) (CloneFull :: PlaceFull(C_Int c) :: PlaceFull(C_Int 0) :: FieldAssign :: acc)
-          | _ -> aux t (c-1) (CloneFull :: PlaceFull(C_Int c) :: compile_expr opt_h var_env (FetchFull :: IncrRef :: FieldAssign :: acc))
-        )
-      )
-    in
-    PlaceFull(C_Int (List.length exprs)) :: DeclareStruct :: (aux (List.rev exprs) ((List.length exprs)-1) acc)
-  )
+  | ArrayLiteral exprs 
+  | NewStruct (_, _, exprs)
+  | StructLiteral (exprs) -> compile_structure exprs var_env acc 
   | Binary_op (op, e1, e2) -> (
       let (_, t1) = Typing.type_expr e1 var_env in
       let (_, t2) = Typing.type_expr e2 var_env in
@@ -410,7 +351,7 @@ let compile_arguments args var_env acc =
     | ([]) -> acc
     | (((pmod, pty, _),eh)::t) -> (
       let opteh = optimize_assignable_expr eh var_env in
-      let typ = Typing.argument_type_check pmod pty opteh var_env in
+      let typ = argument_type_check pmod (Some pty) opteh var_env in
       match opteh with
       | Value _ -> ( match typ with
         | T_Int -> aux t (DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh var_env (AssignFull :: acc)))
@@ -526,7 +467,7 @@ let compile_declaration dec env =
   match dec with
   | TypeDeclaration (vmod, typ, name) -> (
     if localvar_exists name env.var_env.locals then raise_error ("Duplicate variable name '" ^ name ^ "'")
-    else if not(well_defined_type typ env.var_env) then raise_error "Ill defined type"
+    else if not(well_defined_type (Some typ) env.var_env) then raise_error "Ill defined type"
     else 
     ( update_locals env vmod typ name,
       match typ with
@@ -540,8 +481,9 @@ let compile_declaration dec env =
     )
   )
   | AssignDeclaration (vmod, typ, name, expr) -> (
+    if localvar_exists name env.var_env.locals then raise_error ("Duplicate variable name '" ^ name ^ "'") ;
     let opt_expr = optimize_assignable_expr expr env.var_env in
-    let typ = declaration_type_check name vmod typ expr env.var_env in
+    let typ = declaration_type_check vmod typ expr env.var_env in
     ( update_locals env vmod typ name,
       match opt_expr with
       | Reference _ -> fun a -> compile_expr opt_expr env.var_env (IncrRef :: a)
