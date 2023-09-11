@@ -1,0 +1,57 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "inex",
+	"patterns": [
+		{ "include": "#keywords" },
+		{ "include": "#strings" }
+	],
+	"repository": {
+		"topdecs": {
+			"patterns": [
+				{}
+			]
+		},
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.inex",
+				"match": "\\b(if|while|for|stop|halt|until|repeat|else)\\b"
+			}, 
+			{
+				"name": "keyword",
+				"match": "entry|internal|external|struct|const|stable|print|new|reference|as"
+			},
+			{
+				"name": "support.type",
+				"match": "[A-Z]|int|char|bool|_"
+			},
+			{
+				"name": "constant.other",
+				"match": "null"
+			},
+			{
+				"name": "constant",
+				"match": "true|false"
+			},
+			{
+				"name": "constant.character",
+				"match": "'\\?.'"
+			},
+			{
+				"name": "constant.numeric",
+				"match": "-?[0-9]+"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.inex",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.inex",
+					"match": "\\\\."
+				}
+			]
+		}
+	},
+	"scopeName": "source.ix"
+}
