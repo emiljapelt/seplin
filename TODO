@@ -1,4 +1,3 @@
-- Refine error printing for the compiler, especially for references to other contexts
 - Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
 - Allow command_line argument to reference global variables in VM
 - Do some automated testing
@@ -8,6 +7,6 @@
     - Would strengthen type composition
 - Fix assembly compiler
 - Implement escape characters in string literals
-- Implement more flexible generic inference
-    - It would be cool to be able to infere stuff like: "meme : tuple<tuple,tuple<int,int>> := {{1,2},{3,4}};"
-    - Currently, if any generic type is explicitly defined, all of them must be explicit
+- Implement more generic inference for more cases
+    - arrays of structs, i.e "x :tuple[]:= [{1,2}]", does not currently work.
+- Implement syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes

@@ -1,0 +1,25 @@
+{
+  "name": "inex-highlighting",
+  "displayName": "inex highlighting",
+  "description": "Syntax highlighting for the inex langauge",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "inex",
+      "aliases": ["inex", "inex"],
+      "extensions": [".ix"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "inex",
+      "scopeName": "source.ix",
+      "path": "./syntaxes/inex.tmLanguage.json"
+    }]
+  }
+}
