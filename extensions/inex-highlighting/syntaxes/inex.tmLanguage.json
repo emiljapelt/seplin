@@ -27,8 +27,26 @@
 				},{
 					"include": "args"
 				}]
-			}
-			]
+			},{
+				"include": "#block"
+			}]
+		},
+		"block": {
+			"begin": "\\{",
+			"end": "\\}",
+			"patterns": [{
+				"include": "#block_inner"
+			}]
+		},
+		"block_inner": {
+			"patterns": [{
+				"include": "#block"
+			},{
+				"begin": "print",
+				"end": ";",
+				"name": "keyword",
+				"match": "\\b(print)\\b"
+			}]
 		},
 		"args": {
 			"patterns": [{
@@ -64,7 +82,7 @@
 			}, 
 			{
 				"name": "keyword",
-				"match": "\\b(entry|internal|external|struct|const|stable|print|new)\\b"
+				"match": "\\b(entry|internal|external|struct|const|stable|new)\\b"
 			},
 			{
 				"name": "constant.language",
