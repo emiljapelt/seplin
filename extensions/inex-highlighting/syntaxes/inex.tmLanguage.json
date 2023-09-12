@@ -3,13 +3,59 @@
 	"name": "inex",
 	"patterns": [
 		{ "include": "#keywords" },
-		{ "include": "#strings" }
+		{ "include": "#strings" },
+		{ "include": "#comments" },
+		{ "include": "#topdecs" },
+		{ "include": "#type_args"},
+		{ "include": "#args"}
+		
 	],
 	"repository": {
 		"topdecs": {
-			"patterns": [
-				{}
+			"patterns": [{
+				"begin": "reference",
+				"end": ";",
+				"name": "keyword",
+				"match": "\\b(reference|as)\\b"
+			},{
+				"begin": "struct",
+				"end": ";",
+				"name": "keyword",
+				"match": "struct",
+				"patterns": [{
+					"include": "type_args"
+				},{
+					"include": "args"
+				}]
+			}
 			]
+		},
+		"args": {
+			"patterns": [{
+				"begin": "\\(",
+				"end": "\\)",
+				"patterns": [{
+					"include": "#types"
+				},{
+					"name": "constant.language",
+					"match": "\\b([A-Za-z0-9]+:)\\b"
+				}]
+			}]
+		},
+		"type_args": {
+			"patterns": [{
+				"begin": "<",
+				"end": ">",
+				"patterns": [{
+					"include": "#types"
+				}]
+			}]
+		},
+		"types": {
+			"patterns": [{
+				"name": "support.type",
+				"match": "\\b([A-Z]|int|char|bool|_)\\b"
+			}]
 		},
 		"keywords": {
 			"patterns": [{
@@ -18,23 +64,15 @@
 			}, 
 			{
 				"name": "keyword",
-				"match": "entry|internal|external|struct|const|stable|print|new|reference|as"
+				"match": "\\b(entry|internal|external|struct|const|stable|print|new)\\b"
 			},
 			{
-				"name": "support.type",
-				"match": "[A-Z]|int|char|bool|_"
-			},
-			{
-				"name": "constant.other",
-				"match": "null"
-			},
-			{
-				"name": "constant",
-				"match": "true|false"
+				"name": "constant.language",
+				"match": "\\b(true|false|null)\\b"
 			},
 			{
 				"name": "constant.character",
-				"match": "'\\?.'"
+				"match": "\\b('\\?.')\\b"
 			},
 			{
 				"name": "constant.numeric",
@@ -51,6 +89,11 @@
 					"match": "\\\\."
 				}
 			]
+		},
+		"comments": {
+			"name": "comment.line",
+			"begin": "//",
+			"end": "\\n"
 		}
 	},
 	"scopeName": "source.ix"
