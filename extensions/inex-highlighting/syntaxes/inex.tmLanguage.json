@@ -2,12 +2,9 @@
 	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
 	"name": "inex",
 	"patterns": [
-		{ "include": "#keywords" },
-		{ "include": "#strings" },
 		{ "include": "#comments" },
 		{ "include": "#topdecs" },
-		{ "include": "#type_args"},
-		{ "include": "#args"}
+		{ "include": "#params"}
 		
 	],
 	"repository": {
@@ -18,14 +15,24 @@
 				"name": "keyword",
 				"match": "\\b(reference|as)\\b"
 			},{
+				"name": "keyword",
+				"match": "\\b(entry|internal|external|struct|const|stable|new)\\b"
+			},{
 				"begin": "struct",
 				"end": ";",
 				"name": "keyword",
 				"match": "struct",
 				"patterns": [{
-					"include": "type_args"
+					"begin": "<",
+					"end": ">",
+					"name": "support.type",
+					"match": "[A-Z]"
 				},{
-					"include": "args"
+					"begin": "\\(",
+					"end": "\\)",
+					"patterns": [{
+						"include": "#params"
+					}]
 				}]
 			},{
 				"include": "#block"
@@ -42,10 +49,40 @@
 			"patterns": [{
 				"include": "#block"
 			},{
+				"include": "#control_keywords"
+			},{
 				"begin": "print",
 				"end": ";",
 				"name": "keyword",
 				"match": "\\b(print)\\b"
+			},{
+				"begin": "[A-Za-z][A-Za-z0-9_]*",
+				"end": ";",
+				"patterns": [{
+					"begin": "<",
+					"end": ">",
+					"patterns": [{
+						"include": "#types"
+					}]
+				},{
+					"begin": "\\(",
+					"end": "\\)",
+					"patterns": [{
+						"include": "#expression"
+					}]
+				},{
+					"begin": "=",
+					"end": ";",
+					"patterns": [{
+						"include": "#expression"
+					}]
+				},{
+					"begin": ":",
+					"end": "(:|;)",
+					"patterns": [{
+						"include": "#types"
+					}]
+				}]
 			}]
 		},
 		"args": {
@@ -53,6 +90,49 @@
 				"begin": "\\(",
 				"end": "\\)",
 				"patterns": [{
+					"include": "#expression"
+				}]
+			}]
+		},
+		"expression": {
+			"patterns": [{
+				"include": "#strings"
+			},{
+				"name": "constant.numeric",
+				"match": "\\b(-?[0-9]+)\\b"
+			},{
+				"name": "constant.language",
+				"match": "\\b(true|false|null)\\b"
+			},{
+				"name": "constant.character",
+				"match": "\\b('\\?.')\\b"
+			},{
+				"include": "#struct_literal"
+			},{
+				"include": "#array_literal"
+			}]
+		},
+		"struct_literal": {
+			"begin": "\\{",
+			"end": "\\}",
+			"patterns": [{
+				"include": "#expression"
+			}]
+		},
+		"array_literal": {
+			"begin": "\\[",
+			"end": "\\]",
+			"patterns": [{
+				"include": "#expression"
+			}]
+		},
+		"params": {
+			"patterns": [{
+				"begin": "\\(",
+				"end": "\\)",
+				"patterns": [{
+					"begin": ":",
+					"end": ",|\\)",
 					"include": "#types"
 				},{
 					"name": "constant.language",
@@ -73,28 +153,23 @@
 			"patterns": [{
 				"name": "support.type",
 				"match": "\\b([A-Z]|int|char|bool|_)\\b"
+			},{
+				"name": "keyword",
+				"match": "\\b(const|stable)\\b"
+			},{
+				"name": "support.type",
+				"match": "\\b(\\[\\])\\b"
+			},{
+				"name": "support.type",
+				"match": "[A-Za-z][A-Za-z0-9_]*"
+			},{
+				"include": "#type_args"
 			}]
 		},
-		"keywords": {
+		"control_keywords": {
 			"patterns": [{
 				"name": "keyword.control.inex",
 				"match": "\\b(if|while|for|stop|halt|until|repeat|else)\\b"
-			}, 
-			{
-				"name": "keyword",
-				"match": "\\b(entry|internal|external|struct|const|stable|new)\\b"
-			},
-			{
-				"name": "constant.language",
-				"match": "\\b(true|false|null)\\b"
-			},
-			{
-				"name": "constant.character",
-				"match": "\\b('\\?.')\\b"
-			},
-			{
-				"name": "constant.numeric",
-				"match": "-?[0-9]+"
 			}]
 		},
 		"strings": {
