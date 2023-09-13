@@ -1,12 +1,29 @@
-- Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
-- Allow command_line argument to reference global variables in VM
-- Do some automated testing
-- Try to optimize the tracing compilation algorithm, also make it more readable.
-- Implement generic type resolution
+1. Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
+2. Allow command_line argument to reference global variables in VM
+3. Do some automated testing
+4. Try to optimize the tracing compilation algorithm, also make it more readable.
+5. Implement generic type resolution
     - Some thing like: "if (T is int) { ... } "
     - Would strengthen type composition
-- Fix assembly compiler
-- Implement escape characters in string literals
-- Implement more generic inference for more cases
+6. Fix assembly compiler
+7. Implement escape characters in string literals
+8. Implement more generic inference for more cases
     - arrays of structs, i.e "x :tuple[]:= [{1,2}]", does not currently work.
-- Implement syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
+9. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
+10. Implement ternary expressions ((bool) ? x : y)
+11. Implement routine signature (not including names) comparison
+12. Implement routine name overloading (Requires 11.)
+13. Implement Higer-order routines (Requires 11.)
+    - Routines taking routines as arguments, structs cannot
+    - Something like: 
+      - external array_map<T>(f: (T), a: T[]) { for(i ::= 0; i < |a|; i +:= 1) f(a[i]); }
+      - external operate(f: (int,int), t: tuple<int,int>, out: int) { f(t.fst, out); f(t.snd, out); }
+      - external double(i: int) { i *:= 2; }
+      - external add(i: int, out: int) { out +:= i; }
+      - entry main() {
+      -   my_tuple :tuple:= {1,3};
+      -   sum ::= 0;
+      -   operate(add, my_tuple, sum); // sum should become 4
+      -   my_array ::= [1,2,3,4,5];
+      -   array_map(double, my_array); // my_array should become [2,4,6,8,10]
+      - }
