@@ -41,7 +41,7 @@
 %token WHILE UNTIL FOR REPEAT
 %token BREAK CONTINUE
 %token CONST STABLE STRUCT NULL NEW
-%token PRINT HASH UNDERSCORE
+%token PRINT READ HASH UNDERSCORE
 
 %left ELSE
 %left EQ NEQ
@@ -126,7 +126,7 @@ simple_value:
   | MINUS expression                                      { Binary_op ("-", Value (Int 0), $2) }
   | NOT expression                                        { Unary_op ("!", $2) }
   | PIPE reference PIPE                                   { ArraySize $2 }
-  | HASH typ                                              { GetInput $2 }
+  | READ LT typ GT                                        { GetInput $3 }
   | VALUE reference                                       { ValueOf $2 }
   | NEW typ LBRAKE expression RBRAKE                      { NewArray ($2, $4) }
   | LBRAKE arguments RBRAKE                               { ArrayLiteral $2 }

@@ -26,7 +26,8 @@
                         "break", BREAK;
                         "continue", CONTINUE;
                         "halt", HALT;
-                        "print", PRINT]
+                        "print", PRINT;
+                        "read", READ]
   
   let char_of_string s lexbuf = match s with
   | "\'\\n\'" -> '\n'
