@@ -5,6 +5,13 @@ external is_empty<T>(tree: const binary_tree<T>, result: bool) {
     result := (tree = null);
 }
 
+external size<T>(tree: const binary_tree<T>, out: int) {
+    if (tree = null) stop;
+    out +:= 1;
+    size<T>(tree.left, out);
+    size<T>(tree.right, out);
+}
+
 external add<T>(tree: binary_tree<T>, key: int, element: T) {
     if (tree = null) {
         tree := new binary_tree(null, key, $element, null);
