@@ -234,13 +234,7 @@ and compile_reference ref_expr var_env acc =
     )
     | _ -> raise_error ("Struct field lookup on non-struct value")
   )
-  | ArrayAccess (refer, index) -> (
-    let (_, ref_ty) = Typing.type_reference refer var_env in
-    let (_, idx_ty) = Typing.type_expr index var_env in
-    match (ref_ty, idx_ty) with
-    | (T_Array (_), T_Int) -> compile_reference refer var_env (FetchFull :: (compile_expr_as_value index var_env (FieldFetch :: acc)))
-    | _ -> raise_error ("Array indexed with non-integer value")
-  )
+  | ArrayAccess (refer, index) -> compile_reference refer var_env (FetchFull :: (compile_expr_as_value index var_env (FieldFetch :: acc)))
   | Null -> PlaceFull(C_Int 0) :: acc
 
 and compile_expr_as_value expr var_env acc =

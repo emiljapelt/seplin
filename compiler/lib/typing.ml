@@ -72,8 +72,9 @@ and type_reference ref_expr var_env =
     )
     | _ -> raise_error ("Field access of non-struct value")
   )
-  | ArrayAccess (refer, _) -> (
-    let (vmod, ty) =  type_reference refer var_env in
+  | ArrayAccess (refer, index) -> (
+    if snd (type_expr index var_env) != T_Int then raise_error ("Array indexed with non-integer value")
+    else let (vmod, ty) =  type_reference refer var_env in
     match ty with 
     | T_Array array_typ -> (vmod, Option.get array_typ)
     | _ -> raise_error ("Array access of non-array value")
@@ -136,7 +137,7 @@ and type_value val_expr var_env =
     )
     | None -> raise_error ("No such struct '" ^ name ^ "'")
   )
-  | StructLiteral _ -> raise_error "Cannot infere a type from a struct literal"
+  | StructLiteral _ ->  (Open, T_Struct("",[])) (* failwith "fuck"  raise_error "Cannot infere a type from a struct literal" *)
 
   and replace_generic c typ_vars typ_args = 
     let rec aux lst = 
@@ -366,6 +367,7 @@ let declaration_checks vmod typ expr var_env =
   else typ
 
 let argument_checks vmod typ expr var_env =
+  if Option.is_some typ then Printf.printf "%s\n" (type_string (Option.get typ)) else Printf.printf "none\n";
   let typ = Option.get typ in
   let (expr_vmod, expr_ty) = type_expr expr var_env in
   if vmod = Open && (expr_vmod != Open) then raise_error "Cannot use a protected variable as an open variable"
