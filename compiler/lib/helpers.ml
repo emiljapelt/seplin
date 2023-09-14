@@ -7,6 +7,7 @@ type variable_environment = {
   locals: (var_mod * typ * string) list; (* modifier, type, name *)
   globals: (string * string * int * var_mod * typ * declaration) list; (* name, stack_index, modifier, type, expression *)
   structs: (string * char list * (var_mod * typ * string) list) list; (* name, type_vars, parameters(modifier, type, name) *)
+  horoutines: (string * int * (var_mod * typ) list) list;
   typ_vars: char list;
 }
 
@@ -54,6 +55,9 @@ let lookup_i f l =
 let lookup_routine (name: string) routines =
   lookup (fun (accmod,n,cn,tvs,ps,stmt) -> if n = name then Some(accmod,n,cn,tvs,ps,stmt) else None) routines
 
+let lookup_horoutine (name: string) horoutines =
+  lookup (fun (n,addr,types) -> if n = name then Some(addr,types) else None) horoutines
+
 let lookup_struct (name: string) structs =
   lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs
 
@@ -76,21 +80,25 @@ let strictest_mod m1 m2 =
   else if m1 = Stable || m2 = Stable then Stable
   else Open
 
-let var_modifier (name: string) var_env = 
-  match lookup_localvar name var_env.locals with
+let var_modifier (name: string) env = 
+  match lookup_localvar name env.var_env.locals with
     | Some (_,_,l_vmod) -> l_vmod
     | None -> 
-      match lookup_globvar name var_env.globals with
+      match lookup_globvar name env.var_env.globals with
       | Some (_,_,g_vmod) -> g_vmod
-      | None -> raise_error ("No such variable '" ^ name ^ "'")
+      | None -> match lookup_routine name env.routine_env with 
+        | Some _ -> Const
+        | None -> raise_error ("No such variable '" ^ name ^ "'")
 
-let var_type (name: string) var_env = 
-  match lookup_localvar name var_env.locals with
+let var_type (name: string) env = 
+  match lookup_localvar name env.var_env.locals with
   | Some (_,lty,_) -> lty
   | None -> 
-    match lookup_globvar name var_env.globals with
+    match lookup_globvar name env.var_env.globals with
     | Some (_,gty,_) -> gty
-    | None -> raise_error ("No such variable '" ^ name ^ "'")
+    | None -> match lookup_routine name env.routine_env with 
+      | Some (_,_,_,_,ps,_) -> T_Routine (List.map (fun (vm,t,_) -> (vm,t)) ps)
+      | None -> raise_error ("No such variable '" ^ name ^ "'")
 
 let globvar_exists (name: string) globvars =
   Option.is_some (lookup_globvar name globvars)

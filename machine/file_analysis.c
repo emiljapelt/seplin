@@ -264,7 +264,7 @@ void dissas(byte_t* origin, byte_t* instr, full_t file_len) {
                 i+=1;
                 break;
             case GET_INPUT:
-            case CALL:
+            
             case GOTO:
             case IF_TRUE:
             case PLACE_FULL:

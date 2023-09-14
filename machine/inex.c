@@ -132,22 +132,23 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                 break;
             }
             case CALL: {
-                full_t arg_count = *(full_t*)(stack + sp + MOVE(FULL, -1));
-                sp += MOVE(FULL, 1);
+                full_t arg_count = *(full_t*)(stack + sp + MOVE(FULL, -2));
+                full_t target = *(full_t*)(stack + sp + MOVE(FULL, -1));
+//                sp -= MOVE(FULL, 2);
 
                 for(int i = 0; i < arg_count; i++) {
-                    full_t* arg = *(full_t**)(stack + sp + MOVE(FULL, -3-i));
+                    full_t* arg = *(full_t**)(stack + sp - MOVE(FULL, (i+3)));
                     // to_origin(&arg, sp);
                     // if (*arg) INCR_REF_COUNT(*arg);
-                    *(full_t*)(stack + sp + MOVE(FULL, -1-i)) = (full_t)(arg);
+                    *(full_t*)(stack + sp - MOVE(FULL, i+1)) = (full_t)(arg);
                 }
 
-                *(full_t*)((stack + sp) - MOVE(FULL, arg_count+2)) = ip+9;
+                *(full_t*)((stack + sp) - MOVE(FULL, arg_count+2)) = ip+1;
                 *(full_t*)((stack + sp) - MOVE(FULL, arg_count+1)) = (full_t)bp;
 
                 depth++;
                 bp = sp - MOVE(FULL, arg_count);
-                ip = *(full_t*)(p+ip+1);
+                ip = target;
                 break;
             }
             case GOTO: {

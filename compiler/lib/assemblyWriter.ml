@@ -31,6 +31,7 @@ let rec retrieve_labels program c acc =
       | FullInstruction _ -> retrieve_labels t (c+9) acc
       | ByteInstruction _ -> retrieve_labels t (c+2) acc
       | LabelInstruction _ -> retrieve_labels t (c+9) acc
+      | PlaceLabel _ -> retrieve_labels t (c+9) acc
       | _ -> retrieve_labels t (c+1) acc
     )
 
@@ -110,6 +111,7 @@ let write_entry_points file pps structs =
       | FullInstruction _ -> aux t (addr+9)
       | ByteInstruction _ -> aux t (addr+2)
       | LabelInstruction _ -> aux t (addr+9)
+      | PlaceLabel _ -> aux t (addr+9)
       | _ -> aux t (addr+1)
   in
   aux pps 0
@@ -188,11 +190,21 @@ let rec write_program_parts f pp labels =
     )
     | _ -> write_program_parts f t labels
 
+let resolve_place_label program_parts labels =
+  let aux pp = match pp with
+  | PlaceLabel l -> ( match find_label l labels with
+    | None -> raise_error ("Undefined label: " ^ l)
+    | Some a -> translate_single (PlaceFull (C_Int a))
+  )
+  | p -> p
+  in List.map aux program_parts
+
 let write program dest =
   let structs = retrieve_structs program in
   let program_parts = retrieve_program_parts program in
   let global_vars = retrieve_global_vars program in
   let labels = retrieve_labels program_parts 0 [] in
+  let program_parts = resolve_place_label program_parts labels in
   let output = open_out dest in
   let () = write_structs output structs in
   let () = write_global_vars output global_vars structs in
