@@ -70,8 +70,8 @@ topdec:
   | EXTERNAL NAME LT typ_vars GT LPAR params RPAR block     { Routine (External, $2, $4, $7, $9) }
   | ENTRY NAME LPAR simple_params RPAR block                { Routine (Entry, $2, [], $4, $6) }
   | ENTRY NAME LT typ_vars GT LPAR simple_params RPAR block { raise_error "Entrypoints cannot be generic" }
-  | STRUCT NAME LPAR params RPAR SEMI                       { Struct ($2, [], $4) }
-  | STRUCT NAME LT typ_vars GT LPAR params RPAR SEMI        { Struct ($2, $4, $7) }
+  | STRUCT NAME LPAR struct_params RPAR SEMI                       { Struct ($2, [], $4) }
+  | STRUCT NAME LT typ_vars GT LPAR struct_params RPAR SEMI        { Struct ($2, $4, $7) }
   | REFERENCE PATH AS NAME SEMI                             { FileReference($4, $2) }
 ;
 
@@ -263,6 +263,32 @@ params1:
 ;
 
 param:
+  | NAME COLON typ                  { (Open, $3, $1) }
+  | NAME COLON STABLE typ           { (Stable, $4, $1) }
+  | NAME COLON CONST typ            { (Const, $4, $1) }
+  | NAME COLON LPAR routine_type_list RPAR            { (Const, T_Routine $4, $1) }
+;
+
+routine_type_list:
+  | typ                                    { [(Open, $1)] }
+  | STABLE typ                             { [(Stable, $2)] }
+  | CONST typ                              { [(Const, $2)] }
+  | typ COMMA routine_type_list            { (Open, $1) :: $3 }
+  | STABLE typ COMMA routine_type_list     { (Stable, $2) :: $4 }
+  | CONST typ COMMA routine_type_list      { (Const, $2) :: $4 }
+;
+
+struct_params:
+               { [] }
+  | struct_params1    { $1 }
+;
+
+struct_params1:
+    struct_param                  { [$1] }
+  | struct_param COMMA struct_params1    { $1 :: $3 }
+;
+
+struct_param:
   | NAME COLON typ                  { (Open, $3, $1) }
   | NAME COLON STABLE typ           { (Stable, $4, $1) }
   | NAME COLON CONST typ            { (Const, $4, $1) }

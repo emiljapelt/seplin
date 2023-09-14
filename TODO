@@ -7,23 +7,12 @@
     - Would strengthen type composition
 6. Fix assembly compiler
 7. Implement escape characters in string literals
-8. Implement more generic inference for more cases
+8. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
+9. Implement ternary expressions ((bool) ? x : y)
+10. Add var_mod comparison to routine signature comparison
+11. Implement routine name overloading (Requires 11.)
+12. Make sure routine types are handled correctly everywhere
+13. Fix generic inferencing
+    -   infer from horoutines
+    -   Check other places, maybe arrays are broken
     - arrays of structs, i.e "x :tuple[]:= [{1,2}]", does not currently work.
-9. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
-10. Implement ternary expressions ((bool) ? x : y)
-11. Implement routine signature (not including names) comparison
-12. Implement routine name overloading (Requires 11.)
-13. Implement Higer-order routines (Requires 11.)
-    - Routines taking routines as arguments, structs cannot
-    - Something like: 
-      - external array_map<T>(f: (T), a: T[]) { for(i ::= 0; i < |a|; i +:= 1) f(a[i]); }
-      - external operate(f: (int,int), t: tuple<int,int>, out: int) { f(t.fst, out); f(t.snd, out); }
-      - external double(i: int) { i *:= 2; }
-      - external add(i: int, out: int) { out +:= i; }
-      - entry main() {
-      -   my_tuple :tuple:= {1,3};
-      -   sum ::= 0;
-      -   operate(add, my_tuple, sum); // sum should become 4
-      -   my_array ::= [1,2,3,4,5];
-      -   array_map(double, my_array); // my_array should become [2,4,6,8,10]
-      - }

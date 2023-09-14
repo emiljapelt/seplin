@@ -12,6 +12,7 @@ type program =
 and program_part =
   | EntryPoint of string * string * (var_mod * typ) list
   | Label of string
+  | PlaceLabel of string
   | Instruction of int
   | FullInstruction of int * full_container
   | ByteInstruction of int * byte_container
@@ -25,6 +26,7 @@ and typ =
   | T_Struct of string * typ option list
   | T_Null
   | T_Generic of char
+  | T_Routine of (var_mod * typ) list
 
 and var_mod =
   | Open
@@ -39,6 +41,7 @@ let type_index ty =
   | T_Array _ -> 3
   | T_Struct _ -> 4
   | T_Generic _ -> 5
+  | T_Routine _ -> 6
   | T_Null -> failwith "typing a null"
 
 type concrete_program_part =
@@ -46,7 +49,8 @@ type concrete_program_part =
   | CLabel of string
   | CHalt
   | CStop
-  | Call of string
+  | CPlaceLabel of string
+  | Call
   | GoTo of string
   | IfTrue of string
   | PlaceByte of byte_container
@@ -99,69 +103,68 @@ type concrete_program_part =
   | ShortEq
   | ByteEq
 
-
+let translate_single c = match c with
+    | CEntryPoint (name, label, tl) -> EntryPoint(name,label,tl)
+    | CLabel (s) -> Label(s)
+    | CHalt -> Instruction(0)
+    | CStop -> Instruction(1)
+    | CPlaceLabel (s) -> PlaceLabel(s)
+    | Call -> Instruction(2)
+    | GoTo (s) -> LabelInstruction(3, s)
+    | IfTrue (s) -> LabelInstruction(4, s)
+    | PlaceByte (b) -> ByteInstruction(5, b)
+    | PlaceFull (i) -> FullInstruction(6, i)
+    | CloneFull -> Instruction(7)
+    | CloneHalf -> Instruction(8)
+    | CloneShort -> Instruction(9)
+    | CloneByte -> Instruction(10)
+    | FetchFull -> Instruction(11)
+    | FetchHalf -> Instruction(12)
+    | FetchShort -> Instruction(13)
+    | FetchByte -> Instruction(14)
+    | FieldFetch -> Instruction(15)
+    | DeclareFull -> Instruction(16)
+    | DeclareHalf -> Instruction(17)
+    | DeclareShort -> Instruction(18)
+    | DeclareByte -> Instruction(19)
+    | DeclareStruct -> Instruction(20)
+    | AssignFull -> Instruction(21)
+    | AssignHalf -> Instruction(22)
+    | AssignShort -> Instruction(23)
+    | AssignByte -> Instruction(24)
+    | RefAssign -> Instruction(25)
+    | FieldAssign -> Instruction(26)
+    | IntAdd -> Instruction(27)
+    | IntMul -> Instruction(28)
+    | IntSub -> Instruction(29)
+    | FullEq -> Instruction(30)
+    | IntLt -> Instruction(31)
+    | BoolEq -> Instruction(32)
+    | BoolNot -> Instruction(33)
+    | BoolAnd -> Instruction(34)
+    | BoolOr -> Instruction(35)
+    | GetSP -> Instruction(36)
+    | GetBP -> Instruction(37)
+    | ModSP (i) -> FullInstruction(38, C_Int i)
+    | FreeVar -> Instruction(39)
+    | FreeVars (i) -> FullInstruction(40, C_Int i)
+    | PrintInt -> Instruction(41)
+    | PrintBool -> Instruction(42)
+    | StackFetch (i) -> FullInstruction(43, C_Int i)
+    | BPFetch (i) -> FullInstruction(44, C_Int i)
+    | SizeOf -> Instruction(45)
+    | ToStart -> Instruction(46)
+    | RefFetch -> Instruction(47)
+    | IncrRef -> Instruction(48)
+    | PrintChar -> Instruction(49)
+    | GetInput (i) -> FullInstruction(50, C_Int i)
+    | HalfEq -> Instruction(51)
+    | ShortEq -> Instruction(52)
+    | ByteEq -> Instruction(53)
 
 let translate concrete_list =
   let rec aux cl acc =
   match cl with
   | [] -> List.rev acc
-  | h::t -> (
-    match h with
-    | CEntryPoint (name, label, tl) -> aux t (EntryPoint(name,label,tl)::acc)
-    | CLabel (s) -> aux t (Label(s)::acc)
-    | CHalt -> aux t (Instruction(0)::acc)
-    | CStop -> aux t (Instruction(1)::acc)
-    | Call (s) -> aux t (LabelInstruction(2, s)::acc)
-    | GoTo (s) -> aux t (LabelInstruction(3, s)::acc)
-    | IfTrue (s) -> aux t (LabelInstruction(4, s)::acc)
-    | PlaceByte (b) -> aux t (ByteInstruction(5, b)::acc)
-    | PlaceFull (i) -> aux t (FullInstruction(6, i)::acc)
-    | CloneFull -> aux t (Instruction(7)::acc)
-    | CloneHalf -> aux t (Instruction(8)::acc)
-    | CloneShort -> aux t (Instruction(9)::acc)
-    | CloneByte -> aux t (Instruction(10)::acc)
-    | FetchFull -> aux t (Instruction(11)::acc)
-    | FetchHalf -> aux t (Instruction(12)::acc)
-    | FetchShort -> aux t (Instruction(13)::acc)
-    | FetchByte -> aux t (Instruction(14)::acc)
-    | FieldFetch -> aux t (Instruction(15)::acc)
-    | DeclareFull -> aux t (Instruction(16)::acc)
-    | DeclareHalf -> aux t (Instruction(17)::acc)
-    | DeclareShort -> aux t (Instruction(18)::acc)
-    | DeclareByte -> aux t (Instruction(19)::acc)
-    | DeclareStruct -> aux t (Instruction(20)::acc)
-    | AssignFull -> aux t (Instruction(21)::acc)
-    | AssignHalf -> aux t (Instruction(22)::acc)
-    | AssignShort -> aux t (Instruction(23)::acc)
-    | AssignByte -> aux t (Instruction(24)::acc)
-    | RefAssign -> aux t (Instruction(25)::acc)
-    | FieldAssign -> aux t (Instruction(26)::acc)
-    | IntAdd -> aux t (Instruction(27)::acc)
-    | IntMul -> aux t (Instruction(28)::acc)
-    | IntSub -> aux t (Instruction(29)::acc)
-    | FullEq -> aux t (Instruction(30)::acc)
-    | IntLt -> aux t (Instruction(31)::acc)
-    | BoolEq -> aux t (Instruction(32)::acc)
-    | BoolNot -> aux t (Instruction(33)::acc)
-    | BoolAnd -> aux t (Instruction(34)::acc)
-    | BoolOr -> aux t (Instruction(35)::acc)
-    | GetSP -> aux t (Instruction(36)::acc)
-    | GetBP -> aux t (Instruction(37)::acc)
-    | ModSP (i) -> aux t (FullInstruction(38, C_Int i)::acc)
-    | FreeVar -> aux t (Instruction(39)::acc)
-    | FreeVars (i) -> aux t (FullInstruction(40, C_Int i)::acc)
-    | PrintInt -> aux t (Instruction(41)::acc)
-    | PrintBool -> aux t (Instruction(42)::acc)
-    | StackFetch (i) -> aux t (FullInstruction(43, C_Int i)::acc)
-    | BPFetch (i) -> aux t (FullInstruction(44, C_Int i)::acc)
-    | SizeOf -> aux t (Instruction(45)::acc)
-    | ToStart -> aux t (Instruction(46)::acc)
-    | RefFetch -> aux t (Instruction(47)::acc)
-    | IncrRef -> aux t (Instruction(48)::acc)
-    | PrintChar -> aux t (Instruction(49)::acc)
-    | GetInput (i) -> aux t (FullInstruction(50, C_Int i)::acc)
-    | HalfEq -> aux t (Instruction(51)::acc)
-    | ShortEq -> aux t (Instruction(52)::acc)
-    | ByteEq -> aux t (Instruction(53)::acc)
-  )
+  | h::t -> aux t (translate_single h :: acc)
   in aux concrete_list []

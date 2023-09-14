@@ -60,7 +60,8 @@ byte_t* allocate_struct(unsigned int fields) {
 }
 
 void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace) {
-    if (addr == 0) return;
+    //if (addr == 0) return;
+    if(!ON_HEAP((byte_t*)addr) || !ON_STACK((byte_t*)addr,sp)) return;
     if (*addr == 0) return;
     to_origin(&addr, sp);
     if (!ON_HEAP((byte_t*)addr)) addr = (full_t*)*addr;
