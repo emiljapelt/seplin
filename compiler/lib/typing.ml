@@ -66,16 +66,16 @@ let rec type_expr expr var_env =
   | Reference ref_expr -> type_reference ref_expr var_env
   | Value val_expr -> type_value val_expr var_env
 
-and type_reference ref_expr env =
-  match ref_expr with
-  | VariableAccess name -> (var_modifier name env, var_type name env)
+and type_inner_reference iref env contexts =
+  match iref with
+  | Access name -> (var_modifier name env, var_type name env)
   | StructAccess (refer, field) -> (
-    let (vmod, ty) =  type_reference refer env in
+    let (vmod, ty) =  type_inner_reference refer env contexts in
     match ty with 
     | T_Struct (str_name, typ_args) -> (match lookup_struct str_name env.var_env.structs with
       | Some (typ_vars, fields) -> (
-        let resolved_fields = replace_generics fields typ_vars typ_args in
-        let (field_mod, field_ty,_) = struct_field field resolved_fields in
+        let resolved_fields = replace_generics (List.map (fun (a,b,_) -> (a,b)) fields) typ_vars typ_args in
+        let (field_mod, field_ty,_) = struct_field field (List.map (fun ((a,b),c) -> (a,b,c)) (List.combine resolved_fields (List.map (fun (_,_,n) -> n) fields))) in
         ((if vmod = Open then field_mod else Const), field_ty)
       )
       | None -> raise_error ("No such struct '" ^ str_name ^ "'")
@@ -83,19 +83,27 @@ and type_reference ref_expr env =
     | _ -> raise_error ("Field access of non-struct value")
   )
   | ArrayAccess (refer, index) -> (
-    if snd (type_expr index env) != T_Int then raise_error ("Array indexed with non-integer value")
-    else let (vmod, ty) =  type_reference refer env in
+    if snd (type_expr index env contexts) != T_Int then raise_error ("Array indexed with non-integer value")
+    else let (vmod, ty) =  type_inner_reference refer env contexts in
     match ty with 
     | T_Array array_typ -> (vmod, Option.get array_typ)
     | _ -> raise_error ("Array access of non-array value")
   )
-  | Null -> (Open, T_Null)
 
-and type_value val_expr env =
+and type_reference ref_expr env contexts =
+  match ref_expr with
+  | Null -> (Open, T_Null)
+  | LocalContext(ref) -> type_inner_reference ref env contexts
+  | OtherContext(cn,ref) -> ( match lookup_context cn env.file_refs contexts with
+    | None -> failwith ("No such context: " ^ cn)
+    | Some(env) -> type_inner_reference ref env contexts
+  )
+
+and type_value val_expr env contexts =
   match val_expr with
   | Binary_op (op, expr1, expr2) -> (
-    let (_, ty1) = type_expr expr1 env in
-    let (_, ty2) = type_expr expr2 env in
+    let (_, ty1) = type_expr expr1 env contexts in
+    let (_, ty2) = type_expr expr2 env contexts in
     match (op, ty1, ty2) with
     | ("&&", T_Bool, T_Bool) ->  (Open, T_Bool)
     | ("||", T_Bool, T_Bool) -> (Open, T_Bool)
@@ -119,13 +127,13 @@ and type_value val_expr env =
     | _ -> raise_error "Unknown binary operator, or type mismatch"
   )
   | Unary_op (op, expr) -> (
-    let (_, ty) = type_expr expr env in
+    let (_, ty) = type_expr expr env contexts in
     match (op, ty) with
     | ("!", T_Bool) -> (Open, T_Bool)
     | _ -> raise_error "Unknown unary operator, or type mismatch"
   )
   | ArraySize (refer) ->  (
-    let (_, ty) = type_reference refer env in
+    let (_, ty) = type_inner_reference refer env contexts in
     match ty with
     | T_Array _ -> (Open, T_Int)
     | _ -> raise_error "Array size of non-array value"
@@ -134,13 +142,13 @@ and type_value val_expr env =
   | Bool _ -> (Open, T_Bool)
   | Int _ -> (Open, T_Int)
   | Char _ -> (Open, T_Char)
-  | ValueOf (refer) -> type_reference refer env
+  | ValueOf (refer) -> type_inner_reference refer env contexts
   | NewArray (ty, _) -> (Open, T_Array(Some ty))
-  | ArrayLiteral elements -> (match type_array_literal (List.map (fun e -> type_expr e env) elements) with (vmod,ety) -> (vmod, T_Array(Some ety)))
+  | ArrayLiteral elements -> (match type_array_literal (List.map (fun e -> type_expr e env contexts) elements) with (vmod,ety) -> (vmod, T_Array(Some ety)))
   | NewStruct (name, typ_args, args) -> ( match lookup_struct name env.var_env.structs with
     | Some (typ_vars, params) -> (
       if (List.length typ_vars > 0) then ( (* Generic *)
-        let typ_args = resolve_type_args typ_vars typ_args params args env in
+        let typ_args = resolve_type_args typ_vars typ_args (List.map (fun (a,b,_) -> (a,b)) params) args env contexts in
         (Open, T_Struct(name, typ_args))
       )
       else (Open, T_Struct(name, typ_args)) (* Not generic *)
@@ -157,7 +165,7 @@ and type_value val_expr env =
     in
     aux (try List.combine typ_vars typ_args with | _ -> raise_error "meme") 
   
-  and replace_generics lst typ_vars typ_args = 
+  and replace_generics lst typ_vars typ_args : (var_mod * typ) list = 
     let rec replace element = 
       match element with
       | T_Generic(c) -> replace_generic c typ_vars typ_args
@@ -168,9 +176,9 @@ and type_value val_expr env =
     in
     let aux element =
       match element with
-      | (vmod, ty, name) -> (vmod, replace ty, name)
+      | (vmod, ty) -> (vmod, replace ty)
     in
-    List.map (fun e -> match aux e with (a,t,b) -> (a,Option.get t,b)) lst
+    List.map (fun e -> match aux e with (a,t) -> (a,Option.get t)) lst
   
   and is_fully_defined_type typ_opt var_env =
     match typ_opt with
@@ -189,33 +197,33 @@ and type_value val_expr env =
     | (c,Some(ta))::t when type_equal ta typ -> dig_into_struct typ t param_arg_map var_env (find_related_args (T_Generic c) param_arg_map var_env acc)
     | _::t -> dig_into_struct typ t param_arg_map var_env acc
 
-  and find_related_args typ param_arg_map var_env acc =
+  and find_related_args typ param_arg_map (env : environment) acc =
     match param_arg_map with
     | [] -> acc
-    | ((_,p_typ,_), expr)::t when type_equal typ p_typ -> find_related_args typ t var_env (expr::acc)
-    | (((_,T_Struct(name,typ_args),_), expr)::t) -> find_related_args typ t var_env ( match lookup_struct name var_env.structs with
+    | ((_,p_typ), expr)::t when type_equal typ p_typ -> find_related_args typ t env (expr::acc)
+    | (((_,T_Struct(name,typ_args)), expr)::t) -> find_related_args typ t env ( match lookup_struct name env.var_env.structs with
       | None -> raise_error ("No such struct: " ^ name)
       | Some(tvs,params) -> ( match expr with
-        | Value(StructLiteral(exprs)) -> dig_into_struct typ (List.combine tvs typ_args) (List.combine params exprs) var_env acc
-        | _ -> find_related_args typ t var_env acc
+        | Value(StructLiteral(exprs)) -> dig_into_struct typ (List.combine tvs typ_args) (List.combine (List.map (fun (a,b,_) -> (a,b)) params) exprs) env acc
+        | _ -> find_related_args typ t env acc
       )
     )
-    | _::t -> find_related_args typ t var_env acc
+    | _::t -> find_related_args typ t env acc
 
-  and get_first_type exprs env =
+  and get_first_type exprs env contexts =
     match exprs with
     | [] -> raise_error "Could not infer type from context"
     | h::t -> try (
-      let (_,typ) = type_expr h env in
-      if typ = T_Null then get_first_type t env else typ
-    ) with | _ -> get_first_type t env
+      let (_,typ) = type_expr h env contexts in
+      if typ = T_Null then get_first_type t env contexts else typ
+    ) with | _ -> get_first_type t env contexts
 
   and fix_type_args typ_vars typ_args =
     if typ_args = [] then List.init (List.length typ_vars) (fun _ -> None)
     else if List.length typ_args = List.length typ_vars then typ_args
     else raise_error ("Expected " ^(string_of_int (List.length typ_vars))^ " type arguments, but was given " ^(string_of_int (List.length typ_args))) 
 
-  and resolve_type_args typ_vars typ_args params args (env : environment) =
+  and resolve_type_args typ_vars typ_args (params : (var_mod * typ) list) args (env : environment) contexts =
     let typ_args = fix_type_args typ_vars typ_args in
     let rec aux tvas acc =
       match tvas with
@@ -223,22 +231,22 @@ and type_value val_expr env =
       | (c,typ_arg)::t -> ( match is_fully_defined_type typ_arg env.var_env with
         | true -> aux t (typ_arg::acc)
         | false -> ( match typ_arg with
-          | None -> aux t (Some(get_first_type (find_related_args (T_Generic c) (List.combine params args) env.var_env []) env)::acc)
+          | None -> aux t (Some(get_first_type (find_related_args (T_Generic c) (List.combine params args) env []) env contexts)::acc)
           | Some(T_Struct(name,tas)) -> ( match lookup_struct name env.var_env.structs with
             | None -> raise_error ("No such struct: " ^ name)
             | Some(tvs,ps) -> (
               let rec infer_from_related related_exprs =
                 match related_exprs with
                 | [] -> raise_error "Could not infer a type from context"
-                | Value(StructLiteral(exprs))::t -> (try (Some(T_Struct(name, resolve_type_args tvs tas ps exprs env))) with | _ -> infer_from_related t)
+                | Value(StructLiteral(exprs))::t -> (try (Some(T_Struct(name, resolve_type_args tvs tas (List.map (fun (a,b,_) -> (a,b)) ps) exprs env contexts))) with | _ -> infer_from_related t)
                 | Value(NewStruct(name,tas,exprs))::t -> ( match lookup_struct name env.var_env.structs with
-                  | Some(tvs,ps) -> (try (Some(T_Struct(name, resolve_type_args tvs tas ps exprs env))) with | _ -> infer_from_related t)
+                  | Some(tvs,ps) -> (try (Some(T_Struct(name, resolve_type_args tvs tas (List.map (fun (a,b,_) -> (a,b)) ps) exprs env contexts))) with | _ -> infer_from_related t)
                   | None -> raise_error ("No such struct: " ^ name)
                 )
                 | Reference(Null)::t -> infer_from_related t
                 | _::t -> infer_from_related t
               in
-              aux t ((infer_from_related (find_related_args (T_Generic(c)) (List.combine params args) env.var_env []))::acc)
+              aux t ((infer_from_related (find_related_args (T_Generic(c)) (List.combine params args) env []))::acc)
             )
           )
           | _ -> raise_error "This should not happen 1"
@@ -311,21 +319,21 @@ let check_structs structs =
   in
   aux structs []
 
-let rec check_struct_literal struct_fields expr (env : environment) =
+let rec check_struct_literal struct_fields expr (env : environment) contexts =
   let rec aux pairs =
     match pairs with
     | [] -> true 
-    | ((_,T_Struct(name,typ_args),_),expr)::_ -> (
+    | ((_,T_Struct(name,typ_args)),expr)::_ -> (
       match lookup_struct name env.var_env.structs with
       | None -> false
       | Some(tvs,ps) -> (
-        let replaced = replace_generics ps tvs typ_args in
-        check_struct_literal replaced expr env
+        let replaced = replace_generics (List.map (fun (a,b,_) -> (a,b)) ps) tvs typ_args in
+        check_struct_literal replaced expr env contexts
       )
     )
-    | ((_,T_Null,_),_)::_ -> false
-    | ((vmod,typ,_),e)::t -> (
-      let (expr_vmod, expr_typ) = type_expr e env in
+    | ((_,T_Null),_)::_ -> false
+    | ((vmod,typ),e)::t -> (
+      let (expr_vmod, expr_typ) = type_expr e env contexts in
       if not(type_equal typ expr_typ) then false else
       if vmod = Open && (expr_vmod = Stable || expr_vmod = Const) then false else
       aux t
@@ -342,7 +350,7 @@ let match_typ_arg ts =
   | Some(t1), Some(t2) when type_equal t1 t2 -> Some t1
   | _ -> raise_error "Type match failed" 
 
-let resolve_type typ_opt expr (env : environment) : typ =
+let resolve_type typ_opt expr (env : environment) contexts : typ =
   match typ_opt with
   | Some(typ) -> ( match typ with
     | T_Generic c -> raise_error ((String.make 1 c) ^ " is not defined in this scope")
@@ -351,16 +359,16 @@ let resolve_type typ_opt expr (env : environment) : typ =
       | None -> raise_error ("No such struct: " ^ name)
       | Some(typ_vars,params) -> ( match expr with
         | Reference(Null) -> raise_error "Cannot infer from null"
-        | Reference(ref) -> snd (type_reference ref env)
+        | Reference(ref) -> snd (type_reference ref env contexts)
         | Value(StructLiteral(exprs)) -> (
-            let typ_args = resolve_type_args typ_vars typ_args params exprs env in
-            let params = replace_generics params typ_vars typ_args in
-            if not(check_struct_literal params (Value (StructLiteral exprs)) env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
+            let typ_args = resolve_type_args typ_vars typ_args (List.map (fun (a,b,_) -> (a,b)) params) exprs env contexts in
+            let params = replace_generics (List.map (fun (a,b,_) -> (a,b)) params) typ_vars typ_args in
+            if not(check_struct_literal params (Value (StructLiteral exprs)) env contexts) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
             else (T_Struct(name,typ_args))
         )
         | Value(NewStruct(expr_name,tas,args)) -> (
             if not(expr_name = name) then raise_error "mismatched struct names" else
-            let expr_typ_args = resolve_type_args typ_vars tas params args env in
+            let expr_typ_args = resolve_type_args typ_vars tas (List.map (fun (a,b,_) -> (a,b)) params) args env contexts in
             let typ_args = List.map (fun x -> (fst x)) (List.combine typ_args expr_typ_args) in
             (T_Struct(name,typ_args))
         )
@@ -369,32 +377,32 @@ let resolve_type typ_opt expr (env : environment) : typ =
     )
     | _ -> raise_error "well-definedness checker has failed"
   )
-  | None -> let (_, t) = type_expr expr env in t
+  | None -> let (_, t) = type_expr expr env contexts in t
 
-let declaration_checks vmod typ expr env =
-  let (expr_vmod, expr_ty) = type_expr expr env in
+let declaration_checks vmod typ expr env contexts =
+  let (expr_vmod, expr_ty) = type_expr expr env contexts in
   if (Option.is_none typ) && (expr_ty = T_Null) then raise_error "Cannot infere a type from 'null'" else
   let typ = if Option.is_some typ then (if well_defined_type typ env.var_env then Option.get typ else raise_error "Not a well defined type") else expr_ty in
   if vmod = Open && expr_vmod != Open then raise_error "Cannot assign a protected variable to an open variable"
   else if not (type_equal typ expr_ty) then raise_error ("Type mismatch: expected '" ^ (type_string typ) ^ "', got '" ^ (type_string expr_ty) ^ "'")
   else typ
 
-let argument_checks vmod typ expr env =
+let argument_checks vmod typ expr env contexts =
   let typ = Option.get typ in
-  let (expr_vmod, expr_ty) = type_expr expr env in
+  let (expr_vmod, expr_ty) = type_expr expr env contexts in
   if vmod = Open && (expr_vmod != Open) then raise_error "Cannot use a protected variable as an open variable"
   else if vmod = Stable && (expr_vmod = Const) then raise_error "Cannot use a constant variable as a stable parameter"
   else if not (type_equal typ expr_ty) then raise_error ("Type mismatch: expected '" ^ (type_string typ) ^ "', got '" ^ (type_string expr_ty) ^ "'")
   else typ
 
-let type_check checks vmod typ expr (env : environment) =
+let type_check checks vmod typ expr (env : environment) contexts =
   match typ, expr with
   | None, Value(StructLiteral(_)) -> raise_error "Cannot infer a type from a struct literal"
   | Some(T_Struct(name,typ_args)), Value(StructLiteral(exprs)) -> ( match lookup_struct name env.var_env.structs with
     | Some(typ_vars,params) ->  (
-      let typ_args = resolve_type_args typ_vars typ_args params exprs env in
-      let params = replace_generics params typ_vars typ_args in
-      if not(check_struct_literal params (Value (StructLiteral exprs)) env) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
+      let typ_args = resolve_type_args typ_vars typ_args (List.map (fun (a,b,_) -> (a,b)) params) exprs env contexts in
+      let params = replace_generics (List.map (fun (a,b,_) -> (a,b)) params) typ_vars typ_args in
+      if not(check_struct_literal params (Value (StructLiteral exprs)) env contexts) then raise_error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
       else (T_Struct(name,typ_args))
     )
     | None -> raise_error ("No such struct '" ^ name ^ "'")
@@ -403,36 +411,36 @@ let type_check checks vmod typ expr (env : environment) =
     | Some(typ_vars,params) ->  (
       if not(expr_name = name) then raise_error "mismatched struct names" else
       let matched_typ_args = List.map (fun ts -> match_typ_arg ts) (List.combine (fix_type_args typ_vars typ_args) (fix_type_args typ_vars tas)) in
-      let resolved_typ_args = resolve_type_args typ_vars matched_typ_args params args env in
-      let params = replace_generics params typ_vars resolved_typ_args in
-      if not(List.fold_left (fun acc ((_,param_typ,_),arg) -> acc && type_equal param_typ (snd(type_expr arg env))) true (List.combine params args)) then raise_error ("Struct argument type mismatch") else
+      let resolved_typ_args = resolve_type_args typ_vars matched_typ_args (List.map (fun (a,b,_) -> (a,b)) params) args env contexts in
+      let params = replace_generics (List.map (fun (a,b,_) -> (a,b)) params) typ_vars resolved_typ_args in
+      if not(List.fold_left (fun acc ((_,param_typ),arg) -> acc && type_equal param_typ (snd(type_expr arg env contexts))) true (List.combine params args)) then raise_error ("Struct argument type mismatch") else
       (T_Struct(name,resolved_typ_args))
     )
     | None -> raise_error ("No such struct '" ^ name ^ "'")
   )
   | None, Value(NewStruct(name,typ_args,args)) -> ( match lookup_struct name env.var_env.structs with
     | Some(typ_vars,params) ->  (
-      let resolved_typ_args = resolve_type_args typ_vars typ_args params args env in
-      let params = replace_generics params typ_vars resolved_typ_args in
-      if not(List.fold_left (fun acc ((_,param_typ,_),arg) -> acc && type_equal param_typ (snd(type_expr arg env))) true (List.combine params args)) then raise_error ("Struct argument type mismatch") else
+      let resolved_typ_args = resolve_type_args typ_vars typ_args (List.map (fun (a,b,_) -> (a,b)) params) args env contexts in
+      let params = replace_generics (List.map (fun (a,b,_) -> (a,b)) params) typ_vars resolved_typ_args in
+      if not(List.fold_left (fun acc ((_,param_typ),arg) -> acc && type_equal param_typ (snd(type_expr arg env contexts))) true (List.combine params args)) then raise_error ("Struct argument type mismatch") else
       (T_Struct(name,resolved_typ_args))
     )
     | None -> raise_error ("No such struct '" ^ name ^ "'")
   )
-  | _ -> checks vmod typ expr env
+  | _ -> checks vmod typ expr env contexts
 
 
 let argument_type_check = type_check argument_checks
 let declaration_type_check = type_check declaration_checks
 
-let assignment_type_check target assign (env : environment) =
-  let (target_vmod, target_type) = type_reference target env in
+let assignment_type_check target assign (env : environment) contexts =
+  let (target_vmod, target_type) = type_reference target env contexts in
   let (assign_vmod, assign_type) = match assign with
   | Value(StructLiteral(exprs)) -> ( match target_type with
     | T_Struct(name, typ_args) -> ( match lookup_struct name env.var_env.structs with
       | Some(typ_vars, params) -> (
-        let typ_args = resolve_type_args typ_vars typ_args params exprs env in
-        if not(check_struct_literal (replace_generics params typ_vars typ_args) (Value(StructLiteral exprs)) env) then raise_error "Structure mismatch in assignment"
+        let typ_args = resolve_type_args typ_vars typ_args (List.map (fun (a,b,_) -> (a,b)) params) exprs env contexts in
+        if not(check_struct_literal (replace_generics (List.map (fun (a,b,_) -> (a,b)) params) typ_vars typ_args) (Value(StructLiteral exprs)) env contexts) then raise_error "Structure mismatch in assignment"
         else (Open, T_Struct(name, typ_args))
       )
       | None -> raise_error ("No such struct '" ^ name ^ "'")
@@ -440,7 +448,7 @@ let assignment_type_check target assign (env : environment) =
     | _ -> raise_error ("Struct literal assignment to a variable of type '" ^ type_string target_type ^ "'")
   )
   | _ -> (
-    let (assign_vmod, assign_type) = type_expr assign env in
+    let (assign_vmod, assign_type) = type_expr assign env contexts in
     if not (type_equal target_type assign_type) then raise_error ("Type mismatch in assignment, expected '"^(type_string target_type)^"' but got '" ^(type_string assign_type)^ "'") 
     else (assign_vmod, assign_type)
   )

@@ -4,8 +4,8 @@ type statement =
     | If of expression * statement * statement
     | While of expression * statement
     | Block of statement_or_declaration list
-    | Assign of reference * expression
-    | Call of string option * string * typ option list * expression list (* context_alias * routine_name * type_arguments * arguments *)
+    | Assign of inner_reference * expression
+    | Call of reference * typ option list * expression list (* context_alias * routine_name * type_arguments * arguments *)
     | Stop
     | Halt
     | Break
@@ -25,20 +25,24 @@ and expression =
     | Value of value
 
 and reference =
-    | VariableAccess of string
-    | StructAccess of reference * string
-    | ArrayAccess of reference * expression
+    | OtherContext of string * inner_reference
+    | LocalContext of inner_reference
     | Null
+
+and inner_reference =
+    | Access of string
+    | StructAccess of inner_reference * string
+    | ArrayAccess of inner_reference * expression
 
 and value =
     | Binary_op of string * expression * expression
     | Unary_op of string * expression
-    | ArraySize of reference
+    | ArraySize of inner_reference
     | GetInput of typ
     | Bool of bool
     | Int of int
     | Char of char
-    | ValueOf of reference
+    | ValueOf of inner_reference
     | NewArray of typ * expression
     | ArrayLiteral of expression list
     | NewStruct of string * typ option list * expression list
