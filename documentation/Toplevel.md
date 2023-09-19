@@ -40,14 +40,18 @@ ___
 <br> external _routine_name_ < _type_variables_ > ( _parameters_ ) [_block_](StatementsAndDeclarations.md#block)
 <br> entry _routine_name_ ( _simple_parameters_ ) [_block_](StatementsAndDeclarations.md#block)
 <br>
-**Explaination:** Type variables are a single capital letter, and parameters consist of a variable name and its type. Internal routines are only available in the context in which it is defined. External routines are available in the context in which it is declared, and to other contexts. Entry routines are available everywhere, including as entrypoints, but they cannot be generic or have structs or arrays as parameters.
-<br>
+**Explaination:** Type variables are a single capital letter, and parameters consist of a variable name and its type. Internal routines are only available in the context in which it is defined. External routines are available in the context in which it is declared, and to other contexts. Entry routines are available everywhere, including as entrypoints, but they cannot be generic or have structs or arrays as parameters. <br><br>
+Parameters to external or internal functions can be of a routine type, making it a higher-order routine.
+<br><br>
 **Examples**
 ```
 entry main(x: int) {
     s ::= new stack(1, null);
     push(2, s);
     push(3, s);
+
+    i ::= 2;
+    int_apply(double, i);
 }
 
 external load_4(to: int) {
@@ -56,6 +60,14 @@ external load_4(to: int) {
 
 internal push<T>(element: T, stck: stack<T>) {
     stck := {element, stck};
+}
+
+external apply<T>(f:(T), i: T) {
+    f(i);
+}
+
+internal double(i: int) {
+    i *:= 2;
 }
 ```
 ___

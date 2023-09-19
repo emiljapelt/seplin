@@ -2,22 +2,27 @@
 In INEX expressions are the only constructs which have some inherent value. They come in two flavours, 'value' and 'reference', where 'value' is just a value and 'reference' is a reference to some value.
 
 ## Index
-- [Bool](#bool)
-- [Int](#int)
-- [Char](#char)
-- [Null](#null)
-- [VariableAccess](#variableaccess)
-- [ArrayAccess](#arrayaccess)
-- [StructAccess](#structaccess)
-- [BinaryOperation](#binaryoperation)
-- [UnaryOperation](#unaryoperation)
-- [ValueOf](#valueof)
-- [ArraySize](#arraysize)
-- [Input](#input)
-- [NewArray](#newarray)
-- [ArrayLiteral](#arrayliteral)
-- [NewStruct](#newstruct)
-- [StructLiteral](#structliteral)
+- [Expressions](#expressions)
+  - [Index](#index)
+  - [Bool](#bool)
+  - [Int](#int)
+  - [Char](#char)
+  - [String](#string)
+  - [Null](#null)
+  - [Access](#access)
+  - [ArrayAccess](#arrayaccess)
+  - [StructAccess](#structaccess)
+  - [BinaryOperation](#binaryoperation)
+  - [UnaryOperation](#unaryoperation)
+  - [ValueOf](#valueof)
+  - [ArraySize](#arraysize)
+  - [Read](#read)
+  - [NewArray](#newarray)
+  - [ArrayLiteral](#arrayliteral)
+  - [NewStruct](#newstruct)
+  - [StructLiteral](#structliteral)
+- [Binary operators](#binary-operators)
+- [Unary operators](#unary-operators)
 
 ___
 ## Bool
@@ -95,10 +100,14 @@ ___
 null
 ```
 ___
-## VariableAccess
+## Access
 **Flavour:** reference
 <br>
-**Syntax:** _variable_name_
+**Syntax:**
+<br>
+_variable_name_
+<br>
+_context_alias_ # _variable_name_
 <br>
 **Type:** the type of the variable.
 <br>
@@ -108,6 +117,7 @@ ___
 ```
 x
 my_array
+other_context#my_routine
 ```
 ___
 ## ArrayAccess
@@ -200,10 +210,10 @@ ___
 |my_arrays[1]|
 ```
 ___
-## Input
+## Read
 **Flavour:** value
 <br>
-**Syntax:** # _type_
+**Syntax:** read<_type_>
 <br>
 **Type:** _type_
 <br>
@@ -211,8 +221,8 @@ ___
 <br>
 **Examples:**
 ```
-#int
-#char
+read<int>
+read<char>
 ```
 ___
 ## NewArray
