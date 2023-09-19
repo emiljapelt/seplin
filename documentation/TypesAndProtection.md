@@ -6,6 +6,7 @@
 | bool | 1B | false | simple |
 | array[size]  | size * 8B  | null | structure |
 | struct | fields * 8B | null | structure |
+| routine | 8B | null | routine |
 
 # Protection
 Sometimes it might be nice to protect data from modification. In INEX this is made possible by the usage of protection level modifiers on variables, which restrict how the variable can be used. There exists 3 levels of protection:

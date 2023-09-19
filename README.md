@@ -9,7 +9,7 @@
 | Multi entry point | Routines are marked either 'internal', 'external' or 'entry'. When running the program, any of the entry routines can be used as the entry point. |
 | Generic types | Both structs and routines can be generic. |
 | Flexible type inference | Both generic structures, routines, and the type of non-global variable declarations, can be infered in most cases.  |
-| Tracing compilation | The compiler will only include routines, which are reachable from an entrypoint of the compiled source file, keeping the size of the binary file to a minimum. |
+| Higher-order routines | Routines have types and can be used as values, and can therefor be assigned to variables and datastructurs, as well as being passed to routines as arguments. |
 
 
 ## Special words
