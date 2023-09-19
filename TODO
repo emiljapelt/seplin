@@ -11,7 +11,7 @@
 9. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
 10. Implement ternary expressions ((bool) ? x : y)
 11. Implement routine signature compatability check
-12. Implement routine name overloading (Requires 11.)
+12. Implement routine name overloading
 13. Fix generic inferencing
     - infer from routine types (the target type (variable being assigned to), must be well-defined in its routine so compatabilit should be simple)
     - Check other places, maybe arrays are broken
