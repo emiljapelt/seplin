@@ -1,18 +1,18 @@
 1. Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
 2. Allow command_line argument to reference global variables in VM
-3. Do some automated testing
-4. Try to optimize the tracing compilation algorithm, also make it more readable.
-5. Implement generic type resolution
+3. Allow VM to call the compiler, such that "inex.exe run ./program.ix main" runs correctly, generating a "program.ixc"
+4. Setup some automated testing
+5. Try to optimize the tracing compilation algorithm, also make it more readable.
+6. Implement generic type resolution
     - Some thing like: "if (T is int) { ... } "
     - Would strengthen type composition
-6. Fix assembly compiler
-7. Implement escape characters in string literals
-8. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
-9. Implement ternary expressions ((bool) ? x : y)
-10. Add var_mod comparison to routine signature comparison
-11. Implement routine name overloading (Requires 11.)
-12. Make sure routine types are handled correctly everywhere
+7. Fix assembly compiler
+8. Implement escape characters in string literals
+9. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
+10. Implement ternary expressions ((bool) ? x : y)
+11. Implement routine signature compatability check
+12. Implement routine name overloading (Requires 11.)
 13. Fix generic inferencing
-    -   infer from horoutines
-    -   Check other places, maybe arrays are broken
+    - infer from routine types (the target type (variable being assigned to), must be well-defined in its routine so compatabilit should be simple)
+    - Check other places, maybe arrays are broken
     - arrays of structs, i.e "x :tuple[]:= [{1,2}]", does not currently work.
