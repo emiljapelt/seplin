@@ -170,22 +170,25 @@ let rec write_program_parts f pp labels =
     )
     | FullInstruction (i, v) -> (
       fprintf f "%c" (Char.chr i);
-      match v with
-      | C_Int i -> write_word f (Int64.of_int i);
+      let () = match v with
+      | C_Int i -> write_word f (Int64.of_int i)
+      in
       write_program_parts f t labels
     )
     | ByteInstruction (i, v) -> (
       fprintf f "%c" (Char.chr i);
-      match v with
-      | C_Bool b -> if b then fprintf f "\x01" else fprintf f "\x00"
-      | C_Char c -> fprintf f "%c" (c);
+      let () = match v with
+      | C_Bool b -> fprintf f "%c" (if b then (Char.chr 1) else (Char.chr 0))
+      | C_Char c -> fprintf f "%c" (c)
+      in
       write_program_parts f t labels
     )
     | LabelInstruction (i, l) -> (
       fprintf f "%c" (Char.chr i);
-      match find_label l labels with
+      let () = match find_label l labels with
       | None -> raise_error ("Undefined label: " ^ l)
-      | Some a -> write_word f (Int64.of_int a);
+      | Some a -> write_word f (Int64.of_int a)
+      in
       write_program_parts f t labels
     )
     | _ -> write_program_parts f t labels

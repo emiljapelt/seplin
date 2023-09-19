@@ -164,6 +164,15 @@
 				"match": "[A-Za-z][A-Za-z0-9_]*"
 			},{
 				"include": "#type_args"
+			}, {
+				"include": "#routine_type"
+			}]
+		},
+		"routine_type": {
+			"begin": "\\(",
+			"end": "\\)",
+			"patterns": [{
+				"include": "#types"
 			}]
 		},
 		"control_keywords": {

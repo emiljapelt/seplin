@@ -99,6 +99,17 @@ typ:
   | NAME                { T_Struct ($1, []) }
   | NAME LT typ_args GT { T_Struct ($1, $3) }
   | TYPE_VAR            { T_Generic $1 }
+  | LPAR typ_list RPAR  { T_Routine $2 }
+;
+
+typ_list:
+   { [] }
+  | typ               { [(Open, $1)] }  
+  | STABLE typ        { [(Stable, $2)] }
+  | CONST typ         { [(Const, $2)] }
+  | typ COMMA typ_list {(Open, $1)::$3}
+  | STABLE typ COMMA typ_list {(Stable, $2)::$4}
+  | CONST typ COMMA typ_list {(Const, $2)::$4}
 ;
 
 block:
@@ -106,16 +117,21 @@ block:
 ;
 
 expression:
-    reference                                     { Reference $1 }
-  | value                                         { Value $1 }
+    reference                               { Reference $1 }
+  | value                                   { Value $1 }
 ;
 
 reference:
-   NAME                                               { VariableAccess $1 }
-  | reference DOT NAME                                { StructAccess ($1, $3) }
-  | reference LBRAKE expression RBRAKE                { ArrayAccess ($1, $3) }
-  | NULL                                              { Null }
-  | LPAR reference RPAR {$2}
+  NAME HASH inner_reference   { OtherContext ($1, $3) }
+  | inner_reference           { LocalContext $1 }
+  | NULL                      { Null }
+;
+
+inner_reference:
+   NAME                                                     { Access $1 }
+  | inner_reference DOT NAME                                { StructAccess ($1, $3) }
+  | inner_reference LBRAKE expression RBRAKE                { ArrayAccess ($1, $3) }
+  | LPAR inner_reference RPAR                               { $2 }
 ;
 
 simple_value:
@@ -125,9 +141,9 @@ simple_value:
   | CSTCHAR   { Char $1 }
   | MINUS expression                                      { Binary_op ("-", Value (Int 0), $2) }
   | NOT expression                                        { Unary_op ("!", $2) }
-  | PIPE reference PIPE                                   { ArraySize $2 }
+  | PIPE inner_reference PIPE                                   { ArraySize $2 }
   | READ LT typ GT                                        { GetInput $3 }
-  | VALUE reference                                       { ValueOf $2 }
+  | VALUE inner_reference                                       { ValueOf $2 }
   | NEW typ LBRAKE expression RBRAKE                      { NewArray ($2, $4) }
   | LBRAKE arguments RBRAKE                               { ArrayLiteral $2 }
   | CSTSTRING                                             { string_to_array_literal $1 }
@@ -194,24 +210,24 @@ stmt:
     let var_name = new_var () in
     Block([
       Declaration(TypeDeclaration(Open, T_Int, var_name), $symbolstartpos.pos_lnum); 
-      Statement(While(Value(Binary_op("<", Reference(VariableAccess var_name), Value $3)), 
+      Statement(While(Value(Binary_op("<", Reference(LocalContext(Access var_name)), Value $3)), 
         Block([
           Statement($5,$symbolstartpos.pos_lnum); 
-          Statement(Assign(VariableAccess(var_name), Value(Binary_op("+", Value(Int 1), Reference(VariableAccess var_name)))), $symbolstartpos.pos_lnum);
+          Statement(Assign(Access(var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))), $symbolstartpos.pos_lnum);
         ])
       ),$symbolstartpos.pos_lnum);
     ]) 
   }
-  | REPEAT LPAR reference RPAR stmt { 
+  | REPEAT LPAR inner_reference RPAR stmt { 
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
       Declaration(AssignDeclaration(Open, Some T_Int, limit_name, Value(ValueOf($3))), $symbolstartpos.pos_lnum); 
       Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
-      Statement(While(Value(Binary_op("<", Reference(VariableAccess count_name), Reference(VariableAccess limit_name))), 
+      Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
         Block([
           Statement($5, $symbolstartpos.pos_lnum); 
-          Statement(Assign(VariableAccess count_name, Value(Binary_op("+", Value(Int 1), Reference(VariableAccess count_name)))), $symbolstartpos.pos_lnum);
+          Statement(Assign(Access count_name, Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))), $symbolstartpos.pos_lnum);
         ])
       ), $symbolstartpos.pos_lnum);
     ]) 
@@ -224,15 +240,13 @@ stmt:
 ;
 
 non_control_flow_stmt:
-    reference ASSIGNMENT expression        { Assign ($1, $3) }
-  | reference PLUS ASSIGNMENT expression   { Assign ($1, Value(Binary_op("+", Reference $1, $4))) }
-  | reference MINUS ASSIGNMENT expression  { Assign ($1, Value(Binary_op("-", Reference $1, $4))) }
-  | reference TIMES ASSIGNMENT expression  { Assign ($1, Value(Binary_op("*", Reference $1, $4))) }
-  | reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
-  | NAME LPAR arguments RPAR                          { Call (None, $1, [], $3) }
-  | NAME LT typ_args GT LPAR arguments RPAR           { Call (None, $1, $3, $6) }
-  | NAME HASH NAME LPAR arguments RPAR                 { Call (Some($1), $3, [], $5) }
-  | NAME HASH NAME LT typ_args GT LPAR arguments RPAR  { Call (Some($1), $3, $5, $8) }
+    inner_reference ASSIGNMENT expression        { Assign ($1, $3) }
+  | inner_reference PLUS ASSIGNMENT expression   { Assign ($1, Value(Binary_op("+", Reference(LocalContext $1), $4))) }
+  | inner_reference MINUS ASSIGNMENT expression  { Assign ($1, Value(Binary_op("-", Reference(LocalContext $1), $4))) }
+  | inner_reference TIMES ASSIGNMENT expression  { Assign ($1, Value(Binary_op("*", Reference(LocalContext $1), $4))) }
+  | inner_reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
+  | reference LPAR arguments RPAR                      { Call ($1, [], $3) }
+  | reference LT typ_args GT LPAR arguments RPAR       { Call ($1, $3, $6) }
   | PRINT arguments1                          { Print $2 }
 ;
 
@@ -266,17 +280,9 @@ param:
   | NAME COLON typ                  { (Open, $3, $1) }
   | NAME COLON STABLE typ           { (Stable, $4, $1) }
   | NAME COLON CONST typ            { (Const, $4, $1) }
-  | NAME COLON LPAR routine_type_list RPAR            { (Const, T_Routine $4, $1) }
 ;
 
-routine_type_list:
-  | typ                                    { [(Open, $1)] }
-  | STABLE typ                             { [(Stable, $2)] }
-  | CONST typ                              { [(Const, $2)] }
-  | typ COMMA routine_type_list            { (Open, $1) :: $3 }
-  | STABLE typ COMMA routine_type_list     { (Stable, $2) :: $4 }
-  | CONST typ COMMA routine_type_list      { (Const, $2) :: $4 }
-;
+
 
 struct_params:
                { [] }

@@ -7,7 +7,6 @@ type variable_environment = {
   locals: (var_mod * typ * string) list; (* modifier, type, name *)
   globals: (string * string * int * var_mod * typ * declaration) list; (* name, stack_index, modifier, type, expression *)
   structs: (string * char list * (var_mod * typ * string) list) list; (* name, type_vars, parameters(modifier, type, name) *)
-  horoutines: (string * int * (var_mod * typ) list) list;
   typ_vars: char list;
 }
 
@@ -15,13 +14,13 @@ type environment = {
   context_name: string;
   var_env: variable_environment;
   routine_env: (access_mod * string * string * char list * (var_mod * typ * string) list * statement) list; (* name, type_vars, parameters(modifier, type, name) *)
-  file_refs: (string * string) list
+  file_refs: (string * string) list;
 }
 
-type label_generator = { mutable next : int }
-
 type context =
-  | Context of string * environment
+| Context of string * environment
+
+type label_generator = { mutable next : int }
 
 (* Labels *)
 let lg = ( {next = 0;} )
@@ -52,11 +51,13 @@ let lookup_i f l =
   in
   aux l ((List.length l)-1)
 
+let lookup_context (name: string) file_refs contexts =
+  match List.find_opt (fun (n,_) -> n = name) file_refs with
+  | None -> None
+  | Some(_,cn) -> lookup (fun (c) -> match c with Context(n,e) -> if cn = n then Some e else None) contexts
+
 let lookup_routine (name: string) routines =
   lookup (fun (accmod,n,cn,tvs,ps,stmt) -> if n = name then Some(accmod,n,cn,tvs,ps,stmt) else None) routines
-
-let lookup_horoutine (name: string) horoutines =
-  lookup (fun (n,addr,types) -> if n = name then Some(addr,types) else None) horoutines
 
 let lookup_struct (name: string) structs =
   lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs
@@ -87,7 +88,7 @@ let var_modifier (name: string) env =
       match lookup_globvar name env.var_env.globals with
       | Some (_,_,g_vmod) -> g_vmod
       | None -> match lookup_routine name env.routine_env with 
-        | Some _ -> Const
+        | Some _ -> Open
         | None -> raise_error ("No such variable '" ^ name ^ "'")
 
 let var_type (name: string) env = 
