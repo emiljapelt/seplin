@@ -222,7 +222,7 @@ stmt:
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(Open, Some T_Int, limit_name, Value(ValueOf($3))), $symbolstartpos.pos_lnum); 
+      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(ValueOf($3))), $symbolstartpos.pos_lnum); 
       Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
       Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
         Block([
