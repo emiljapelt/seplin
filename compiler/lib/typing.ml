@@ -319,19 +319,19 @@ let check_structs structs =
   in
   aux structs []
 
-let rec check_struct_literal struct_fields expr (env : environment) contexts =
-  let rec aux pairs =
+let check_struct_literal struct_fields expr (env : environment) contexts =
+  let rec aux (pairs : ((var_mod * typ) * expression) list) =
     match pairs with
     | [] -> true 
-    | ((_,T_Struct(name,typ_args)),expr)::_ -> (
+    | ((_,T_Struct(name,typ_args)), Value(StructLiteral(exprs)))::t -> (
       match lookup_struct name env.var_env.structs with
       | None -> false
       | Some(tvs,ps) -> (
         let replaced = replace_generics (List.map (fun (a,b,_) -> (a,b)) ps) tvs typ_args in
-        check_struct_literal replaced expr env contexts
-      )
+        aux (List.combine replaced exprs)
+      ) && aux t
     )
-    | ((_,T_Null),_)::_ -> false
+    | ((_,T_Null),_)::_ -> Printf.printf "f\n"; false
     | ((vmod,typ),e)::t -> (
       let (expr_vmod, expr_typ) = type_expr e env contexts in
       if not(type_equal typ expr_typ) then false else
