@@ -51,39 +51,19 @@
 			},{
 				"include": "#control_keywords"
 			},{
+				"include": "#assignment"
+			},{
 				"begin": "print",
 				"end": ";",
 				"name": "keyword",
-				"match": "\\b(print)\\b"
-			},{
-				"begin": "[A-Za-z][A-Za-z0-9_]*",
-				"end": ";",
-				"patterns": [{
-					"begin": "<",
-					"end": ">",
-					"patterns": [{
-						"include": "#types"
-					}]
-				},{
-					"begin": "\\(",
-					"end": "\\)",
-					"patterns": [{
-						"include": "#expression"
-					}]
-				},{
-					"begin": "=",
-					"end": ";",
-					"patterns": [{
-						"include": "#expression"
-					}]
-				},{
-					"begin": ":",
-					"end": "(:|;)",
-					"patterns": [{
-						"include": "#types"
-					}]
-				}]
+				"match": "\\b(print)\\b",
+				"patterns": [{"include": "#expression"}]
 			}]
+		},
+		"assignment": {
+			"begin": "[A-Za-z][A-Za-z0-9_]* *:=",
+			"end": ";",
+			"patterns": [{"include": "#expression"}]
 		},
 		"args": {
 			"patterns": [{
@@ -163,6 +143,10 @@
 				"name": "support.type",
 				"match": "[A-Za-z][A-Za-z0-9_]*"
 			},{
+				"begin": "\\(",
+				"end": "\\)",
+				"patterns": [{"include": "#types"}]
+			},{
 				"include": "#type_args"
 			}, {
 				"include": "#routine_type"
@@ -178,7 +162,7 @@
 		"control_keywords": {
 			"patterns": [{
 				"name": "keyword.control.inex",
-				"match": "\\b(if|while|for|stop|halt|until|repeat|else)\\b"
+				"match": "\\b(if|while|repeat|for|stop|halt|until|repeat|else)\\b"
 			}]
 		},
 		"strings": {
