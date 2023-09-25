@@ -225,15 +225,9 @@ let rec compile_expr expr var_env acc =
 
 and compile_inner_reference iref env contexts acc = 
   match iref with
-  | Access name -> ( match lookup_localvar name env.var_env.locals with
-    | Some _ -> (fetch_var_index name env.var_env.globals env.var_env.locals env.routine_env) :: RefFetch :: acc
-    | None -> ( match lookup_globvar name env.var_env.globals with
-      | Some _ -> (fetch_var_index name env.var_env.globals env.var_env.locals env.routine_env) :: RefFetch :: acc
-      | None -> ( match lookup_routine (name) env.routine_env with
-        | Some (_,_,cn,_,_,_) -> DeclareFull :: CloneFull :: DeclareFull :: CloneFull :: CPlaceLabel (cn^"#"^name) :: AssignFull :: AssignFull :: acc
-        | None ->  raise_error ("Nothing exists by the name: " ^ name)
-      )
-    )
+  | Access name -> ( match name_type name env with
+    | RoutineName -> DeclareFull :: CloneFull :: DeclareFull :: CloneFull :: CPlaceLabel (env.context_name^"#"^name) :: AssignFull :: AssignFull :: acc
+    | _ -> (fetch_var_index name env.var_env.globals env.var_env.locals env.routine_env) :: RefFetch :: acc
   )
   | StructAccess (refer, field) -> ( 
     let (_, ref_ty) = Typing.type_inner_reference refer env contexts in
