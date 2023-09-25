@@ -382,14 +382,20 @@ let compile_arguments args (env : environment) contexts acc =
       )
       | Reference r -> (match r with
         | LocalContext ref -> ( match ref with
-          | Access _ -> aux t (compile_inner_reference ref env contexts (IncrRef :: acc)) 
+          | Access name -> ( match name_type name env with
+            | RoutineName -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
+            | _ -> aux t (compile_inner_reference ref env contexts (IncrRef :: acc)) 
+          )
           | StructAccess _ -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
           | ArrayAccess _ -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
         )
         | OtherContext (cn,ref) -> ( match lookup_context cn env.file_refs contexts with
           | None -> raise_error ("No such context:"^cn)
           | Some(env) -> ( match ref with
-            | Access _ -> aux t (compile_inner_reference ref env contexts (IncrRef :: acc)) 
+            | Access name -> ( match name_type name env with
+              | RoutineName -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
+              | _ -> aux t (compile_inner_reference ref env contexts (IncrRef :: acc)) 
+            )
             | StructAccess _ -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
             | ArrayAccess _ -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
           )
