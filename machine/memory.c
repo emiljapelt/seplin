@@ -1,6 +1,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "memory.h"
 #include "types.h"
@@ -21,8 +22,7 @@ byte_t* allocate_simple(byte_t type) {
     if (alloc+total_size > heap_max) heap_max = alloc+total_size;
     if (alloc < heap_min) heap_min = alloc;
 
-    byte_t* b = alloc+8;
-    for(unsigned int i = 0; i < total_size-8; i++) b[i] = 0;
+    memset(alloc+8, 0, SIZE(type));
 
     #if defined(ENV64)
         *((uhalf_t*)alloc) = 0; // referecne count
@@ -43,8 +43,7 @@ byte_t* allocate_struct(unsigned int fields) {
     if (alloc+total_size > heap_max) heap_max = alloc+total_size;
     if (alloc < heap_min) heap_min = alloc;
 
-    ufull_t* field = ((ufull_t*)alloc)+1;
-    for(unsigned int i = 0; i < fields; i++) field[i] = 0;
+    memset(((ufull_t*)alloc)+1, 0, (fields*SIZE(FULL)));
 
     #if defined(ENV64)
         *((uhalf_t*)alloc) = 0; // reference count
