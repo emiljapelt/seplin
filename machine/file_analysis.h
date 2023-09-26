@@ -16,6 +16,7 @@ struct entry_point_info
     byte_t* argument_types;
 };
 
+char string_ends_with(size_t suffix_size, char* suffix, size_t size, char* string);
 
 struct file_segments find_segments(byte_t* file);
 struct entry_point_info find_entry_point(byte_t* ptr, char* name);

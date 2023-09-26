@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -9,6 +10,16 @@
 void skip_string(byte_t** file) {
     while(**file != 0) *file += 1;
     *file += 1;
+}
+
+char string_ends_with(size_t suffix_size, char* suffix, size_t size, char* string) {
+    if (suffix_size > size) return false;
+    while(suffix_size > 0) {
+        if (suffix[suffix_size-1] != string[size-1]) return false;
+        suffix_size--;
+        size--;
+    }
+    return true;
 }
 
 int type_rep_size(byte_t* file) {

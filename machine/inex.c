@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "ISA.h"
 #include "types.h"
@@ -667,6 +668,26 @@ int main(int argc, char** argv) {
         }
         case RUN: {
             if (cmd_argument_count < 3) { printf("Failure: Command 'run' requires 2 or more arguments\n"); return -1; }
+            if (access(cmd_arguments[1], F_OK) != 0) { printf("Failure: File not accesible: %s\n", cmd_arguments[1]); return -1; }
+
+            if (string_ends_with(4, ".ixc", strlen(cmd_arguments[1]), cmd_arguments[1])) {}
+            else if (string_ends_with(3, ".ix", strlen(cmd_arguments[1]), cmd_arguments[1])) {
+                int command_length = strlen(cmd_arguments[1]+11);
+                char command[command_length];
+                for(int i = 0; i < command_length; i++) command[i] = 0;
+                strcat(command, "inexc.exe ");
+                strcat(command, cmd_arguments[1]);
+
+                int result = system(command);
+                if (result != 0) { printf("Failure: Compilation failed.\n"); return -1;}
+                int compiled_file_name_length = strlen(cmd_arguments[1]+1);
+                char compiled_file_name[compiled_file_name_length];
+                for(int i = 0; i < compiled_file_name_length; i++) compiled_file_name[i] = 0;
+                strcat(compiled_file_name, cmd_arguments[1]);
+                strcat(compiled_file_name, "c");
+                cmd_arguments[1] = compiled_file_name;
+            }
+            else { printf("Failure: Given a file without inex related suffix.\n"); return -1; }
 
             byte_t* file;
             full_t file_len;
