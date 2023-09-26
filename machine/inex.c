@@ -59,23 +59,21 @@ void print_stack(byte_t* stack, ufull_t bp, ufull_t sp) {
 }
 
 void print_help() {
-    char message[1000];
-
-    strcat(message, "Welcome to INEX!\n");
-    strcat(message, "Here are the available commands:\n");
-    strcat(message, "   help:\n");
-    strcat(message, "       Prints this message.\n");
-    strcat(message, "   i <file_path>:\n");
-    strcat(message, "       Prints the interface of a compiled INEX file.\n");
-    strcat(message, "   disass <file_path>:\n");
-    strcat(message, "       Prints the instructions of a compiled INEX file, using their names.\n");
-    strcat(message, "   run <file_path> <entry_point> <args>*:\n");
-    strcat(message, "       Executes a compiled INEX file, starting from the given entry point, using the given arguments.\n");
-    strcat(message, "       --time: Measure and print the execution time, in seconds.\n");
-    strcat(message, "       --trace: Print information about the execution.\n");
-    strcat(message, "           This includes which instruction is being executed, the current stack and memory management.\n");
-
-    printf("%s", message);
+    printf(
+        "Welcome to INEX!\n"
+        "Here are the available commands:\n"
+        "   help:\n"
+        "       Prints this message.\n"
+        "   i <file_path>:\n"
+        "       Prints the interface of a compiled INEX file.\n"
+        "   disass <file_path>:\n"
+        "       Prints the instructions of a compiled INEX file, using their names.\n"
+        "   run <file_path> <entry_point> <args>*:\n"
+        "       Executes a compiled INEX file, starting from the given entry point, using the given arguments.\n"
+        "       --time: Measure and print the execution time, in seconds.\n"
+        "       --trace: Print information about the execution.\n"
+        "           This includes which instruction is being executed, the current stack and memory management.\n"
+    );
 }
 
 void read_input(unsigned int max_size, char** ret) {
@@ -135,12 +133,9 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
             case CALL: {
                 full_t arg_count = *(full_t*)(stack + sp + MOVE(FULL, -2));
                 full_t target = *(full_t*)(stack + sp + MOVE(FULL, -1));
-//                sp -= MOVE(FULL, 2);
 
                 for(int i = 0; i < arg_count; i++) {
                     full_t* arg = *(full_t**)(stack + sp - MOVE(FULL, (i+3)));
-                    // to_origin(&arg, sp);
-                    // if (*arg) INCR_REF_COUNT(*arg);
                     *(full_t*)(stack + sp - MOVE(FULL, i+1)) = (full_t)(arg);
                 }
 
@@ -329,7 +324,6 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
 
                 try_free(*target, sp, 0, trace);
 
-                // if (value) INCR_REF_COUNT(value);
                 *target = value;
                 sp -= MOVE(FULL, 1) + MOVE (FULL, 1);
                 ip++;
@@ -342,7 +336,6 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
 
                 try_free(*(target + offset), sp, 0, trace);
 
-                // if (value) INCR_REF_COUNT(value);
                 *(target + offset) = value;
                 sp -= MOVE(FULL, 3);
                 ip++;
@@ -441,18 +434,6 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                 ip++;
                 break;
             }
-            // case GETSP: {
-            //     *(full_t*)(stack + sp) = (full_t)sp;
-            //     sp += MOVE(FULL, 1);
-            //     ip++;
-            //     break;
-            // }
-            // case MODSP: {
-            //     full_t amount = *(full_t*)(p+ip+1);
-            //     sp += amount;
-            //     ip += MOVE(FULL, 1) + 1;
-            //     break;
-            // }
             case FREE_VAR: {
                 full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
                 try_free(target, sp, 0, trace);
@@ -673,16 +654,18 @@ int main(int argc, char** argv) {
             if (string_ends_with(4, ".ixc", strlen(cmd_arguments[1]), cmd_arguments[1])) {}
             else if (string_ends_with(3, ".ix", strlen(cmd_arguments[1]), cmd_arguments[1])) {
                 int command_length = strlen(cmd_arguments[1]+11);
-                char command[command_length];
-                for(int i = 0; i < command_length; i++) command[i] = 0;
+                char command[command_length+1];
+                memset(command, 0, command_length);
+                
                 strcat(command, "inexc.exe ");
                 strcat(command, cmd_arguments[1]);
 
                 int result = system(command);
                 if (result != 0) { printf("Failure: Compilation failed.\n"); return -1;}
                 int compiled_file_name_length = strlen(cmd_arguments[1]+1);
-                char compiled_file_name[compiled_file_name_length];
-                for(int i = 0; i < compiled_file_name_length; i++) compiled_file_name[i] = 0;
+                char compiled_file_name[compiled_file_name_length+1];
+                memset(compiled_file_name, 0, compiled_file_name_length);
+
                 strcat(compiled_file_name, cmd_arguments[1]);
                 strcat(compiled_file_name, "c");
                 cmd_arguments[1] = compiled_file_name;
