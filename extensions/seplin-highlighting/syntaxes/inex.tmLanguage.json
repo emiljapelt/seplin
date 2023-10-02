@@ -1,6 +1,6 @@
 {
 	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-	"name": "inex",
+	"name": "seplin",
 	"patterns": [
 		{ "include": "#comments" },
 		{ "include": "#topdecs" },
@@ -161,17 +161,17 @@
 		},
 		"control_keywords": {
 			"patterns": [{
-				"name": "keyword.control.inex",
+				"name": "keyword.control.sepæin",
 				"match": "\\b(if|while|repeat|for|stop|halt|until|repeat|else)\\b"
 			}]
 		},
 		"strings": {
-			"name": "string.quoted.double.inex",
+			"name": "string.quoted.double.seplin",
 			"begin": "\"",
 			"end": "\"",
 			"patterns": [
 				{
-					"name": "constant.character.escape.inex",
+					"name": "constant.character.escape.seplin",
 					"match": "\\\\."
 				}
 			]

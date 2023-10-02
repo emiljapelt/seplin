@@ -11,7 +11,7 @@
     #define ENV64
 #else
     #define ENV32
-    #error "Error: The INEX virtual machine does not yet support 32bit architectures."
+    #error "Error: The Seplin virtual machine does not yet support 32bit architectures."
 #endif
 
 #if defined(ENV64)
@@ -32,7 +32,7 @@
     #define INCR_REF_COUNT(addr) (((uhalf_t*)addr)[-2] = ((uhalf_t*)addr)[-2] + 1)
     #define DECR_REF_COUNT(addr) (((uhalf_t*)addr)[-2] = ((uhalf_t*)addr)[-2] - 1)
 #elif defined(ENV32)
-    #error "Error: The INEX virtual machine does not yet support 32bit architectures."
+    #error "Error: The Seplin virtual machine does not yet support 32bit architectures."
 #else
     #error "Error: Could not resolve architecture size (32/64bit)."
 #endif

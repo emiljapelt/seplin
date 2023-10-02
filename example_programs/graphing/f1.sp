@@ -1,6 +1,6 @@
 
 
-reference ./f3.ix as list;
+reference ./f3.sp as list;
 
 meme1 : int := 1;
 meme2 : int := meme1 + 2;

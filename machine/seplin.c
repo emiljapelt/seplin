@@ -60,16 +60,16 @@ void print_stack(byte_t* stack, ufull_t bp, ufull_t sp) {
 
 void print_help() {
     printf(
-        "Welcome to INEX!\n"
+        "Welcome to Seplin!\n\n"
         "Here are the available commands:\n"
         "   help:\n"
         "       Prints this message.\n"
         "   i <file_path>:\n"
-        "       Prints the interface of a compiled INEX file.\n"
+        "       Prints the interface of a compiled Seplin file.\n"
         "   disass <file_path>:\n"
-        "       Prints the instructions of a compiled INEX file, using their names.\n"
+        "       Prints the instructions of a compiled Seplin file, using their names.\n"
         "   run <file_path> <entry_point> <args>*:\n"
-        "       Executes a compiled INEX file, starting from the given entry point, using the given arguments.\n"
+        "       Executes a Seplin file, starting from the given entry point, using the given arguments.\n"
         "       --time: Measure and print the execution time, in seconds.\n"
         "       --trace: Print information about the execution.\n"
         "           This includes which instruction is being executed, the current stack and memory management.\n"
@@ -570,7 +570,32 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
     }
 }
 
-// Call should be: 'inex <command> <file>.ixc arg1? arg2? ...'
+
+char compile(char** path) {
+    if (string_ends_with(4, ".spc", strlen(*path), *path)) {}
+    else if (string_ends_with(3, ".sp", strlen(*path), *path)) {
+        int command_length = strlen((*path)+11);
+        char command[command_length+1];
+        memset(command, 0, command_length);
+        
+        strcat(command, "seplinc.exe ");
+        strcat(command, *path);
+
+        int result = system(command);
+        if (result != 0) { printf("Failure: Compilation failed.\n"); return 0;}
+        int compiled_file_name_length = strlen(*path)+1;
+        char* compiled_file_name = (char*)malloc(sizeof(char)*(compiled_file_name_length+1));
+        memset(compiled_file_name, 0, compiled_file_name_length);
+
+        strcat(compiled_file_name, *path);
+        strcat(compiled_file_name, "c");
+        *path = compiled_file_name;
+        return 1;
+    }
+    else { printf("Failure: Given a file without Seplin related suffix.\n"); return 0; }
+}
+
+// Call should be: 'seplin <command> <file>.ixc arg1? arg2? ...'
 int main(int argc, char** argv) {
 
     byte_t trace = false;
@@ -613,6 +638,7 @@ int main(int argc, char** argv) {
     switch (command_index(cmd_arguments[0])) {
         case I: {
             if (cmd_argument_count != 2) { printf("Failure: Command 'i' requires 1 argument\n"); return -1; }
+            if (!compile(cmd_arguments+1)) { return -1; }
 
             byte_t* file;
             full_t file_len;
@@ -630,6 +656,7 @@ int main(int argc, char** argv) {
         }
         case DISASS: {
             if (cmd_argument_count != 2) { printf("Failure: Command 'disass' requires 1 argument\n"); return -1; }
+            if (!compile(cmd_arguments+1)) { return -1; }
 
             byte_t* file;
             full_t file_len;
@@ -647,30 +674,15 @@ int main(int argc, char** argv) {
             dissas(file, segments.instructions_segment, file_len);
             return 0;
         }
+        case COMPILE: {
+            if (cmd_argument_count != 2) { printf("Failure: Command 'comp' requires 1 argument\n"); return -1; }
+            if (!compile(cmd_arguments+1)) { return -1; }
+            return 0;
+        }
         case RUN: {
             if (cmd_argument_count < 3) { printf("Failure: Command 'run' requires 2 or more arguments\n"); return -1; }
             if (access(cmd_arguments[1], F_OK) != 0) { printf("Failure: File not accesible: %s\n", cmd_arguments[1]); return -1; }
-
-            if (string_ends_with(4, ".ixc", strlen(cmd_arguments[1]), cmd_arguments[1])) {}
-            else if (string_ends_with(3, ".ix", strlen(cmd_arguments[1]), cmd_arguments[1])) {
-                int command_length = strlen(cmd_arguments[1]+11);
-                char command[command_length+1];
-                memset(command, 0, command_length);
-                
-                strcat(command, "inexc.exe ");
-                strcat(command, cmd_arguments[1]);
-
-                int result = system(command);
-                if (result != 0) { printf("Failure: Compilation failed.\n"); return -1;}
-                int compiled_file_name_length = strlen(cmd_arguments[1]+1);
-                char compiled_file_name[compiled_file_name_length+1];
-                memset(compiled_file_name, 0, compiled_file_name_length);
-
-                strcat(compiled_file_name, cmd_arguments[1]);
-                strcat(compiled_file_name, "c");
-                cmd_arguments[1] = compiled_file_name;
-            }
-            else { printf("Failure: Given a file without inex related suffix.\n"); return -1; }
+            if (!compile(cmd_arguments+1)) { return -1; }
 
             byte_t* file;
             full_t file_len;
@@ -706,7 +718,7 @@ int main(int argc, char** argv) {
                     case ARRAY: // array
                     case STRUCT: // struct
                     case GENERIC: // generic
-                        printf("INEX does not support array and struct as commandline arguments\n");
+                        printf("Seplin does not support array and struct as commandline arguments\n");
                         return -1;
                     default:
                         printf("Unknown type type\n");

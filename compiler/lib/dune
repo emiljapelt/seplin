@@ -1,7 +1,7 @@
 (ocamllex assemblyLexer lexer)
 (menhir (modules assemblyParser parser))
 (library
- (name inexclib)
+ (name seplinclib)
  (modules
    programRep
    exceptions

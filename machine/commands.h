@@ -2,6 +2,7 @@
 
 #define I 0
 #define DISASS 1
+#define COMPILE 2
 #define RUN 3
 #define HELP 4
 

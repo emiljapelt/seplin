@@ -1,6 +1,6 @@
 (executable
- (public_name inexc)
- (name inexc)
- (modules inexc)
- (libraries inexclib str) 
+ (public_name seplinc)
+ (name seplinc)
+ (modules seplinc)
+ (libraries seplinclib str) 
 )

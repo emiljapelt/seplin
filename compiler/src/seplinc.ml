@@ -1,20 +1,20 @@
-open Inexclib.AssemblyWriter
-open Inexclib.ToProgramRep
+open Seplinclib.AssemblyWriter
+open Seplinclib.ToProgramRep
 open Str
-open Inexclib.Exceptions
+open Seplinclib.Exceptions
 
 let () = Printexc.record_backtrace true
 
 type input_type =
-| IX
-| IXA
+| SP
+| SPA
 
 let resolve_input () =
   try (
     let input = Sys.argv.(1) in
     if not (Sys.file_exists input) then raise_error "Input file does not exist"
-    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.ix$|}) input 0 then (input, IX)
-    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.ixa$|}) input 0 then (input, IXA)
+    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.sp$|}) input 0 then (input, SP)
+    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.spa$|}) input 0 then (input, SPA)
     else raise_error "Invalid input file extension"
   ) with
   | Invalid_argument _ -> raise_error "No file given to compile"
@@ -24,7 +24,7 @@ let resolve_output i =
   try (
     let output = Sys.argv.(2) in
     if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*$|}) output 0 then  (* Directory *) (
-      output ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".ixc"
+      output ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".spc"
     )
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$|}) output 0 then (* File with extension*) (
       output
@@ -34,7 +34,7 @@ let resolve_output i =
     )
     else raise_error "Invalid output destination"
   ) with
-  | Invalid_argument _ -> "./" ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".ixc"
+  | Invalid_argument _ -> "./" ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".spc"
   | ex -> raise ex
 
 let print_line ls l =
@@ -51,8 +51,8 @@ let () = try (
   let (input, in_type) = resolve_input () in
   let output = resolve_output input in
   match in_type with
-  | IX -> write (compile input (fun file -> Inexclib.Parser.main (Inexclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
-  | IXA -> write (Inexclib.AssemblyParser.main (Inexclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
+  | SP -> write (compile input (fun file -> Seplinclib.Parser.main (Seplinclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
+  | SPA -> write (Seplinclib.AssemblyParser.main (Seplinclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
 ) with 
 | Error(file_opt, line_opt, expl) -> (
   Printf.printf "%s" expl ;

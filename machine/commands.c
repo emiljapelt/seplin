@@ -8,6 +8,7 @@ byte_t command_index(char* command) {
     if (strcmp(command, "i") == 0) return I;
     else if (strcmp(command, "disass") == 0) return DISASS;
     else if (strcmp(command, "run") == 0) return RUN;
+    else if (strcmp(command, "comp") == 0) return COMPILE;
     else if (strcmp(command, "help") == 0) return HELP;
     else return -1;
 }

@@ -13,7 +13,7 @@ t :tuple<int,int>:= {1,2};
 ```
 
 # Statements
-In INEX a statement has no inherent value, but still does useful things like state management, printing and control flow. 
+In Seplin a statement has no inherent value, but still does useful things like state management, printing and control flow. 
 ___
 ## If
 **Syntax:** <br> if ( _bool_expression_ ) _statement_ <br> if ( _bool_expression_ ) _statement_ else _statement_

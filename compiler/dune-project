@@ -1,11 +1,11 @@
 (lang dune 3.7)
 
-(name inexc)
+(name seplinc)
 
 (generate_opam_files true)
 
 (source
- (github emiljapelt/inex))
+ (github emiljapelt/seplin))
 
 (authors "Emil Jäpelt")
 
@@ -13,14 +13,14 @@
 
 (license LICENSE)
 
-(documentation https://github.com/emiljapelt/inex)
+(documentation https://github.com/emiljapelt/seplin)
 
 (using menhir 2.1)
 
 (package
- (name inexc)
- (synopsis "A compiler for the inex langauges.")
- (description "A compiler for languages targeting the inex virtual machine.")
+ (name seplinc)
+ (synopsis "A compiler for the Seplin langauges.")
+ (description "A compiler for languages targeting the Seplin virtual machine.")
  (depends ocaml dune)
  (tags
   (compiler)))
