@@ -1,6 +1,6 @@
 1. Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
 2. Allow command_line argument to reference global variables in VM
-3. Allow VM to call the compiler, such that "inex.exe run ./program.ix main" runs correctly, generating a "program.ixc"
+3. Allow VM to call the compiler, such that "seplin.exe run ./program.sp main" runs correctly, generating a "program.spc"
 4. Setup some automated testing
 5. Try to optimize the tracing compilation algorithm, also make it more readable.
 6. Implement generic type resolution

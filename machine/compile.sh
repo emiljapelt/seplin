@@ -1,1 +1,1 @@
-gcc ./ISA.c ./types.c ./commands.c ./memory.c ./file_analysis.c ./inex.c -o inex.exe
+gcc ./ISA.c ./types.c ./commands.c ./memory.c ./file_analysis.c ./seplin.c -o seplin

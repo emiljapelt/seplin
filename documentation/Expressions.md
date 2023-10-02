@@ -1,5 +1,5 @@
 # Expressions
-In INEX expressions are the only constructs which have some inherent value. They come in two flavours, 'value' and 'reference', where 'value' is just a value and 'reference' is a reference to some value.
+In Seplin expressions are the only constructs which have some inherent value. They come in two flavours, 'value' and 'reference', where 'value' is just a value and 'reference' is a reference to some value.
 
 ## Index
 - [Expressions](#expressions)

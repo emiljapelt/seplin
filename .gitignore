@@ -1,7 +1,10 @@
 *.cmi
 *.cmo
 *.ixc
+*.spc
 *.exe
 
 .vscode
 _build
+
+seplin

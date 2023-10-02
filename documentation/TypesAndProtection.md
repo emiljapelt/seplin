@@ -9,7 +9,7 @@
 | routine | 8B | null | routine |
 
 # Protection
-Sometimes it might be nice to protect data from modification. In INEX this is made possible by the usage of protection level modifiers on variables, which restrict how the variable can be used. There exists 3 levels of protection:
+Sometimes it might be nice to protect data from modification. In Seplin this is made possible by the usage of protection level modifiers on variables, which restrict how the variable can be used. There exists 3 levels of protection:
 | Level | Syntax | Explaination |
 | --- | --- | --- |
 | Open | N/A | The default level, which is applied if no other level is specified. Provides no protection whatsoever. |

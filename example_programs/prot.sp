@@ -69,8 +69,8 @@ internal add(dl: dbl_list<int>, i: int) {
     }
 }
 
-reference ../library/collections/stack.ix as stack;
-reference ../library/string.ix as string;
+reference ../library/collections/stack.sp as stack;
+reference ../library/string.sp as string;
 
 entry main3() {
 

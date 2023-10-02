@@ -29,7 +29,7 @@ byte_t* allocate_simple(byte_t type) {
         *(((uhalf_t*)alloc)+1) = ((uhalf_t)SIZE(type) << 1); // byte size and non-struct mark
     #elif defined(ENV32)
         // ufull_t instead of uhalf_t
-        #error "Error: The INEX virtual machine does not yet support 32bit architectures."
+        #error "Error: The Seplin virtual machine does not yet support 32bit architectures."
     #else
         #error "Error: Could not resolve architecture size (32/64bit)."
     #endif
@@ -50,7 +50,7 @@ byte_t* allocate_struct(unsigned int fields) {
         *(((uhalf_t*)alloc)+1) = ((((uhalf_t)fields) << 1) | 1); // field count and struct mark
     #elif defined(ENV32)
         // ufull_t instead of uhalf_t
-        #error "Error: The INEX virtual machine does not yet support 32bit architectures."
+        #error "Error: The Seplin virtual machine does not yet support 32bit architectures."
     #else
         #error "Error: Could not resolve architecture size (32/64bit)."
     #endif
@@ -84,7 +84,7 @@ void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace) {
         free(addr-1);
     #elif defined(ENV32)
         // -2 instead of -1
-        #error "Error: The INEX virtual machine does not yet support 32bit architectures."
+        #error "Error: The Seplin virtual machine does not yet support 32bit architectures."
     #else
         #error "Error: Could not resolve architecture size (32/64bit)."
     #endif

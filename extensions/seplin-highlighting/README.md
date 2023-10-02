@@ -1,6 +1,6 @@
-# inex-highlighting README
+# seplin-highlighting README
 
-This is the README for your extension "inex-highlighting". After writing up a brief description, we recommend including the following sections.
+This is the README for your extension "seplin-highlighting". After writing up a brief description, we recommend including the following sections.
 
 ## Features
 

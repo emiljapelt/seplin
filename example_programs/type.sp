@@ -1,6 +1,6 @@
 
-reference ../library/collections/tuple.ix as tuple;
-reference ../library/collections/stack.ix as stack;
+reference ../library/collections/tuple.sp as tuple;
+reference ../library/collections/stack.sp as stack;
 
 entry main1() {
 
@@ -19,7 +19,7 @@ entry main1() {
 
 }
 
-reference ../library/collections/tree.ix as tree;
+reference ../library/collections/tree.sp as tree;
 
 entry main2() {
 
@@ -37,7 +37,7 @@ entry main2() {
     }
 }
 
-reference ../library/string.ix as string;
+reference ../library/string.sp as string;
 
 entry main3() {
 
