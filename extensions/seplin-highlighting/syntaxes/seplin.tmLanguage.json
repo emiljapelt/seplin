@@ -16,7 +16,7 @@
 				"match": "\\b(reference|as)\\b"
 			},{
 				"name": "keyword",
-				"match": "\\b(entry|internal|external|struct|const|stable|new)\\b"
+				"match": "\\b(entry|internal|external)\\b"
 			},{
 				"begin": "struct",
 				"end": ";",
