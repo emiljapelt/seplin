@@ -1,7 +1,7 @@
 {
   "name": "seplin-highlighting",
-  "displayName": "seplin highlighting",
-  "description": "Syntax highlighting for the seplin langauge",
+  "displayName": "Seplin highlighting",
+  "description": "Syntax highlighting for the Seplin langauge",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.82.0"
@@ -12,10 +12,10 @@
   "contributes": {
     "languages": [{
       "id": "seplin",
-      "aliases": ["seplin", "seplin"],
+      "aliases": ["seplin", "Seplin"],
       "icon": {
-        "light": "./icons/seplin-light-icon.png",
-        "dark": "./icons/seplin-dark-icon.png"
+        "light": "./icons/seplin-light.png",
+        "dark": "./icons/seplin-dark.png"
       },
       "extensions": [".sp", ".spc", ".spa"],
       "configuration": "./language-configuration.json"
