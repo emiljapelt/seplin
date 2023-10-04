@@ -444,7 +444,8 @@ let type_check checks vmod typ expr (env : environment) contexts =
         )
         | ((vm1,t1), (vm2,t2,_))::t -> if type_equal t1 t2 && vm1 = vm2 then aux t resolved ((vm1,t1)::acc) else raise_error ""
       in try (
-        T_Routine (aux (List.combine params ps) [] [])
+        let inf_typ = T_Routine (aux (List.combine params ps) [] []) in
+        if well_defined_type (Some inf_typ) env.var_env then inf_typ else raise_error ""
       ) with _ -> raise_error "Could not match parameter types" )
     )
     | _ -> checks vmod typ expr env contexts
