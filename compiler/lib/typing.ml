@@ -12,7 +12,7 @@ let rec type_string t =
   | T_Struct(n,typ_args) -> n ^ "<" ^ (String.concat ","  (List.map (fun e -> (type_string (Option.get e))) typ_args)) ^ ">"
   | T_Null -> "null"
   | T_Generic c -> String.make 1 c
-  | T_Routine ts -> "r(" ^ (String.concat ","  (List.map (fun e -> type_string(snd e)) ts)) ^ ")"
+  | T_Routine ts -> "(" ^ (String.concat ","  (List.map (fun e -> type_string(snd e)) ts)) ^ ")"
 
 let rec type_equal type1 type2 =
   let aux t1 t2 =
@@ -52,6 +52,12 @@ let simple_type t =
   match t with
     | T_Int | T_Bool | T_Char -> true
     | _ -> false
+
+let has_generic ts =
+  List.fold_left (fun acc t -> match t with
+  | T_Generic _ -> true
+  | _ -> acc
+  ) false ts
 
 let routine_signature_equal (params1 : (var_mod * typ * string) list) params2 : bool =
   let rec aux params =
@@ -398,6 +404,51 @@ let argument_checks vmod typ expr env contexts =
 let type_check checks vmod typ expr (env : environment) contexts =
   match typ, expr with
   | None, Value(StructLiteral(_)) -> raise_error "Cannot infer a type from a struct literal"
+  | None, Reference(ref) -> ( 
+    let ref_env = ( match ref with
+      | LocalContext (Access _) -> env
+      | OtherContext (other,Access _) -> ( match lookup_context other env.file_refs contexts with
+        | None -> raise_error ("Unknown context alias: "^other)
+        | Some(e) -> e
+        )
+      | _ -> env
+    )
+    in match ref with
+    | LocalContext (Access n)
+    | OtherContext (_,Access n) when (name_type n ref_env = RoutineName) -> ( match lookup_routine n ref_env.routine_env with
+      | Some(_,_,_,[],ps,_)  -> T_Routine(List.map (fun (a,b,_) -> (a,b)) ps)
+      | None -> raise_error "Should not happen"
+      | _ -> raise_error "Cannot infere type variables for routine"
+    )
+    | _ -> checks vmod typ expr env contexts
+  )
+  | Some(T_Routine params), Reference(ref) -> ( 
+    let ref_env = ( match ref with
+      | LocalContext (Access _) -> env
+      | OtherContext (other,Access _) -> ( match lookup_context other env.file_refs contexts with
+        | None -> raise_error ("Unknown context alias: "^other)
+        | Some(e) -> e
+        )
+      | _ -> env
+    )
+    in match ref with
+    | LocalContext (Access n)
+    | OtherContext (_,Access n) when (name_type n ref_env = RoutineName) -> ( match lookup_routine n ref_env.routine_env with
+      | Some(_,_,_,[],ps,_)  -> if List.fold_left2 (fun acc (vm1,t1) (vm2,t2,_) -> (vm1 = vm2 && (type_equal t1 t2)) && acc) true params ps then T_Routine params else raise_error "Type mismatch"
+      | None -> raise_error "Should not happen"
+      | Some(_,_,_,_,ps,_) -> (let rec aux pairs resolved acc = match pairs with
+        | [] -> acc
+        | ((vm1,t1), (vm2,T_Generic c,_))::t -> ( if vm1 != vm2 then raise_error "" else match List.find_opt (fun (tv,_) -> tv = c) resolved with
+          | None -> aux t ((c,t1)::resolved) ((vm1,t1)::acc)
+          | Some(_,ty) -> if type_equal ty t1 then aux t resolved ((vm1,t1)::acc) else raise_error ""
+        )
+        | ((vm1,t1), (vm2,t2,_))::t -> if type_equal t1 t2 && vm1 = vm2 then aux t resolved ((vm1,t1)::acc) else raise_error ""
+      in try (
+        T_Routine (aux (List.combine params ps) [] [])
+      ) with _ -> raise_error "Could not match parameter types" )
+    )
+    | _ -> checks vmod typ expr env contexts
+  )
   | Some(T_Struct(name,typ_args)), Value(StructLiteral(exprs)) -> ( match lookup_struct name env.var_env.structs with
     | Some(typ_vars,params) ->  (
       let typ_args = resolve_type_args typ_vars typ_args (List.map (fun (a,b,_) -> (a,b)) params) exprs env contexts in

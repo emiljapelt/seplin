@@ -12,7 +12,7 @@ type input_type =
 let resolve_input () =
   try (
     let input = Sys.argv.(1) in
-    if not (Sys.file_exists input) then raise_error "Input file does not exist"
+    if not (Sys.file_exists input) then (Printf.printf "%s\n" input; raise_error "Input file does not exist")
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.sp$|}) input 0 then (input, SP)
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.spa$|}) input 0 then (input, SPA)
     else raise_error "Invalid input file extension"
