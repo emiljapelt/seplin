@@ -1,7 +1,6 @@
 *.cmi
 *.cmo
-*.ixc
-*.spc
+*.sec
 *.exe
 
 .vscode

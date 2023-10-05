@@ -6,15 +6,15 @@ open Seplinclib.Exceptions
 let () = Printexc.record_backtrace true
 
 type input_type =
-| SP
-| SPA
+| SEP
+| SEA
 
 let resolve_input () =
   try (
     let input = Sys.argv.(1) in
     if not (Sys.file_exists input) then (Printf.printf "%s\n" input; raise_error "Input file does not exist")
-    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.sp$|}) input 0 then (input, SP)
-    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.spa$|}) input 0 then (input, SPA)
+    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.sep$|}) input 0 then (input, SEP)
+    else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.sea$|}) input 0 then (input, SEA)
     else raise_error "Invalid input file extension"
   ) with
   | Invalid_argument _ -> raise_error "No file given to compile"
@@ -24,17 +24,17 @@ let resolve_output i =
   try (
     let output = Sys.argv.(2) in
     if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*$|}) output 0 then  (* Directory *) (
-      output ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".spc"
+      output ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".sec"
     )
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$|}) output 0 then (* File with extension*) (
       output
     )
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+$|}) output 0 then (* File without extension *) (
-      output ^ ".ixc"
+      output ^ ".sec"
     )
     else raise_error "Invalid output destination"
   ) with
-  | Invalid_argument _ -> "./" ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".spc"
+  | Invalid_argument _ -> "./" ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".sec"
   | ex -> raise ex
 
 let print_line ls l =
@@ -51,8 +51,8 @@ let () = try (
   let (input, in_type) = resolve_input () in
   let output = resolve_output input in
   match in_type with
-  | SP -> write (compile input (fun file -> Seplinclib.Parser.main (Seplinclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
-  | SPA -> write (Seplinclib.AssemblyParser.main (Seplinclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
+  | SEP -> write (compile input (fun file -> Seplinclib.Parser.main (Seplinclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
+  | SEA -> write (Seplinclib.AssemblyParser.main (Seplinclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
 ) with 
 | Error(file_opt, line_opt, expl) -> (
   Printf.printf "%s" expl ;

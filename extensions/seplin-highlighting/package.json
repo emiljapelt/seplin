@@ -17,7 +17,7 @@
         "light": "./icons/seplin-light.png",
         "dark": "./icons/seplin-dark.png"
       },
-      "extensions": [".sp", ".spc", ".spa"],
+      "extensions": [".sep", ".sec", ".sea"],
       "configuration": "./language-configuration.json"
     }],
     "grammars": [{
