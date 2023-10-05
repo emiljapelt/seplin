@@ -578,7 +578,7 @@ char compile(char** path) {
         char command[command_length+1];
         memset(command, 0, command_length);
         
-        strcat(command, "seplinc.exe ");
+        strcat(command, "seplinc ");
         strcat(command, *path);
 
         int result = system(command);

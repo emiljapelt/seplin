@@ -10,9 +10,9 @@ echo "Building compiler..."
 cd ./compiler
 dune build
 cd ..
-if [ -e seplinc.exe ] 
-then rm -f ./seplinc.exe
+if [ -e seplinc ] 
+then rm -f ./seplinc
 fi
-mv -f ./compiler/_build/default/src/seplinc.exe .
+mv -f ./compiler/_build/default/src/seplinc.exe ./seplinc
 
 echo "Done"
