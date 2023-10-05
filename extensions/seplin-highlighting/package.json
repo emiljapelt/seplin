@@ -22,7 +22,7 @@
     }],
     "grammars": [{
       "language": "seplin",
-      "scopeName": "source.sp",
+      "scopeName": "source.sep",
       "path": "./syntaxes/seplin.tmLanguage.json"
     }]
   }

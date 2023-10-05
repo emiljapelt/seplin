@@ -3,9 +3,7 @@
 	"name": "seplin",
 	"patterns": [
 		{ "include": "#comments" },
-		{ "include": "#topdecs" },
-		{ "include": "#params"}
-		
+		{ "include": "#topdecs" }
 	],
 	"repository": {
 		"topdecs": {
@@ -21,12 +19,12 @@
 				"begin": "struct",
 				"end": ";",
 				"name": "keyword",
-				"match": "struct",
+				"match": "\\b(struct)\\b",
 				"patterns": [{
 					"begin": "<",
 					"end": ">",
-					"name": "support.type",
-					"match": "[A-Z]"
+					"match": "\\b([A-Z](,[A-Z])*)\\b",
+					"name": "support.type"
 				},{
 					"begin": "\\(",
 					"end": "\\)",
@@ -182,5 +180,5 @@
 			"end": "\\n"
 		}
 	},
-	"scopeName": "source.ix"
+	"scopeName": "source.sep"
 }
