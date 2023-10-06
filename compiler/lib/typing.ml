@@ -28,18 +28,23 @@ let rec type_equal type1 type2 =
     | _ -> false
   in aux type1 type2 || aux type2 type1
 
+let rec first_non_null typs =
+  match typs with
+  | [] -> raise_error "No non-null type in array"
+  | (_,T_Null)::t -> first_non_null t
+  | h::_ -> h
+
 let type_array_literal lst =
   let rec aux_type ty vmod li =
     match li with
     | [] -> (vmod,ty)
     | (expr_vmod,h)::t -> (
-      if not (type_equal h ty) then raise_error "Array literal containing expressions of differing types"
+      if not (type_equal h ty) then raise_error "Array literal containing expressions of non-equatable types"
       else aux_type ty (strictest_mod vmod expr_vmod) t
     )
-  in
-  match lst with 
-  | [] -> (Open, T_Null)
-  | (vmod,h)::t -> aux_type h vmod t
+  in 
+  let (vm,t) = first_non_null lst in
+  aux_type t vm lst
 
 let default_value t =
   match t with
@@ -401,9 +406,10 @@ let argument_checks vmod typ expr env contexts =
   else if not (type_equal typ expr_ty) then raise_error ("Type mismatch: expected '" ^ (type_string typ) ^ "', got '" ^ (type_string expr_ty) ^ "'")
   else typ
 
-let type_check checks vmod typ expr (env : environment) contexts =
+let rec type_check checks vmod typ expr (env : environment) contexts =
   match typ, expr with
   | None, Value(StructLiteral(_)) -> raise_error "Cannot infer a type from a struct literal"
+  | None, Value(ArrayLiteral []) -> raise_error "Cannot infer a type from the empty array"
   | None, Reference(ref) -> ( 
     let ref_env = ( match ref with
       | LocalContext (Access _) -> env
@@ -422,6 +428,15 @@ let type_check checks vmod typ expr (env : environment) contexts =
     )
     | _ -> checks vmod typ expr env contexts
   )
+  | None, Value(ArrayLiteral elems) -> ( match type_value (ArrayLiteral elems) env contexts with
+    | (_,T_Array(Some T_Null)) -> raise_error "'null' array type"
+    | (vm, T_Array(Some(T_Routine rst))) -> let rt = List.fold_left (fun acc e -> let et = type_check checks vm (Some(T_Routine rst)) e env contexts in if acc = None then Some(et) else acc) None elems in T_Array(rt)
+    | (vm,T_Array(st)) -> List.iter (fun e -> let _ = type_check checks vm st e env contexts in ()) elems ; T_Array(st)
+    | _ -> raise_error "Should not happen"
+  )
+  | Some(T_Array(Some(T_Routine rst))), Value(ArrayLiteral elems) -> (
+    let rt = List.fold_left (fun acc e -> let et = type_check checks Open (Some(T_Routine rst)) e env contexts in if acc = None then Some(et) else acc) None elems in T_Array(rt)
+  )
   | Some(T_Routine params), Reference(ref) -> ( 
     let ref_env = ( match ref with
       | LocalContext (Access _) -> env
@@ -434,8 +449,8 @@ let type_check checks vmod typ expr (env : environment) contexts =
     in match ref with
     | LocalContext (Access n)
     | OtherContext (_,Access n) when (name_type n ref_env = RoutineName) -> ( match lookup_routine n ref_env.routine_env with
-      | Some(_,_,_,[],ps,_)  -> if List.fold_left2 (fun acc (vm1,t1) (vm2,t2,_) -> (vm1 = vm2 && (type_equal t1 t2)) && acc) true params ps then T_Routine params else raise_error "Type mismatch"
       | None -> raise_error "Should not happen"
+      | Some(_,_,_,[],ps,_)  -> if List.fold_left2 (fun acc (vm1,t1) (vm2,t2,_) -> (vm1 = vm2 && (type_equal t1 t2)) && acc) true params ps then T_Routine params else raise_error "Type mismatch"
       | Some(_,_,_,_,ps,_) -> (let rec aux pairs resolved acc = match pairs with
         | [] -> acc
         | ((vm1,t1), (vm2,T_Generic c,_))::t -> ( if vm1 != vm2 then raise_error "" else match List.find_opt (fun (tv,_) -> tv = c) resolved with
@@ -446,7 +461,7 @@ let type_check checks vmod typ expr (env : environment) contexts =
       in try (
         let inf_typ = T_Routine (aux (List.combine params ps) [] []) in
         if well_defined_type (Some inf_typ) env.var_env then inf_typ else raise_error ""
-      ) with _ -> raise_error "Could not match parameter types" )
+      ) with _ -> raise_error "Could not coerce generic routine to the required type" )
     )
     | _ -> checks vmod typ expr env contexts
   )
