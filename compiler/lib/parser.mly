@@ -69,7 +69,7 @@ topdec:
   | EXTERNAL NAME LPAR params RPAR block                    { Routine (External, $2, [], $4, $6) }
   | EXTERNAL NAME LT typ_vars GT LPAR params RPAR block     { Routine (External, $2, $4, $7, $9) }
   | ENTRY NAME LPAR simple_params RPAR block                { Routine (Entry, $2, [], $4, $6) }
-  | ENTRY NAME LT typ_vars GT LPAR simple_params RPAR block { raise_error "Entrypoints cannot be generic" }
+  | ENTRY NAME LT typ_vars GT LPAR simple_params RPAR block { raise_failure "Entrypoints cannot be generic" }
   | STRUCT NAME LPAR struct_params RPAR SEMI                       { Struct ($2, [], $4) }
   | STRUCT NAME LT typ_vars GT LPAR struct_params RPAR SEMI        { Struct ($2, $4, $7) }
   | REFERENCE PATH AS NAME SEMI                             { FileReference($4, $2) }

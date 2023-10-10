@@ -12,12 +12,12 @@ type input_type =
 let resolve_input () =
   try (
     let input = Sys.argv.(1) in
-    if not (Sys.file_exists input) then (Printf.printf "%s\n" input; raise_error "Input file does not exist")
+    if not (Sys.file_exists input) then (Printf.printf "%s\n" input; raise_failure "Input file does not exist")
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.sep$|}) input 0 then (input, SEP)
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.sea$|}) input 0 then (input, SEA)
-    else raise_error "Invalid input file extension"
+    else raise_failure "Invalid input file extension"
   ) with
-  | Invalid_argument _ -> raise_error "No file given to compile"
+  | Invalid_argument _ -> raise_failure "No file given to compile"
   | ex -> raise ex
 
 let resolve_output i =
@@ -32,7 +32,7 @@ let resolve_output i =
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+$|}) output 0 then (* File without extension *) (
       output ^ ".sec"
     )
-    else raise_error "Invalid output destination"
+    else raise_failure "Invalid output destination"
   ) with
   | Invalid_argument _ -> "./" ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".sec"
   | ex -> raise ex
@@ -54,7 +54,7 @@ let () = try (
   | SEP -> write (compile input (fun file -> Seplinclib.Parser.main (Seplinclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
   | SEA -> write (Seplinclib.AssemblyParser.main (Seplinclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
 ) with 
-| Error(file_opt, line_opt, expl) -> (
+| Failure(file_opt, line_opt, expl) -> (
   Printf.printf "%s" expl ;
   if Option.is_some file_opt then (
     Printf.printf " in:\n%s" (Option.get file_opt) ;

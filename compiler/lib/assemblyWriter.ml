@@ -186,7 +186,7 @@ let rec write_program_parts f pp labels =
     | LabelInstruction (i, l) -> (
       fprintf f "%c" (Char.chr i);
       let () = match find_label l labels with
-      | None -> raise_error ("Undefined label: " ^ l)
+      | None -> raise_failure ("Undefined label: " ^ l)
       | Some a -> write_word f (Int64.of_int a)
       in
       write_program_parts f t labels
@@ -196,7 +196,7 @@ let rec write_program_parts f pp labels =
 let resolve_place_label program_parts labels =
   let aux pp = match pp with
   | PlaceLabel l -> ( match find_label l labels with
-    | None -> raise_error ("Undefined label: " ^ l)
+    | None -> raise_failure ("Undefined label: " ^ l)
     | Some a -> translate_single (PlaceFull (C_Int a))
   )
   | p -> p

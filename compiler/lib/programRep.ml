@@ -28,6 +28,11 @@ and typ =
   | T_Generic of char
   | T_Routine of (var_mod * typ) list
 
+and op_typ =
+  | NOp_T of typ
+  | BinOp_T of string * op_typ * op_typ
+  | UnOp_T of string * op_typ
+
 and var_mod =
   | Open
   | Stable
