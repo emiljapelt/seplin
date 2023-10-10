@@ -71,7 +71,7 @@ let lookup_localvar (name: string) localvars =
 let struct_field field params =
   let rec aux ps c =
     match ps with
-    | [] -> raise_error ("No such field '" ^ field ^ "'")
+    | [] -> raise_failure ("No such field '" ^ field ^ "'")
     | (vmod,ty,n)::t -> if n = field then (vmod,ty,c) else aux t (c+1)
   in
   aux params 0
@@ -89,17 +89,17 @@ let var_modifier (name: string) env =
       | Some (_,_,g_vmod) -> g_vmod
       | None -> match lookup_routine name env.routine_env with 
         | Some _ -> Open
-        | None -> raise_error ("No such variable '" ^ name ^ "'")
+        | None -> raise_failure ("No such variable '" ^ name ^ "'")
 
-let var_type (name: string) env = 
+let var_type (name: string) env : (typ, string) result = 
   match lookup_localvar name env.var_env.locals with
-  | Some (_,lty,_) -> lty
+  | Some (_,lty,_) -> Ok lty
   | None -> 
     match lookup_globvar name env.var_env.globals with
-    | Some (_,gty,_) -> gty
+    | Some (_,gty,_) -> Ok gty
     | None -> match lookup_routine name env.routine_env with 
-      | Some (_,_,_,_,ps,_) -> T_Routine (List.map (fun (vm,t,_) -> (vm,t)) ps)
-      | None -> raise_error ("No such variable '" ^ name ^ "'")
+      | Some (_,_,_,_,ps,_) -> Ok (T_Routine(List.map (fun (vm,t,_) -> (vm,t)) ps))
+      | None -> raise_failure ("No such variable '" ^ name ^ "'")
 
 let globvar_exists (name: string) globvars =
   Option.is_some (lookup_globvar name globvars)
@@ -125,4 +125,4 @@ let name_type name env =
     | Some _ -> GlobalVariableName
     | None -> match lookup_routine name env.routine_env with 
       | Some _ -> RoutineName
-      | None -> raise_error ("Nothing given the name '" ^ name ^ "'")
+      | None -> raise_failure ("Nothing given the name '" ^ name ^ "'")
