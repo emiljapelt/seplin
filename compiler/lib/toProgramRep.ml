@@ -325,9 +325,12 @@ and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
   | NewStruct (_, _, exprs)
   | StructLiteral (exprs) -> ( match translate_operational_type op_typ with
     | T_Struct(name,typ_args) -> ( match lookup_struct name var_env.var_env.structs with
-      | Some(tvs,ps) -> 
-        let typs = List.map (fun (_,t) -> NOp_T t) (replace_generics (List.map (fun (a,b,_) -> (a,b)) ps) tvs typ_args) in 
-        compile_structure exprs typs var_env contexts acc 
+      | Some(tvs,ps) -> ( match replace_generics (List.map (fun (a,b,_) -> (a,b)) ps) tvs typ_args with
+        | Ok typs -> compile_structure exprs (List.map (fun (_,t) -> NOp_T t) typs) var_env contexts acc 
+        | Error m -> raise_failure (m^"what is going on")
+      )
+       (* let typs = List.map (fun t -> match t with Ok(_,t) -> NOp_T t | _ -> raise_failure ":(") () in
+        compile_structure exprs typs var_env contexts acc *)
       | None -> raise_failure ("No such struct: "^name)
     )
     | _ -> raise_failure "Not a struct type"
@@ -653,7 +656,9 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     else if typ_vars = [] then compile_arguments (List.combine params args) env contexts (PlaceFull(C_Int (List.length params)) :: call_f acc) 
     else (
       let typ_args = resolve_type_args typ_vars typ_args params args env contexts in
-      compile_arguments (List.combine (replace_generics params typ_vars typ_args) args) env contexts (PlaceFull(C_Int (List.length params)) :: call_f acc)
+      match replace_generics params typ_vars typ_args with
+      | Ok typs -> compile_arguments (List.combine typs args) env contexts (PlaceFull(C_Int (List.length params)) :: call_f acc)
+      | Error m -> raise_failure (m^"i dont know")
     )
   )
   | Stop -> addStop(acc)
