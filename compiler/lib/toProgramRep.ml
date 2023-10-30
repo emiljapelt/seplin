@@ -274,7 +274,6 @@ and compile_expr_as_value expr (op_typ: op_typ) (env : environment) contexts acc
   | _ -> compile_expr expr op_typ env contexts acc
 
 and compile_structure_arg arg (op_typ:op_typ) idx var_env contexts acc =
-  (*let (_, ha_ty) = Typing.type_expr arg var_env contexts in*)
   let optha = optimize_expr arg var_env in
   match optha with
   | Value _ -> (

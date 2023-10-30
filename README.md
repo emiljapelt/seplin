@@ -1,9 +1,11 @@
 # Seplin, a nonfunctional programming language
 
+Seplin stands for, **s**ide-**e**ffect **p**rogramming **lin**go, and centers around not being able to return values from function.
+
 ## Features
 | Feature | Explaination |
 | --- | --- |
-| Side-effect oriented programming | Instead of the concepts of functions and methods, which can return some value, Seplin uses the concept of routines, which cannot return anything. However, all data is stored on the heap, and by default arguments are passed by reference, so changes made in a routine are persisted. |
+| Side-effect oriented programming | Instead of the concepts of functions or methods, which can return some value, seplin uses the concept of routines, which cannot return anything. However, all data is stored on the heap, and by default arguments are passed by reference, so changes made in a routine are persisted. |
 | Full null'ability | Every variable can be null.  |
 | True global top-level | At the top-level of a context, order does not matter. Every routine can use all global variables, all structs and all routines. The compiler will resolve an ordering of global variables, such that circular dependencies will be detected. |
 | Multi entry point | Routines are marked either 'internal', 'external' or 'entry'. When running the program, any of the entry routines can be used as the entry point. |
