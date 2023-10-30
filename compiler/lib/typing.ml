@@ -90,6 +90,7 @@ let rec translate_operational_type op_typ =
     | "!", T_Bool -> T_Bool
     | _,t1 -> raise_failure ("Unknown unary operation: '"^op^" "^type_string t1^"'")
   )
+  | TernaryOp_T(_,_,t) -> translate_operational_type t
 
 let has_generic ts =
   List.fold_left (fun acc t -> match t with
@@ -129,7 +130,7 @@ and type_inner_reference iref env contexts : var_mod * (typ, string) result =
           let (field_mod, field_ty,_) = struct_field field (List.map (fun ((a,b),c) -> (a,b,c)) (List.combine resolved_fields (List.map (fun (_,_,n) -> n) fields))) in
           ((if vmod = Open then field_mod else Const), Ok field_ty)
         )
-        | Error m -> raise_failure (m^"innner stuff")
+        | Error m -> raise_failure (m^"inner stuff")
       )
       | None -> raise_failure ("No such struct '" ^ str_name ^ "'")
       )
@@ -179,6 +180,25 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
     match ty with
     | Ok ot -> (Open, Ok(UnOp_T(op, ot)))
     | Error m -> (Open, Error m)
+  )
+  | Ternary(cond,exp1,exp2) -> (
+    let (_,cond_typ) = type_expr cond env contexts in
+    match cond_typ with
+    | Ok(op_typ) -> ( match translate_operational_type op_typ with
+      | T_Bool -> (
+        let (vm1,typ_res_1) = type_expr exp1 env contexts in
+        let (vm2,typ_res_2) = type_expr exp2 env contexts in
+        match typ_res_1, typ_res_2 with
+        | _, Error msg
+        | Error msg, _ -> (Open, Error msg)
+        | Ok(ot1), Ok(ot2) -> (
+          if not(type_equal (translate_operational_type ot1) (translate_operational_type ot2)) then raise_failure "Type mismatch in ternary" 
+          else (strictest_mod vm1 vm2, Ok(TernaryOp_T(op_typ, ot1, ot2)))
+        )
+      )
+      | _ -> raise_failure "Condition of ternary was not a boolean"
+    )
+    | Error msg -> (Open, Error msg)
   )
   | ArraySize (refer) ->  (
     let (_, ty) = type_inner_reference refer env contexts in
@@ -580,8 +600,21 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
     | _ -> (
       let (vm,res) = type_expr expr env contexts in 
       match res with
+      | Error _ as e -> e
       | Ok(expr_typ) -> checks vmod (T_Routine params) vm expr_typ
-      | Error m -> Error m
+    )
+  )
+  | Some(T_Struct(_,_)), (Value(Ternary(cond,exp1,exp2))) -> (
+    let (_,cond_typ_res) = type_expr cond env contexts in
+    match cond_typ_res with
+    | Error _ as e -> e
+    | Ok(op_typ) -> ( match translate_operational_type op_typ with
+      | T_Bool -> (
+        match type_check checks vmod typ exp1 env contexts, type_check checks vmod typ exp2 env contexts with
+        | Ok(ot1), Ok(ot2) -> if type_equal (translate_operational_type ot1) (translate_operational_type ot2) then Ok(TernaryOp_T(op_typ,ot1,ot2)) else failwith "Not same type ternary"
+        | _ -> failwith "Ternary had differing types"
+      )
+      | _ -> raise_failure "Condition of ternary was not a bool"
     )
   )
   | Some(T_Struct(name,typ_args)), (Value(StructLiteral(exprs)) as literal) -> ( match lookup_struct name env.var_env.structs with
@@ -589,12 +622,11 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
       let typ_args = if typ_args = [] then List.init (List.length typ_vars) (fun _ -> None) else typ_args in
       let typ_args = resolve_type_args typ_vars typ_args (List.map (fun (a,b,_) -> (a,b)) params) exprs env contexts in
       match replace_generics (List.map (fun (a,b,_) -> (a,b)) params) typ_vars typ_args with
+      | Error _ as e -> e
       | Ok params -> (
         if not(check_struct_literal params literal env contexts) then Error ("Could not match struct literal with '" ^ type_string (T_Struct(name,typ_args)) ^ "'")
         else Ok(NOp_T(T_Struct(name,typ_args)))
       )
-      | Error m -> Error m
-      (*| Error m -> raise_failure (m^"booy")*)
     )
     | None -> raise_failure ("No such struct '" ^ name ^ "'")
   )

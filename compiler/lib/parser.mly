@@ -37,6 +37,7 @@
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
 %token LOGIC_AND LOGIC_OR PIPE NOT VALUE
 %token COMMA DOT SEMI COLON EOF
+%token QMARK
 %token IF ELSE
 %token WHILE UNTIL FOR REPEAT
 %token BREAK CONTINUE
@@ -165,6 +166,7 @@ value:
   | expression PLUS expression      { Binary_op ("+", $1, $3) }
   | expression TIMES expression     { Binary_op ("*", $1, $3) }
   | expression MINUS expression     { Binary_op ("-", $1, $3) }
+  | expression QMARK expression COLON expression { Ternary ($1, $3, $5) }
 ;
 
 arguments:

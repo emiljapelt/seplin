@@ -79,6 +79,7 @@ rule lex = parse
     |   '$'           { VALUE }
     |   '|'           { PIPE }
     |   '!'           { NOT }
+    |   '?'           { QMARK }
     |   ":="          { ASSIGNMENT }
     |   '('           { LPAR }
     |   ')'           { RPAR }

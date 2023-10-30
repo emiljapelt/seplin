@@ -92,6 +92,7 @@ let get_globvar_dependencies gvs =
     | Value v -> ( match v with
       | Binary_op (_, expr1, expr2) -> dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc)
       | Unary_op (_, expr1) -> dependencies_from_assignable expr1 acc
+      | Ternary (cond, expr1, expr2) -> dependencies_from_assignable cond (dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc))
       | ArraySize (refer) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
       | Bool _ -> acc
       | Int _ -> acc
@@ -136,7 +137,7 @@ let gather_globvar_info gvs =
 
 
 (*** Optimizing functions ***)
-let rec optimize_assignable_expr expr var_env =
+let rec optimize_expr expr var_env =
   match expr with
   | Reference _ -> expr
   | Value val_expr -> optimize_value val_expr var_env
@@ -144,8 +145,8 @@ let rec optimize_assignable_expr expr var_env =
 and optimize_value expr var_env =
   match expr with
   | Binary_op (op, e1, e2) -> ( 
-    let opte1 = optimize_assignable_expr e1 var_env in
-    let opte2 = optimize_assignable_expr e2 var_env in
+    let opte1 = optimize_expr e1 var_env in
+    let opte2 = optimize_expr e2 var_env in
     match (op, opte1, opte2) with
     | ("&&", Value(Bool b1), Value(Bool b2)) -> Value(Bool(b1&&b2))
     | ("&&", Value(Bool true), _) -> opte2
@@ -181,11 +182,12 @@ and optimize_value expr var_env =
     | _ -> Value(Binary_op(op, opte1, opte2))
   )
   | Unary_op (op, e) -> ( 
-    let opte = optimize_assignable_expr e var_env in
+    let opte = optimize_expr e var_env in
     match (op, opte) with
     | ("!", Value(Bool b)) -> Value(Bool (not b))
     | _ -> opte
   )
+  | Ternary(cond,exp1,exp2) -> Value(Ternary(optimize_expr cond var_env, optimize_expr exp1 var_env, optimize_expr exp2 var_env))
   | ArraySize _ -> Value(expr)
   | GetInput _ -> Value(expr)
   | Bool _ -> Value(expr)
@@ -195,7 +197,7 @@ and optimize_value expr var_env =
   | NewArray _ -> Value(expr)
   | ArrayLiteral _ -> Value(expr)
   | NewStruct (_,_,_) -> Value(expr)
-  | StructLiteral(exprs) -> Value(StructLiteral( List.map (fun e -> optimize_assignable_expr e var_env) exprs ))
+  | StructLiteral(exprs) -> Value(StructLiteral( List.map (fun e -> optimize_expr e var_env) exprs ))
 
 
 (*** Compiling functions ***)
@@ -273,7 +275,7 @@ and compile_expr_as_value expr (op_typ: op_typ) (env : environment) contexts acc
 
 and compile_structure_arg arg (op_typ:op_typ) idx var_env contexts acc =
   (*let (_, ha_ty) = Typing.type_expr arg var_env contexts in*)
-  let optha = optimize_assignable_expr arg var_env in
+  let optha = optimize_expr arg var_env in
   match optha with
   | Value _ -> (
     match translate_operational_type op_typ with
@@ -313,7 +315,7 @@ and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
     | T_Routine _ -> raise_failure ("Cannot take the value of a routine")
   )
   | NewArray (_, size_expr) -> (
-    compile_expr_as_value (optimize_assignable_expr size_expr var_env) (NOp_T T_Int) var_env contexts (DeclareStruct :: IncrRef :: acc)
+    compile_expr_as_value (optimize_expr size_expr var_env) (NOp_T T_Int) var_env contexts (DeclareStruct :: IncrRef :: acc)
   )
   | ArrayLiteral exprs -> ( match translate_operational_type op_typ with
     | T_Array st -> (
@@ -371,13 +373,22 @@ and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
     )
     | _ -> raise_failure "Not a unary operation"
   )
+  | Ternary(cond,exp1,exp2) -> (
+    match op_typ with
+    | TernaryOp_T(op_typ_cond, op_typ1, op_typ2) -> (
+      let label_true = Helpers.new_label () in
+      let label_end = Helpers.new_label () in
+      compile_expr_as_value cond op_typ_cond var_env contexts (IfTrue(label_true) :: compile_expr_as_value exp2 op_typ2 var_env contexts (GoTo(label_end) :: CLabel(label_true) :: compile_expr_as_value exp1 op_typ1 var_env contexts (CLabel(label_end) :: acc)))
+    )
+    | _ -> raise_failure "Failed compilation of ternary"
+  )
 
 let compile_arguments args (env : environment) contexts acc =
   let rec aux ars acc =
     match ars with
     | ([]) -> acc
     | (((pmod, pty),eh)::t) -> (
-      let opteh = optimize_assignable_expr eh env.var_env in
+      let opteh = optimize_expr eh env.var_env in
       let typ_res = argument_type_check pmod (Some pty) opteh env contexts in
       let op_typ = if Result.is_ok typ_res then Result.get_ok typ_res else raise_failure (Result.get_error typ_res) in
       let typ = translate_operational_type op_typ in
@@ -554,7 +565,7 @@ let compile_declaration dec env contexts =
   )
   | AssignDeclaration (vmod, typ, name, expr) -> (
     if localvar_exists name env.var_env.locals then raise_failure ("Duplicate variable name '" ^ name ^ "'") ;
-    let opt_expr = optimize_assignable_expr expr env.var_env in
+    let opt_expr = optimize_expr expr env.var_env in
     let typ_res = declaration_type_check vmod typ expr env contexts in
     let o_typ = if Result.is_ok typ_res then Result.get_ok typ_res else raise_failure (Result.get_error typ_res) in
     let typ = translate_operational_type o_typ in
@@ -627,7 +638,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     if decs = 0 then compile_sod_list sod_list env contexts break continue cleanup acc
     else compile_sod_list sod_list env contexts break continue cleanup (addFreeVars decs acc)
   )
-  | Assign (target, aexpr) -> compile_assignment (LocalContext target) (optimize_assignable_expr aexpr env.var_env) env contexts acc
+  | Assign (target, aexpr) -> compile_assignment (LocalContext target) (optimize_expr aexpr env.var_env) env contexts acc
   | Call (ref, typ_args, args) -> ( 
     let (typ_vars,params,call_f,env) = match ref with
     | Null -> raise_failure ("Null call")
@@ -681,7 +692,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       | [] -> acc
       | h::t -> (
         let (_, expr_ty) = Typing.type_expr h env contexts in
-        let opte = optimize_assignable_expr h env.var_env in
+        let opte = optimize_expr h env.var_env in
         match expr_ty with
         | Ok ot -> (match translate_operational_type ot with
           | T_Bool -> aux t (compile_expr_as_value opte ot env contexts (PrintBool :: acc))

@@ -1,0 +1,64 @@
+
+internal add(a: int, b: int) {
+    a := a + b;
+    b := a;
+}
+
+internal swap<T>(a: T, b: T) {
+    temp ::= a;
+    a := b;
+    b := temp;
+}
+
+struct list<T>(head: T, tail: list<T>);
+struct tuple<T,U>(fst: T, snd: U);
+
+entry main() {
+
+    s :tuple:= {1,2};
+
+    ints ::= [add,swap,null];
+    
+    memes ::= [[], [], ['c']];
+
+    lol :list:= {null, {null, {memes, null}}};
+
+    kk ::= [null, lol, null];
+
+    k :tuple[]:= [{1,null},{3,4}];
+
+    t :tuple<int,int>:= k[0];
+
+    intss ::= [1,2,3];
+  
+    h :tuple:= {1,2};
+
+}
+
+entry test(b : bool) {
+    i ::= b ? [1,1] : [2,2];
+    t :tuple:= b ? {[1],[1]} : {[2],[2]};
+    c :char:= t;
+}
+
+
+entry main2() {
+
+    l :list:= {420, null}; 
+
+    l.tail := l;
+
+    until (l = null) {
+        print l.head, '\n';
+        l := l.tail;
+    }
+
+}
+
+struct flip_list<T,U>(head: T, tail: flip_list<U,T>);
+
+entry main3() {
+
+    fi :flip_list:= {1, {'a', {2, null}}};
+
+}

@@ -32,6 +32,7 @@ and op_typ =
   | NOp_T of typ
   | BinOp_T of string * op_typ * op_typ
   | UnOp_T of string * op_typ
+  | TernaryOp_T of op_typ * op_typ * op_typ
 
 and var_mod =
   | Open

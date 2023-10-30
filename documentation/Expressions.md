@@ -179,6 +179,21 @@ ___
 !true
 -3
 ```
+__
+## Terneries
+**Flavour:** value
+<br>
+**Syntax:** _condition_ ? _expression_ : _expression_
+<br>
+**Type:** The type of _expression_
+<br>
+**Explaination:** Compute some value depending on the result of _condition_, which bust be a _bool_. The _expression_'s must be of equatable types.
+<br>
+**Examples:**
+```
+i :int:= true ? 1 : 2;
+o ::= i > 1 ? true : false;
+```
 ___
 ## ValueOf
 **Flavour:** value
