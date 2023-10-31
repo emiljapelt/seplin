@@ -106,13 +106,13 @@ ___
 <br>
 **Syntax:**
 <br>
-_variable_name_
+_name_
 <br>
-_context_alias_ # _variable_name_
+_context_alias_ # _name:
 <br>
-**Type:** the type of the variable.
+**Type:** the type of the accessed name.
 <br>
-**Explaination:** Reference a variable.
+**Explaination:** Access a declared name.
 <br>
 **Examples:**
 ```
@@ -128,7 +128,7 @@ ___
 <br>
 **Type:** the type of the array elements.
 <br>
-**Explaination:** Reference an index in an array, the index must be an integer.
+**Explaination:** Access an index in an array, the index must be an integer.
 <br>
 **Examples:**
 ```
@@ -143,7 +143,7 @@ ___
 <br>
 **Type:** the type of the field.
 <br>
-**Explaination:** Reference a field of a struct.
+**Explaination:** Access a field of a struct.
 <br>
 **Examples:**
 ```
@@ -184,16 +184,16 @@ ___
 ## Ternary
 **Flavour:** value
 <br>
-**Syntax:** _condition_ ? _expression_ : _expression_
+**Syntax:** _bool_condition_ ? _expression_ : _expression_
 <br>
 **Type:** The type of _expression_
 <br>
-**Explaination:** Compute some value depending on the result of _condition_, which must be a _bool_. The _expression_'s must be of equatable types.
+**Explaination:** Compute some value depending on the result of _bool_condition_. The _expression_'s must be of equatable types.
 <br>
 **Examples:**
 ```
-i :int:= true ? 1 : 2;
-o ::= i > 1 ? true : false;
+true ? 1 : 2
+i > 1 ? true : false
 ```
 ___
 ## ValueOf
@@ -263,7 +263,7 @@ ___
 <br>
 **Type:** depends on the expressions.
 <br>
-**Explaination:** Create a filled array.
+**Explaination:** Create a filled array. All expressions must be of the same type.
 <br>
 **Examples:**
 ```
@@ -293,7 +293,7 @@ ___
 <br>
 **Type:** any struct type matching the structure of the expression.
 <br>
-**Explaination:** Create a new struct instance.
+**Explaination:** Create a new struct instance. Cannot be typed on its own.
 <br>
 **Examples:**
 ```
