@@ -14,6 +14,7 @@ In Seplin expressions are the only constructs which have some inherent value. Th
   - [StructAccess](#structaccess)
   - [BinaryOperation](#binaryoperation)
   - [UnaryOperation](#unaryoperation)
+  - [Ternary](#ternary)
   - [ValueOf](#valueof)
   - [ArraySize](#arraysize)
   - [Read](#read)
@@ -179,15 +180,15 @@ ___
 !true
 -3
 ```
-__
-## Terneries
+___
+## Ternary
 **Flavour:** value
 <br>
 **Syntax:** _condition_ ? _expression_ : _expression_
 <br>
 **Type:** The type of _expression_
 <br>
-**Explaination:** Compute some value depending on the result of _condition_, which bust be a _bool_. The _expression_'s must be of equatable types.
+**Explaination:** Compute some value depending on the result of _condition_, which must be a _bool_. The _expression_'s must be of equatable types.
 <br>
 **Examples:**
 ```
