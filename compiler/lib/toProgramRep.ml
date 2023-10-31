@@ -187,7 +187,11 @@ and optimize_value expr var_env =
     | ("!", Value(Bool b)) -> Value(Bool (not b))
     | _ -> opte
   )
-  | Ternary(cond,exp1,exp2) -> Value(Ternary(optimize_expr cond var_env, optimize_expr exp1 var_env, optimize_expr exp2 var_env))
+  | Ternary(cond,exp1,exp2) -> ( match optimize_expr cond var_env with
+    | Value(Bool true) -> optimize_expr exp1 var_env
+    | Value(Bool false) -> optimize_expr exp2 var_env
+    | opt_cond -> Value(Ternary(opt_cond, optimize_expr exp1 var_env, optimize_expr exp2 var_env))
+  )
   | ArraySize _ -> Value(expr)
   | GetInput _ -> Value(expr)
   | Bool _ -> Value(expr)
