@@ -12,3 +12,4 @@
 10. Implement routine signature compatability check
 11. Implement routine name overloading
 12. Implement better inference for terneries
+13. Fix 'find_related' and 'resolve_typ_args', to allow for infering types from more expressions, e.g. routines and array variables.
