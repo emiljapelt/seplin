@@ -267,7 +267,7 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
           | _ , (_,Error m) -> Error m
           | Ok rs, (vm, Ok r) -> Ok ((vm,r)::rs)
         ) (Ok []) rep in match rep' with
-        | Ok rs -> Ok(T_Routine(rs))
+        | Ok rs -> Ok(T_Routine(List.rev rs))
         | Error m -> Error m
       )
       | e -> Ok e
@@ -306,6 +306,7 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
     match param_arg_map with
     | [] -> acc
     | ((_,p_typ), expr)::t when type_equal typ p_typ -> find_related_args typ t env (expr::acc)
+    | ((_,T_Array(Some st)), Value(ArrayLiteral(exprs)))::t when type_equal st typ -> find_related_args typ t env (List.rev_append acc exprs)
     | (((_,T_Struct(name,typ_args)), expr)::t) -> find_related_args typ t env ( match lookup_struct name env.var_env.structs with
       | None -> raise_failure ("No such struct: " ^ name)
       | Some(tvs,params) -> ( match expr with
@@ -342,7 +343,6 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
             | Ok ot -> aux t (Some(translate_operational_type ot)::acc)
             | Error _ -> aux t (None::acc)
           )
-          (*aux t (Some(translate_operational_type(Result.get_ok (get_first_type (find_related_args (T_Generic c) (List.combine params args) env []) env contexts)))::acc)*)
           | Some(T_Struct(name,tas)) -> ( match lookup_struct name env.var_env.structs with
             | None -> raise_failure ("No such struct: " ^ name)
             | Some(tvs,ps) -> (
