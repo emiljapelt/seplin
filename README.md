@@ -27,7 +27,8 @@ To work with Seplin two programs are provided. Additonally, a syntax highlighter
 
 
 ## Documentation Index
-### [Types](./documentation/TypesAndProtection.md)
-### [Expressions](./documentation/Expressions.md)
-### [Statements and declarations](./documentation/StatementsAndDeclarations.md)
+### [Hello Worlds](./documentation/HelloWorlds.md)
 ### [Top level](./documentation/Toplevel.md)
+### [Statements and declarations](./documentation/StatementsAndDeclarations.md)
+### [Expressions](./documentation/Expressions.md)
+### [Types](./documentation/TypesAndProtection.md)
