@@ -36,6 +36,28 @@ ___
 while (x < 10) x +:= 1;
 ```
 ___
+## Repeat
+**Syntax:** 
+<br>
+repeat ( _int_expression_ ) _statement_
+<br>
+repeat _statement_
+<br>
+**Explaination:** Executing some code, some fixed amount of times, or if no integer is provided, execute the code infinitly.
+<br>
+**Examples:**
+```
+i ::= 0;
+repeat (10) { 
+    print i, '\n; 
+    i +:= 1;
+}
+
+repeat {
+    print i, '\n; 
+}
+```
+___
 ## Block
 **Syntax:** { _statement_or_declaration_list_ }
 <br>
