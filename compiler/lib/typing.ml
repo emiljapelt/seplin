@@ -69,9 +69,7 @@ let rec translate_operational_type op_typ =
     | "||", T_Bool, T_Bool -> T_Bool
     | "=", _, T_Null -> T_Bool
     | "=", T_Null, _ -> T_Bool
-    | "=", T_Bool, T_Bool -> T_Bool
-    | "=", T_Char, T_Char -> T_Bool
-    | "=", T_Int, T_Int -> T_Bool
+    | "=", t1, t2 when type_equal t1 t2 -> T_Bool
     | "!=", _, T_Null -> T_Bool
     | "!=", T_Null, _ -> T_Bool
     | "!=", T_Bool, T_Bool -> T_Bool
