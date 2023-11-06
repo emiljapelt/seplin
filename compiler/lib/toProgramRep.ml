@@ -616,10 +616,15 @@ and compile_stmt stmt env contexts break continue cleanup acc =
   | If (expr, s1, s2) -> (
     let label_true = Helpers.new_label () in
     let label_stop = Helpers.new_label () in
+    let opt_expr = optimize_expr expr env in
     let (_, t) = Typing.type_expr expr env contexts in
     match t with
     | Ok ot -> ( match translate_operational_type ot with 
-      | T_Bool -> compile_expr_as_value expr ot env contexts (IfTrue(label_true) :: (compile_stmt s2 env contexts break continue cleanup (GoTo(label_stop) :: CLabel(label_true) :: (compile_stmt s1 env contexts break continue cleanup (CLabel(label_stop) :: acc)))))
+      | T_Bool -> ( match opt_expr with 
+        | Value(Bool true) -> (compile_stmt s1 env contexts break continue cleanup acc)
+        | Value(Bool false) -> (compile_stmt s2 env contexts break continue cleanup acc)
+        | _ -> compile_expr_as_value expr ot env contexts (IfTrue(label_true) :: (compile_stmt s2 env contexts break continue cleanup (GoTo(label_stop) :: CLabel(label_true) :: (compile_stmt s1 env contexts break continue cleanup (CLabel(label_stop) :: acc)))))
+      )
       | _ -> raise_failure "Condition not of type 'bool'"
     )
     | Error m -> raise_failure m
@@ -628,10 +633,15 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     let label_cond = Helpers.new_label () in
     let label_start = Helpers.new_label () in
     let label_stop = Helpers.new_label () in
+    let opt_expr = optimize_expr expr env in
     let (_, t) = Typing.type_expr expr env contexts in
     match t with
     | Ok ot -> ( match translate_operational_type ot with
-      | T_Bool -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_expr_as_value expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
+      | T_Bool -> ( match opt_expr with 
+        | Value(Bool true) -> CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (GoTo(label_start) :: CLabel(label_stop) :: acc)))
+        | Value(Bool false) -> acc
+        | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_expr_as_value expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
+      )
       | _ -> raise_failure "Condition not of type 'bool'"
     )
     | Error m -> raise_failure m

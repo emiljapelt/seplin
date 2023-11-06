@@ -203,17 +203,24 @@ dec:
 ;
 
 stmt:
-    IF LPAR expression RPAR stmt1 ELSE stmt        { If ($3, $5, $7) }
-  | IF LPAR expression RPAR stmt1                  { If ($3, $5, Block []) }
-  | stmt1 { $1 }
+    stmt1 { $1 }
+  | stmt2 { $1 }
 ;
 
-stmt1:
-   block                                              { $1 }
-  | WHILE LPAR expression RPAR stmt               { While ($3, $5) }
-  | UNTIL LPAR expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec expression SEMI non_control_flow_stmt RPAR stmt    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($4, Block([Statement($8,$symbolstartpos.pos_lnum); Statement($6,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
-  | REPEAT LPAR value RPAR stmt { 
+stmt2:
+    IF LPAR expression RPAR stmt1 ELSE stmt2       { If ($3, $5, $7) }
+  | IF LPAR expression RPAR stmt                   { If ($3, $5, Block []) }
+  | WHILE LPAR expression RPAR stmt2               { While ($3, $5) }
+  | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5) }
+;
+
+stmt1: /* No unbalanced if-else */
+    block                                              { $1 }
+  | IF LPAR expression RPAR stmt1 ELSE stmt1       { If ($3, $5, $7) }
+  | WHILE LPAR expression RPAR stmt1               { While ($3, $5) }
+  | UNTIL LPAR expression RPAR stmt1               { While (Value (Unary_op("!", $3)), $5) }
+  | FOR LPAR dec expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($4, Block([Statement($8,$symbolstartpos.pos_lnum); Statement($6,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
+  | REPEAT LPAR value RPAR stmt1 { 
     let var_name = new_var () in
     Block([
       Declaration(TypeDeclaration(Open, T_Int, var_name), $symbolstartpos.pos_lnum); 
@@ -225,7 +232,8 @@ stmt1:
       ),$symbolstartpos.pos_lnum);
     ]) 
   }
-  | REPEAT LPAR inner_reference RPAR stmt { 
+  | REPEAT stmt1 { While(Value(Bool(true)), $2) }
+  | REPEAT LPAR inner_reference RPAR stmt1 { 
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
