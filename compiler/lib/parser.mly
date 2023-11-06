@@ -44,12 +44,14 @@
 %token CONST STABLE STRUCT NULL NEW
 %token PRINT READ HASH UNDERSCORE
 
-%left ELSE
+/*Low precedence*/
+%left LOGIC_AND LOGIC_OR
 %left EQ NEQ
 %left GT LT GTEQ LTEQ
-%left PLUS MINUS LOGIC_OR
-%left TIMES LOGIC_AND
-%nonassoc NOT HASH
+%left PLUS MINUS
+%left TIMES 
+%nonassoc NOT
+/*High precedence*/
 
 %start main
 %type <Absyn.file> main
@@ -123,28 +125,27 @@ expression:
 ;
 
 reference:
-  NAME HASH inner_reference   { OtherContext ($1, $3) }
+    NAME HASH inner_reference { OtherContext ($1, $3) }
   | inner_reference           { LocalContext $1 }
   | NULL                      { Null }
 ;
 
 inner_reference:
-   NAME                                                     { Access $1 }
+    NAME                                                    { Access $1 }
   | inner_reference DOT NAME                                { StructAccess ($1, $3) }
   | inner_reference LBRAKE expression RBRAKE                { ArrayAccess ($1, $3) }
-  | LPAR inner_reference RPAR                               { $2 }
 ;
 
 simple_value:
-  LPAR value RPAR { $2 }
-  | CSTBOOL   { Bool $1 }
-  | CSTINT    { Int $1 }
-  | CSTCHAR   { Char $1 }
+    LPAR value RPAR                                       { $2 }
+  | CSTBOOL                                               { Bool $1 }
+  | CSTINT                                                { Int $1 }
+  | CSTCHAR                                               { Char $1 }
   | MINUS expression                                      { Binary_op ("-", Value (Int 0), $2) }
   | NOT expression                                        { Unary_op ("!", $2) }
-  | PIPE inner_reference PIPE                                   { ArraySize $2 }
+  | PIPE inner_reference PIPE                             { ArraySize $2 }
   | READ LT typ GT                                        { GetInput $3 }
-  | VALUE inner_reference                                       { ValueOf $2 }
+  | VALUE inner_reference                                 { ValueOf $2 }
   | NEW typ LBRAKE expression RBRAKE                      { NewArray ($2, $4) }
   | LBRAKE arguments RBRAKE                               { ArrayLiteral $2 }
   | CSTSTRING                                             { string_to_array_literal $1 }
@@ -154,7 +155,7 @@ simple_value:
 ;
 
 value:
-   simple_value { $1 }
+    simple_value { $1 }
   | expression LOGIC_AND expression       { Binary_op ("&&", $1, $3) }
   | expression LOGIC_OR expression        { Binary_op ("||", $1, $3) }
   | expression EQ expression        { Binary_op ("=", $1, $3) }
@@ -166,7 +167,7 @@ value:
   | expression PLUS expression      { Binary_op ("+", $1, $3) }
   | expression TIMES expression     { Binary_op ("*", $1, $3) }
   | expression MINUS expression     { Binary_op ("-", $1, $3) }
-  | expression QMARK expression COLON expression { Ternary ($1, $3, $5) }
+  | LPAR expression RPAR QMARK expression COLON expression { Ternary ($2, $5, $7) }
 ;
 
 arguments:
@@ -202,9 +203,13 @@ dec:
 ;
 
 stmt:
+    IF LPAR expression RPAR stmt1 ELSE stmt        { If ($3, $5, $7) }
+  | IF LPAR expression RPAR stmt1                  { If ($3, $5, Block []) }
+  | stmt1 { $1 }
+;
+
+stmt1:
    block                                              { $1 }
-  | IF LPAR expression RPAR stmt ELSE stmt        { If ($3, $5, $7) }
-  | IF LPAR expression RPAR stmt                  { If ($3, $5, Block []) }
   | WHILE LPAR expression RPAR stmt               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec expression SEMI non_control_flow_stmt RPAR stmt    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($4, Block([Statement($8,$symbolstartpos.pos_lnum); Statement($6,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
