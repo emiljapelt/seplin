@@ -672,7 +672,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       let typ_args = resolve_type_args typ_vars typ_args params args env contexts in
       match replace_generics params typ_vars typ_args with
       | Ok typs -> compile_arguments (List.combine typs args) env contexts (PlaceFull(C_Int (List.length params)) :: call_f acc)
-      | Error m -> raise_failure (m^"i dont know")
+      | Error m -> raise_failure (m^" i dont know")
     )
   )
   | Stop -> addStop(acc)

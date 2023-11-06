@@ -316,6 +316,50 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
     )
     | _::t -> find_related_args typ t env acc
 
+  and is_generic t = 
+    match t with
+    | T_Generic _ -> true
+    | _ -> false
+
+  and find_possible_type typ param_arg_map (env : environment) contexts : (op_typ, string) result =
+    match param_arg_map with
+    | [] -> Error "Could not infere a type for unspecifed type argument"
+    | ((_,p_typ), expr)::t when type_equal typ p_typ -> ( match type_expr expr env contexts with 
+      | (_,Ok ot) -> Ok ot
+      | _ -> find_possible_type typ t env contexts
+    )
+    | ((_,T_Array(Some st)), expr)::t when type_equal st typ -> ( match type_expr expr env contexts with
+      | (_,Ok ot) -> ( match translate_operational_type ot with
+        | T_Array(Some st) -> Ok(NOp_T st)
+        | _ -> find_possible_type typ t env contexts
+      )
+      | _ -> find_possible_type typ t env contexts
+    )
+    | (((_,T_Routine(params)), expr)::t) -> ( match type_expr expr env contexts with
+      | (_,Ok ot) -> ( match translate_operational_type ot with
+        | T_Routine(ps) -> ( if not(List.length ps = List.length params) then find_possible_type typ t env contexts else match List.fold_left (fun acc ((_,p1),(_,p2)) -> if Result.is_ok acc then acc else (if type_equal typ p1 then (if not(is_generic p2) then (Ok p2) else acc) else acc) ) (Error "Sad") (List.combine params ps) with
+          | Ok t -> Ok(NOp_T t)
+          | _ -> find_possible_type typ t env contexts
+        )
+        | _ -> find_possible_type typ t env contexts
+      )
+      | _ -> find_possible_type typ t env contexts
+    )
+    | (((_,T_Struct(name,_)), expr)::t) -> ( match lookup_struct name env.var_env.structs with
+      | None -> raise_failure ("No such struct: " ^ name)
+      | Some(_,params) -> ( match expr with
+        | Value(StructLiteral(exprs)) -> (
+          find_possible_type typ (List.combine (List.map (fun (a,b,_) -> (a,b)) params) exprs) env contexts
+          (*let meme = dig_into_struct typ (List.combine tvs typ_args) (List.combine (List.map (fun (a,b,_) -> (a,b)) params) exprs) env [] in
+          match type_expr (List.hd meme) env contexts with
+          | (_,Ok ot) -> ot
+          | _ -> raise_failure ""*)
+        )
+        | _ -> find_possible_type typ t env contexts
+      )
+    )
+    | _::t -> find_possible_type typ t env contexts
+
   and get_first_type exprs env contexts =
     match exprs with
     | [] -> Error "Could not infer type from context"
@@ -339,7 +383,7 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
       | (c,typ_arg)::t -> ( match is_fully_defined_type typ_arg env.var_env with
         | true -> aux t (typ_arg::acc)
         | false -> ( match typ_arg with
-          | None -> ( match get_first_type (find_related_args (T_Generic c) (List.combine params args) env []) env contexts with
+          | None -> ( match find_possible_type (T_Generic c) (List.combine params args) env contexts with (*match get_first_type (find_related_args (T_Generic c) (List.combine params args) env []) env contexts with*)
             | Ok ot -> aux t (Some(translate_operational_type ot)::acc)
             | Error _ -> aux t (None::acc)
           )
