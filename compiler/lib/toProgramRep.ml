@@ -638,7 +638,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     match t with
     | Ok ot -> ( match translate_operational_type ot with
       | T_Bool -> ( match opt_expr with 
-        | Value(Bool true) -> CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (GoTo(label_start) :: CLabel(label_stop) :: acc)))
+        | Value(Bool true) -> CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_start) 0 (CLabel(label_cond) :: (GoTo(label_start) :: CLabel(label_stop) :: acc)))
         | Value(Bool false) -> acc
         | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_expr_as_value expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
       )
