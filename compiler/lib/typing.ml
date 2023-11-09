@@ -86,6 +86,7 @@ let rec translate_operational_type op_typ =
   )
   | UnOp_T(op, ot) -> ( match op, (translate_operational_type ot) with
     | "!", T_Bool -> T_Bool
+    | "$", t -> t
     | _,t1 -> raise_failure ("Unknown unary operation: '"^op^" "^type_string t1^"'")
   )
   | TernaryOp_T(_,_,t) -> translate_operational_type t
@@ -208,12 +209,6 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
   | Bool _ -> (Open, Ok(NOp_T T_Bool))
   | Int _ -> (Open, Ok(NOp_T T_Int))
   | Char _ -> (Open, Ok(NOp_T T_Char))
-  | ValueOf (refer) -> (
-    let (vmod, typ_res) = type_inner_reference refer env contexts in
-    match typ_res with
-    | Ok t -> (vmod, Ok(NOp_T t))
-    | Error m -> (vmod, Error m)
-  )
   | NewArray (ty, _) -> (Open, Ok(NOp_T (T_Array(Some ty))))
   | ArrayLiteral elements -> ( match type_array_literal (List.map (fun e -> let (vm,ot) = type_expr e env contexts in if Result.is_ok ot then (vm,Ok (translate_operational_type (Result.get_ok ot))) else (vm,Error (Result.get_error ot))) elements) with 
     | (vmod, Ok ety) -> (vmod, Ok(NOp_T(T_Array(Some ety))))

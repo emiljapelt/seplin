@@ -50,11 +50,12 @@
 %left GT LT GTEQ LTEQ
 %left PLUS MINUS
 %left TIMES 
-%nonassoc NOT
+%nonassoc NOT VALUE
 /*High precedence*/
 
 %start main
 %type <Absyn.file> main
+%type <Absyn.inner_reference> inner_reference
 %%
 main:
   topdecs EOF     { File $1 }
@@ -155,9 +156,9 @@ simple_value:
   | CSTCHAR                                               { Char $1 }
   | MINUS expression_not_ternary                          { Binary_op ("-", Value (Int 0), $2) }
   | NOT expression_not_ternary                            { Unary_op ("!", $2) }
+  | VALUE expression_not_ternary                          { Unary_op ("$", $2) }
   | PIPE inner_reference PIPE                             { ArraySize $2 }
   | READ LT typ GT                                        { GetInput $3 }
-  | VALUE inner_reference                                 { ValueOf $2 }
   | NEW typ LBRAKE expression RBRAKE                      { NewArray ($2, $4) }
   | LBRAKE arguments RBRAKE                               { ArrayLiteral $2 }
   | CSTSTRING                                             { string_to_array_literal $1 }
@@ -179,7 +180,6 @@ value:
   | expression_not_ternary PLUS expression_not_ternary      { Binary_op ("+", $1, $3) }
   | expression_not_ternary TIMES expression_not_ternary     { Binary_op ("*", $1, $3) }
   | expression_not_ternary MINUS expression_not_ternary     { Binary_op ("-", $1, $3) }
-  //| LPAR expression RPAR QMARK expression COLON simple_expression { Ternary ($2, $5, $7) }
 ;
 
 arguments:
@@ -242,7 +242,7 @@ stmt2:
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(ValueOf($3))), $symbolstartpos.pos_lnum); 
+      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$",Reference(LocalContext $3)))), $symbolstartpos.pos_lnum); 
       Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
       Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
         Block([
@@ -277,7 +277,7 @@ stmt1: /* No unbalanced if-else */
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(ValueOf($3))), $symbolstartpos.pos_lnum); 
+      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$",Reference(LocalContext $3)))), $symbolstartpos.pos_lnum); 
       Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
       Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
         Block([

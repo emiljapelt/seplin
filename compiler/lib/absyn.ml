@@ -43,7 +43,6 @@ and value =
     | Bool of bool
     | Int of int
     | Char of char
-    | ValueOf of inner_reference
     | NewArray of typ * expression
     | ArrayLiteral of expression list
     | NewStruct of string * typ option list * expression list

@@ -97,7 +97,6 @@ let get_globvar_dependencies gvs =
       | Int _ -> acc
       | Char _ -> acc
       | GetInput _ -> acc
-      | ValueOf (refer) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
       | NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
       | ArrayLiteral exprs -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
       | NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
@@ -197,7 +196,6 @@ and optimize_value expr var_env =
   | Bool _ -> Value(expr)
   | Int _ -> Value(expr)
   | Char _ -> Value(expr)
-  | ValueOf _ -> Value(expr)
   | NewArray _ -> Value(expr)
   | ArrayLiteral _ -> Value(expr)
   | NewStruct (_,_,_) -> Value(expr)
@@ -331,17 +329,6 @@ and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
     | -1 -> raise_failure "Unsupported GetInput variant"
     | x -> GetInput(x) :: acc
   )
-  | ValueOf refer -> (
-    match translate_operational_type op_typ with
-    | T_Int -> compile_expr_as_value (Reference(LocalContext refer)) op_typ var_env contexts acc
-    | T_Bool -> compile_expr_as_value (Reference(LocalContext refer)) op_typ var_env contexts acc
-    | T_Char -> compile_expr_as_value (Reference(LocalContext refer)) op_typ var_env contexts acc
-    | T_Array _ -> compile_expr_as_value (Reference(LocalContext refer)) op_typ var_env contexts acc
-    | T_Struct _ -> compile_expr_as_value (Reference(LocalContext refer)) op_typ var_env contexts acc
-    | T_Generic _ -> compile_expr_as_value (Reference(LocalContext refer)) op_typ var_env contexts acc
-    | T_Null -> raise_failure ("Direct null pointer dereferencing")
-    | T_Routine _ -> raise_failure ("Cannot take the value of a routine")
-  )
   | NewArray (_, size_expr) -> (
     compile_expr_as_value (optimize_expr size_expr var_env) (NOp_T T_Int) var_env contexts (DeclareStruct :: IncrRef :: acc)
   )
@@ -397,6 +384,7 @@ and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
     match op_typ with
     | UnOp_T(op, ot) -> ( match op, translate_operational_type ot with 
       | "!", T_Bool -> compile_expr_as_value e ot var_env contexts (BoolNot :: acc)
+      | "$", _ -> compile_expr_as_value e ot var_env contexts acc
       | _ -> raise_failure "Unknown unary operation"
     )
     | _ -> raise_failure "Not a unary operation"
