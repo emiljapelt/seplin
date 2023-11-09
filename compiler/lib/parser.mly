@@ -122,6 +122,18 @@ block:
 expression:
     reference                               { Reference $1 }
   | value                                   { Value $1 }
+  | expression_not_ternary QMARK expression COLON expression { Ternary ($1, $3, $5) }
+;
+
+expression_not_ternary:
+    reference                               { Reference $1 }
+  | value                                   { Value $1 }
+  | LPAR expression RPAR                    { $2 }
+;
+
+simple_expression:
+    reference                               { Reference $1 }
+  | simple_value                            { Value $1 }
 ;
 
 reference:
@@ -141,8 +153,8 @@ simple_value:
   | CSTBOOL                                               { Bool $1 }
   | CSTINT                                                { Int $1 }
   | CSTCHAR                                               { Char $1 }
-  | MINUS expression                                      { Binary_op ("-", Value (Int 0), $2) }
-  | NOT expression                                        { Unary_op ("!", $2) }
+  | MINUS expression_not_ternary                          { Binary_op ("-", Value (Int 0), $2) }
+  | NOT expression_not_ternary                            { Unary_op ("!", $2) }
   | PIPE inner_reference PIPE                             { ArraySize $2 }
   | READ LT typ GT                                        { GetInput $3 }
   | VALUE inner_reference                                 { ValueOf $2 }
@@ -156,18 +168,18 @@ simple_value:
 
 value:
     simple_value { $1 }
-  | expression LOGIC_AND expression       { Binary_op ("&&", $1, $3) }
-  | expression LOGIC_OR expression        { Binary_op ("||", $1, $3) }
-  | expression EQ expression        { Binary_op ("=", $1, $3) }
-  | expression NEQ expression       { Binary_op ("!=", $1, $3) }
-  | expression LTEQ expression      { Binary_op ("<=", $1, $3) }
-  | expression LT expression        { Binary_op ("<", $1, $3) }
-  | expression GTEQ expression      { Binary_op (">=", $1, $3) }
-  | expression GT expression        { Binary_op (">", $1, $3) }
-  | expression PLUS expression      { Binary_op ("+", $1, $3) }
-  | expression TIMES expression     { Binary_op ("*", $1, $3) }
-  | expression MINUS expression     { Binary_op ("-", $1, $3) }
-  | LPAR expression RPAR QMARK expression COLON expression { Ternary ($2, $5, $7) }
+  | expression_not_ternary LOGIC_AND expression_not_ternary       { Binary_op ("&&", $1, $3) }
+  | expression_not_ternary LOGIC_OR expression_not_ternary        { Binary_op ("||", $1, $3) }
+  | expression_not_ternary EQ expression_not_ternary        { Binary_op ("=", $1, $3) }
+  | expression_not_ternary NEQ expression_not_ternary       { Binary_op ("!=", $1, $3) }
+  | expression_not_ternary LTEQ expression_not_ternary      { Binary_op ("<=", $1, $3) }
+  | expression_not_ternary LT expression_not_ternary        { Binary_op ("<", $1, $3) }
+  | expression_not_ternary GTEQ expression_not_ternary      { Binary_op (">=", $1, $3) }
+  | expression_not_ternary GT expression_not_ternary        { Binary_op (">", $1, $3) }
+  | expression_not_ternary PLUS expression_not_ternary      { Binary_op ("+", $1, $3) }
+  | expression_not_ternary TIMES expression_not_ternary     { Binary_op ("*", $1, $3) }
+  | expression_not_ternary MINUS expression_not_ternary     { Binary_op ("-", $1, $3) }
+  //| LPAR expression RPAR QMARK expression COLON simple_expression { Ternary ($2, $5, $7) }
 ;
 
 arguments:
@@ -212,6 +224,34 @@ stmt2:
   | IF LPAR expression RPAR stmt                   { If ($3, $5, Block []) }
   | WHILE LPAR expression RPAR stmt2               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5) }
+  | FOR LPAR dec expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($4, Block([Statement($8,$symbolstartpos.pos_lnum); Statement($6,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
+  | REPEAT LPAR value RPAR stmt2 { 
+    let var_name = new_var () in
+    Block([
+      Declaration(TypeDeclaration(Open, T_Int, var_name), $symbolstartpos.pos_lnum); 
+      Statement(While(Value(Binary_op("<", Reference(LocalContext(Access var_name)), Value $3)), 
+        Block([
+          Statement($5,$symbolstartpos.pos_lnum); 
+          Statement(Assign(Access(var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))), $symbolstartpos.pos_lnum);
+        ])
+      ),$symbolstartpos.pos_lnum);
+    ]) 
+  }
+  | REPEAT stmt2 { While(Value(Bool(true)), $2) }
+  | REPEAT LPAR inner_reference RPAR stmt2 { 
+    let count_name = new_var () in
+    let limit_name = new_var () in
+    Block([
+      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(ValueOf($3))), $symbolstartpos.pos_lnum); 
+      Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
+      Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
+        Block([
+          Statement($5, $symbolstartpos.pos_lnum); 
+          Statement(Assign(Access count_name, Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))), $symbolstartpos.pos_lnum);
+        ])
+      ), $symbolstartpos.pos_lnum);
+    ]) 
+  }
 ;
 
 stmt1: /* No unbalanced if-else */

@@ -92,7 +92,6 @@ let get_globvar_dependencies gvs =
     | Value v -> ( match v with
       | Binary_op (_, expr1, expr2) -> dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc)
       | Unary_op (_, expr1) -> dependencies_from_assignable expr1 acc
-      | Ternary (cond, expr1, expr2) -> dependencies_from_assignable cond (dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc))
       | ArraySize (refer) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
       | Bool _ -> acc
       | Int _ -> acc
@@ -104,6 +103,7 @@ let get_globvar_dependencies gvs =
       | NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
       | StructLiteral (exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
     )
+    | Ternary (cond, expr1, expr2) -> dependencies_from_assignable cond (dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc))
   in
   let dependencies_from_declaration dec =
     match dec with
@@ -141,6 +141,11 @@ let rec optimize_expr expr var_env =
   match expr with
   | Reference _ -> expr
   | Value val_expr -> optimize_value val_expr var_env
+  | Ternary(cond,exp1,exp2) -> ( match optimize_expr cond var_env with
+    | Value(Bool true) -> optimize_expr exp1 var_env
+    | Value(Bool false) -> optimize_expr exp2 var_env
+    | opt_cond -> Ternary(opt_cond, optimize_expr exp1 var_env, optimize_expr exp2 var_env)
+  )
 
 and optimize_value expr var_env =
   match expr with
@@ -185,12 +190,7 @@ and optimize_value expr var_env =
     let opte = optimize_expr e var_env in
     match (op, opte) with
     | ("!", Value(Bool b)) -> Value(Bool (not b))
-    | _ -> opte
-  )
-  | Ternary(cond,exp1,exp2) -> ( match optimize_expr cond var_env with
-    | Value(Bool true) -> optimize_expr exp1 var_env
-    | Value(Bool false) -> optimize_expr exp2 var_env
-    | opt_cond -> Value(Ternary(opt_cond, optimize_expr exp1 var_env, optimize_expr exp2 var_env))
+    | _ -> Value(Unary_op(op, opte))
   )
   | ArraySize _ -> Value(expr)
   | GetInput _ -> Value(expr)
@@ -224,10 +224,19 @@ let fetch_var_index (name: string) globvars localvars routines =
       | Some (_,n,cn,_,_,_) -> CPlaceLabel(cn^"#"^n)
       | None -> raise_failure ("No such variable '" ^ name ^ "'")
 
-let rec compile_expr expr (op_typ: op_typ) var_env acc =
+let rec compile_expr expr (op_typ: op_typ) var_env contexts acc =
   match expr with
-  | Reference ref_expr -> compile_reference ref_expr var_env acc
-  | Value val_expr -> compile_value val_expr op_typ var_env acc
+  | Reference ref_expr -> compile_reference ref_expr var_env contexts acc
+  | Value val_expr -> compile_value val_expr op_typ var_env contexts acc
+  | Ternary(cond,exp1,exp2) -> (
+    match op_typ with
+    | TernaryOp_T(op_typ_cond, op_typ1, op_typ2) -> (
+      let label_true = Helpers.new_label () in
+      let label_end = Helpers.new_label () in
+      compile_expr_as_value cond op_typ_cond var_env contexts (IfTrue(label_true) :: compile_expr_as_value exp2 op_typ2 var_env contexts (GoTo(label_end) :: CLabel(label_true) :: compile_expr_as_value exp1 op_typ1 var_env contexts (CLabel(label_end) :: acc)))
+    )
+    | _ -> raise_failure "Failed compilation of ternary"
+  )
 
 and compile_inner_reference iref env contexts acc = 
   match iref with
@@ -277,21 +286,37 @@ and compile_expr_as_value expr (op_typ: op_typ) (env : environment) contexts acc
   )
   | _ -> compile_expr expr op_typ env contexts acc
 
-and compile_structure_arg arg (op_typ:op_typ) idx var_env contexts acc =
-  let optha = optimize_expr arg var_env in
+and compile_structure_arg arg (op_typ:op_typ) idx env contexts acc =
+  let optha = optimize_expr arg env in
   match optha with
   | Value _ -> (
     match translate_operational_type op_typ with
-    | T_Int -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ var_env contexts (AssignFull :: FieldAssign :: acc))
-    | T_Char -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ var_env contexts (AssignByte :: FieldAssign :: acc))
-    | T_Bool -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ var_env contexts (AssignByte :: FieldAssign :: acc))
-    | _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ var_env contexts (IncrRef :: FieldAssign :: acc))
+    | T_Int -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignFull :: FieldAssign :: acc))
+    | T_Char -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignByte :: FieldAssign :: acc))
+    | T_Bool -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignByte :: FieldAssign :: acc))
+    | _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (IncrRef :: FieldAssign :: acc))
   )
   | Reference r -> (
     match r with
-    | Null -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ var_env contexts (FieldAssign :: acc))
-    | _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ var_env contexts (FetchFull :: IncrRef :: FieldAssign :: acc))
+    | Null -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (FieldAssign :: acc))
+    | _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (FetchFull :: IncrRef :: FieldAssign :: acc))
   )
+  | Ternary(cond,expr1,expr2) -> ( let cond = optimize_expr cond env in 
+      match cond with
+      | (Value(Bool true)) -> compile_structure_arg expr1 op_typ idx env contexts acc
+      | (Value(Bool false)) -> compile_structure_arg expr2 op_typ idx env contexts acc
+      | _ -> ( match type_expr cond env contexts with
+        | (_, Error msg) -> raise_failure msg
+        | (_, Ok ot) -> ( match translate_operational_type ot with
+          | T_Bool -> (
+            let label_true = new_label () in
+            let label_end = new_label () in
+            compile_expr_as_value cond (ot) env contexts ((IfTrue label_true) :: (compile_structure_arg expr2 op_typ idx env contexts ((GoTo label_end) :: (CLabel label_true) :: (compile_structure_arg expr1 op_typ idx env contexts ((CLabel label_end) :: acc)))))
+            )
+          | _ -> raise_failure "Not bool"
+        )
+      )
+    )
 
 and compile_structure args typs var_env contexts acc =
   PlaceFull(C_Int (List.length args)) :: DeclareStruct :: (List.fold_left (fun acc (typ, (arg, c)) -> compile_structure_arg arg typ c var_env contexts acc) acc (List.combine typs (List.mapi (fun i a -> (a,i)) args)))
@@ -376,63 +401,73 @@ and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
     )
     | _ -> raise_failure "Not a unary operation"
   )
-  | Ternary(cond,exp1,exp2) -> (
-    match op_typ with
-    | TernaryOp_T(op_typ_cond, op_typ1, op_typ2) -> (
-      let label_true = Helpers.new_label () in
-      let label_end = Helpers.new_label () in
-      compile_expr_as_value cond op_typ_cond var_env contexts (IfTrue(label_true) :: compile_expr_as_value exp2 op_typ2 var_env contexts (GoTo(label_end) :: CLabel(label_true) :: compile_expr_as_value exp1 op_typ1 var_env contexts (CLabel(label_end) :: acc)))
-    )
-    | _ -> raise_failure "Failed compilation of ternary"
-  )
 
-let compile_arguments args (env : environment) contexts acc =
-  let rec aux ars acc =
-    match ars with
-    | ([]) -> acc
-    | (((pmod, pty),eh)::t) -> (
+let rec compile_argument arg (env : environment) contexts acc =
+  match arg with ((pmod, pty),eh) -> (
       let opteh = optimize_expr eh env.var_env in
       let typ_res = argument_type_check pmod (Some pty) opteh env contexts in
       let op_typ = if Result.is_ok typ_res then Result.get_ok typ_res else raise_failure (Result.get_error typ_res) in
       let typ = translate_operational_type op_typ in
       match opteh with
       | Value _ -> ( match typ with
-        | T_Int -> aux t (DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc)))
-        | T_Bool -> aux t (DeclareByte :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignByte :: acc)))
-        | T_Char -> aux t (DeclareByte :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignByte :: acc)))
-        | T_Array _ -> aux t (compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc))
-        | T_Struct _ -> aux t (compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc))
-        | T_Null -> aux t (compile_expr_as_value opteh op_typ env contexts (acc))
-        | T_Generic _ -> aux t (compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc))
-        | T_Routine _ -> aux t (DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc)))
+        | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc))
+        | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignByte :: acc))
+        | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignByte :: acc))
+        | T_Array _ -> compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc)
+        | T_Struct _ -> compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc)
+        | T_Null -> compile_expr_as_value opteh op_typ env contexts (acc)
+        | T_Generic _ -> compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc)
+        | T_Routine _ -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc))
       )
       | Reference r -> (match r with
         | LocalContext ref -> ( match ref with
           | Access name -> ( match name_type name env with
-            | RoutineName -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
-            | _ -> aux t (compile_inner_reference ref env contexts (IncrRef :: acc)) 
+            | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+            | _ -> compile_inner_reference ref env contexts (IncrRef :: acc)
           )
-          | StructAccess _ -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
-          | ArrayAccess _ -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
+          | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+          | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
         )
         | OtherContext (cn,ref) -> ( match lookup_context cn env.file_refs contexts with
           | None -> raise_failure ("No such context:"^cn)
           | Some(env) -> ( match ref with
             | Access name -> ( match name_type name env with
-              | RoutineName -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
-              | _ -> aux t (compile_inner_reference ref env contexts (IncrRef :: acc)) 
+              | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+              | _ -> compile_inner_reference ref env contexts (IncrRef :: acc)
             )
-            | StructAccess _ -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
-            | ArrayAccess _ -> aux t (compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)) 
+            | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+            | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
           )
         )
-        | Null -> aux t (compile_reference r env contexts acc) 
+        | Null -> compile_reference r env contexts acc
       )
+      | Ternary(cond,expr1,expr2) -> ( let cond = optimize_expr cond env in 
+        match cond with
+        | (Value(Bool true)) -> compile_argument ((pmod, pty),expr1) env contexts acc
+        | (Value(Bool false)) -> compile_argument ((pmod, pty),expr2) env contexts acc
+        | _ -> ( match type_expr cond env contexts with
+          | (_, Error msg) -> raise_failure msg
+          | (_, Ok ot) -> ( match translate_operational_type ot with
+            | T_Bool -> (
+              let label_true = new_label () in
+              let label_end = new_label () in
+              compile_expr_as_value cond ot env contexts ((IfTrue label_true) :: (compile_argument ((pmod, pty),expr2) env contexts ((GoTo label_end) :: (CLabel label_true) :: (compile_argument ((pmod, pty),expr1) env contexts ((CLabel label_end) :: acc)))))
+              )
+            | _ -> raise_failure "Not bool"
+          )
+        )
     )
+    )
+
+let compile_arguments args (env : environment) contexts acc =
+  let rec aux ars acc =
+    match ars with
+    | [] -> acc
+    | h::t -> aux t (compile_argument h env contexts acc)
   in
   aux (List.rev args) acc
 
-let compile_assignment target assign (env : environment) contexts acc =
+let rec compile_assignment target assign (env : environment) contexts acc =
   let assign_type_res = Typing.assignment_type_check target assign env contexts in
   match assign_type_res with
   | Error m -> raise_failure m
@@ -440,6 +475,22 @@ let compile_assignment target assign (env : environment) contexts acc =
     match target, assign with
     | (Null, _) -> raise_failure "Assignment to null"
     | (OtherContext _, _) -> raise_failure "Assignment to other context"
+    | (_, Ternary(cond,expr1,expr2)) -> ( let cond = optimize_expr cond env in 
+      match cond with
+      | (Value(Bool true)) -> compile_assignment target expr1 env contexts acc
+      | (Value(Bool false)) -> compile_assignment target expr2 env contexts acc
+      | _ -> ( match type_expr cond env contexts with
+        | (_, Error msg) -> raise_failure msg
+        | (_, Ok ot) -> ( match translate_operational_type ot with
+          | T_Bool -> (
+            let label_true = new_label () in
+            let label_end = new_label () in
+            compile_expr_as_value cond (ot) env contexts ((IfTrue label_true) :: (compile_assignment target expr2 env contexts ((GoTo label_end) :: (CLabel label_true) :: (compile_assignment target expr1 env contexts ((CLabel label_end) :: acc)))))
+            )
+          | _ -> raise_failure "Not bool"
+        )
+      )
+    )
     | (LocalContext(Access _), Value v) -> ( match translate_operational_type assign_type with 
       | T_Int ->  compile_reference target env contexts (FetchFull :: (compile_value v assign_type env contexts (AssignFull :: acc)))
       | T_Bool -> compile_reference target env contexts (FetchFull :: (compile_value v assign_type  env contexts (AssignByte :: acc)))
@@ -544,11 +595,18 @@ let compile_assignment target assign (env : environment) contexts acc =
     )
   )
   
+let rec ternary_is_reference expr1 expr2 =
+  match expr1, expr2 with
+  | Reference _, Reference _ -> true
+  | Ternary(_,t1e1,t1e2), Ternary(_,t2e1,t2e2) -> ternary_is_reference t1e1 t1e2 && ternary_is_reference t2e1 t2e2
+  | Ternary(_,e1,e2), Reference _ -> ternary_is_reference e1 e2
+  | Reference _ , Ternary(_,e1,e2) -> ternary_is_reference e1 e2
+  | _,_ -> false
 
 let update_locals env (vmod : var_mod) typ name =
   ({ env with var_env = ({ env.var_env with locals = (vmod, typ, name)::env.var_env.locals }) })
 
-let compile_declaration dec env contexts =
+let rec compile_declaration dec env contexts =
   match dec with
   | TypeDeclaration (vmod, typ, name) -> (
     if localvar_exists name env.var_env.locals then raise_failure ("Duplicate variable name '" ^ name ^ "'")
@@ -587,6 +645,24 @@ let compile_declaration dec env contexts =
         | T_Generic _ -> fun a -> compile_expr opt_expr o_typ env contexts (IncrRef :: a)
         | T_Null -> fun a -> compile_expr opt_expr o_typ env contexts a
         | T_Routine _ -> raise_failure "There is no Values of this type yet"
+      )
+      | Ternary(cond,expr1,expr2) -> (
+        match cond with
+        | Value(Bool true) -> let (_,f) = compile_declaration (AssignDeclaration(vmod,Some typ,name,expr1)) env contexts in f
+        | Value(Bool false) -> let (_,f) = compile_declaration (AssignDeclaration(vmod,Some typ,name,expr2)) env contexts in f
+        | _ -> ( match type_expr cond env contexts with
+            | (_, Error msg) -> raise_failure msg
+            | (_, Ok ot) -> ( match translate_operational_type ot with
+              | T_Bool -> (
+                let label_true = new_label () in
+                let label_end = new_label () in
+                let (_,f_true) = compile_declaration (AssignDeclaration(vmod,Some typ,name,expr1)) env contexts in
+                let (_,f_false) = compile_declaration (AssignDeclaration(vmod,Some typ,name,expr2)) env contexts in
+                fun a -> compile_expr_as_value cond ot env contexts ((IfTrue label_true) :: (f_false ((GoTo label_end) :: (CLabel label_true) :: (f_true ((CLabel label_end) :: a)))))
+                )
+              | _ -> raise_failure "Not bool"
+            )
+        )
       )
     )
   )

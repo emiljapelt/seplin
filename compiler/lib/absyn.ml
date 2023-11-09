@@ -23,6 +23,7 @@ and statement_or_declaration =
 and expression =
     | Reference of reference
     | Value of value
+    | Ternary of expression * expression * expression
 
 and reference =
     | OtherContext of string * inner_reference
@@ -37,7 +38,6 @@ and inner_reference =
 and value =
     | Binary_op of string * expression * expression
     | Unary_op of string * expression
-    | Ternary of expression * expression * expression
     | ArraySize of inner_reference
     | GetInput of typ
     | Bool of bool

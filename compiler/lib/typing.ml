@@ -111,6 +111,25 @@ let rec type_expr expr env contexts : var_mod * (op_typ, string) result =
     | (vm,Error m) -> (vm,Error m)
   )
   | Value val_expr -> type_value val_expr env contexts
+  | Ternary(cond,exp1,exp2) -> (
+    let (_,cond_typ) = type_expr cond env contexts in
+    match cond_typ with
+    | Ok(op_typ) -> ( match translate_operational_type op_typ with
+      | T_Bool -> (
+        let (vm1,typ_res_1) = type_expr exp1 env contexts in
+        let (vm2,typ_res_2) = type_expr exp2 env contexts in
+        match typ_res_1, typ_res_2 with
+        | _, Error msg
+        | Error msg, _ -> (Open, Error msg)
+        | Ok(ot1), Ok(ot2) -> (
+          if not(type_equal (translate_operational_type ot1) (translate_operational_type ot2)) then raise_failure "Type mismatch in ternary" 
+          else (strictest_mod vm1 vm2, Ok(TernaryOp_T(op_typ, ot1, ot2)))
+        )
+      )
+      | _ -> raise_failure "Condition of ternary was not a boolean"
+    )
+    | Error msg -> (Open, Error msg)
+  )
 
 and type_inner_reference iref env contexts : var_mod * (typ, string) result =
   match iref with
@@ -178,25 +197,6 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
     match ty with
     | Ok ot -> (Open, Ok(UnOp_T(op, ot)))
     | Error m -> (Open, Error m)
-  )
-  | Ternary(cond,exp1,exp2) -> (
-    let (_,cond_typ) = type_expr cond env contexts in
-    match cond_typ with
-    | Ok(op_typ) -> ( match translate_operational_type op_typ with
-      | T_Bool -> (
-        let (vm1,typ_res_1) = type_expr exp1 env contexts in
-        let (vm2,typ_res_2) = type_expr exp2 env contexts in
-        match typ_res_1, typ_res_2 with
-        | _, Error msg
-        | Error msg, _ -> (Open, Error msg)
-        | Ok(ot1), Ok(ot2) -> (
-          if not(type_equal (translate_operational_type ot1) (translate_operational_type ot2)) then raise_failure "Type mismatch in ternary" 
-          else (strictest_mod vm1 vm2, Ok(TernaryOp_T(op_typ, ot1, ot2)))
-        )
-      )
-      | _ -> raise_failure "Condition of ternary was not a boolean"
-    )
-    | Error msg -> (Open, Error msg)
   )
   | ArraySize (refer) ->  (
     let (_, ty) = type_inner_reference refer env contexts in
@@ -646,7 +646,7 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
       | Ok(expr_typ) -> checks vmod (T_Routine params) vm expr_typ
     )
   )
-  | Some(T_Struct(_,_)), (Value(Ternary(cond,exp1,exp2))) -> (
+  | Some(T_Struct(_,_)), (Ternary(cond,exp1,exp2)) -> (
     let (_,cond_typ_res) = type_expr cond env contexts in
     match cond_typ_res with
     | Error _ as e -> e
@@ -725,6 +725,7 @@ let assignment_checks expr target_vmod target_typ expr_vmod expr_typ =
   | Stable -> ( match expr with
     | Value _ -> raise_failure "Attempt to overwrite stable data"
     | Reference _ -> Ok expr_typ
+    | Ternary _ -> Ok expr_typ
   )
   | Const -> raise_failure "Assignment to a protected variable"
 
