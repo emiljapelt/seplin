@@ -196,21 +196,6 @@ true ? 1 : 2
 i > 1 ? true : false
 ```
 ___
-## ValueOf
-**Flavour:** value
-<br>
-**Syntax:** $ _reference_
-<br>
-**Type:** the type of the reference.
-<br>
-**Explaination:** Explicitly get the value from a reference.
-<br>
-**Examples:**
-```
-$x
-$my_tuple.fst
-```
-___
 ## ArraySize
 **Flavour:** value
 <br>
@@ -324,3 +309,5 @@ _* = any type_
 | --- | --- | --- | --- |
 | ! | bool | bool | Negation |
 | - | int | int | Negation |
+| $ | * | * | Get the value of the operand, useful for dereferencing |
+_* = any type_
