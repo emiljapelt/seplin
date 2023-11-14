@@ -538,13 +538,17 @@ let resolve_type typ_opt expr (env : environment) contexts : typ =
 let declaration_checks target_vmod target_typ expr_vmod expr_typ =
     if target_vmod = Open && expr_vmod != Open then raise_failure "Cannot assign a protected variable to an open variable"
     else if not (type_equal target_typ (translate_operational_type expr_typ)) then raise_failure ("Type mismatch: expected '" ^ (type_string target_typ) ^ "', got '" ^ (type_string (translate_operational_type expr_typ)) ^ "'")
-    else Ok(expr_typ)
+    else match expr_typ with
+      | NOp_T(T_Null) -> Ok (NOp_T target_typ)
+      | _ -> Ok expr_typ
 
 let argument_checks target_vmod target_typ expr_vmod expr_typ =
     if target_vmod = Open && (expr_vmod != Open) then raise_failure "Cannot use a protected variable as an open variable"
     else if target_vmod = Stable && (expr_vmod = Const) then raise_failure "Cannot use a constant variable as a stable parameter"
     else if not (type_equal target_typ (translate_operational_type expr_typ)) then raise_failure ("Type mismatch: expected '" ^ (type_string target_typ) ^ "', got '" ^ (type_string (translate_operational_type expr_typ)) ^ "'")
-    else Ok(expr_typ)
+    else match expr_typ with
+      | NOp_T(T_Null) -> Ok (NOp_T target_typ)
+      | _ -> Ok expr_typ
 
 let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, string) result =
   match typ, expr with

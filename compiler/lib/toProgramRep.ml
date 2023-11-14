@@ -384,7 +384,7 @@ and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
     match op_typ with
     | UnOp_T(op, ot) -> ( match op, translate_operational_type ot with 
       | "!", T_Bool -> compile_expr_as_value e ot var_env contexts (BoolNot :: acc)
-      | "$", _ -> compile_expr_as_value e ot var_env contexts acc
+      | "$", _ -> if e = Reference(Null) then raise_failure "Direct null dereference" else compile_expr_as_value e ot var_env contexts acc
       | _ -> raise_failure "Unknown unary operation"
     )
     | _ -> raise_failure "Not a unary operation"
