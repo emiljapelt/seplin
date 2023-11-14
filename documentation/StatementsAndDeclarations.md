@@ -36,6 +36,16 @@ ___
 while (x < 10) x +:= 1;
 ```
 ___
+## For
+**Syntax:** for ( _declaration_ ; _bool_expression_ ; _non_controlflow_statement_ ) _statement_
+<br>
+**Explaination:** Syntactic sugar for a while-loop with the usual control code as part of the statement.
+<br>
+**Examples:**
+```
+for (x ::= 0; x < 10; x +:= 1) print x, '\n';
+```
+___
 ## Repeat
 **Syntax:** 
 <br>
