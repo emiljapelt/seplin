@@ -721,10 +721,10 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     | Null -> raise_failure ("Null call")
     | OtherContext (cn,Access n) -> ( match lookup_context cn env.file_refs contexts with
       | None -> raise_failure ("No such context: "^cn)
-      | Some(env) -> match lookup_routine n env.routine_env with
+      | Some(cenv) -> match lookup_routine n cenv.routine_env with
         | None -> raise_failure ("No such routine '" ^n^ "' in context '" ^cn^ "'" )
         | Some(Internal,_,_,_,_,_) -> raise_failure ("Call to internal routine of other context")
-        | Some(_,_,_,tvs,ps,_) -> (tvs,List.map (fun (a,b,_) -> (a,b)) ps, (fun acc -> CPlaceLabel((env.context_name)^"#"^n) :: Call :: acc),env)
+        | Some(_,_,_,tvs,ps,_) -> (tvs,List.map (fun (a,b,_) -> (a,b)) ps, (fun acc -> CPlaceLabel((cenv.context_name)^"#"^n) :: Call :: acc),env)
     )
     | LocalContext(Access n) -> ( 
       if (localvar_exists n env.var_env.locals) || (globvar_exists n env.var_env.globals) then match type_inner_reference (Access n) env contexts with
