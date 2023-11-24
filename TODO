@@ -1,15 +1,17 @@
 1. Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
-2. Allow command_line argument to reference global variables in VM
-3. Allow VM to call the compiler, such that "seplin.exe run ./program.sp main" runs correctly, generating a "program.spc"
 4. Setup some automated testing
-5. Try to optimize the tracing compilation algorithm, also make it more readable.
-6. Implement generic type resolution
-    - Some thing like: "if (T is int) { ... } "
-    - Would strengthen type composition
 7. Fix assembly compiler
 8. Implement escape characters in string literals
 9. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
 10. Implement routine signature compatability check
 11. Implement routine name overloading
-12. Implement better inference for terneries
-13. Fix 'find_related' and 'resolve_typ_args', to allow for infering types from more expressions, e.g. routines and array variables.
+12. Fix machine/compiler interaction 
+    - currently failes if the source file is not in 'cwd'
+13. Implement anonymous routines
+    - syntax: (i: int) { i *:= 2; }
+    - example: array#each("Hi there", (c: char){ print c; });
+    - example: square ::= (i: int, o: int) { o := i*i; };
+    - example: square :(int,int):= (i, o) { o := i*i; };
+    - At compile-time these should "just" be translated to internal routines, with an unreachable name.
+    - Could principally replace internal routines, which would allow removing the keywords 'internal' and 'external'
+    - Would make the language even more side-effecty, as routines could now be overwritten, if they are not 'const'/'stable'.
