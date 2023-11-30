@@ -17,11 +17,11 @@ ___
 ## File referencing
 **Syntax:** reference _file_path_ as _context_alias_ ;
 <br>
-**Explanation:** Create a reference to another .ix-file's context, under the given alias. This will make struct definitions and entry/external routines from the referenced context available. Entry routines from the referenced context, will not be added to the list of entry points, but will be usable as external routines.
+**Explanation:** Create a reference to another file context, under the given alias. This will make struct definitions and entry/external routines from the referenced context available. Entry routines from the referenced context, will not be added to the list of entry points, but will be usable as external routines.
 <br>
 **Example**
 ```
-reference ./library/collections/list.ix as list;
+reference ./library/collections/list.sep as list;
 ```
 ___
 ## Structs
