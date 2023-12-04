@@ -12,7 +12,7 @@ let rec type_string t =
   | T_Struct(n,typ_args) -> n ^ "<" ^ (String.concat ","  (List.map (fun e -> (type_string (Option.get e))) typ_args)) ^ ">"
   | T_Null -> "null"
   | T_Generic c -> String.make 1 c
-  | T_Routine ts -> "(" ^ (String.concat ","  (List.map (fun e -> type_string(snd e)) ts)) ^ ")"
+  | T_Routine(_,ts) -> "(" ^ (String.concat ","  (List.map (fun e -> type_string(snd e)) ts)) ^ ")"
 
 let rec type_equal type1 type2 =
   let aux t1 t2 =
@@ -24,7 +24,7 @@ let rec type_equal type1 type2 =
     | (T_Struct(n1,ta1), T_Struct(n2, ta2)) when n1 = n2 && (List.length ta1) = (List.length ta2) -> true && (List.fold_right (fun e acc -> (type_equal (Option.get (fst e)) (Option.get (snd e))) && acc) (List.combine ta1 ta2) true)
     | (T_Null, _) -> true
     | (T_Generic c1, T_Generic c2) -> c1 = c2
-    | (T_Routine types1, T_Routine types2) -> if List.length types1 = List.length types2 then List.fold_right (fun ((_,t1),(_,t2)) acc -> type_equal t1 t2 && acc) (List.combine types1 types2) true else false
+    | (T_Routine(_,types1), T_Routine(_,types2)) -> if List.length types1 = List.length types2 then List.fold_right (fun ((_,t1),(_,t2)) acc -> type_equal t1 t2 && acc) (List.combine types1 types2) true else false
     | _ -> false
   in aux type1 type2 || aux type2 type1
 
@@ -225,6 +225,7 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
     | None -> raise_failure ("No such struct '" ^ name ^ "'")
   )
   | StructLiteral _ -> (Open, Error "Cannot type a struct literal") (*(Open, Ok(NOp_T(T_Struct("",[])))) This is causing issue*)
+  | AnonRoutine (tv,args,_) -> (Open, Ok(NOp_T(T_Routine(tv, List.map (fun (a,b,_) -> (a,b)) args))))
 
   and replace_generic c typ_vars typ_args : (typ, string) result = 
     let rec aux lst = 
@@ -253,14 +254,14 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
         | Ok rs -> Ok(T_Struct(str_name, List.rev rs))
         | Error m -> Error m
       )
-      | T_Routine(ts) -> (
+      | T_Routine(_,ts) -> (
         let rep = List.map (fun (vm,t) -> (vm, (replace t))) ts in
         let rep' = List.fold_left (fun acc e -> match acc, e with
           | Error m, _ -> Error m
           | _ , (_,Error m) -> Error m
           | Ok rs, (vm, Ok r) -> Ok ((vm,r)::rs)
         ) (Ok []) rep in match rep' with
-        | Ok rs -> Ok(T_Routine(List.rev rs))
+        | Ok rs -> Ok(T_Routine([],List.rev rs))
         | Error m -> Error m
       )
       | e -> Ok e
@@ -328,9 +329,9 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
       )
       | _ -> find_possible_type typ t env contexts
     )
-    | (((_,T_Routine(params)), expr)::t) -> ( match type_expr expr env contexts with
+    | (((_,T_Routine(_,params)), expr)::t) -> ( match type_expr expr env contexts with
       | (_,Ok ot) -> ( match translate_operational_type ot with
-        | T_Routine(ps) -> ( if not(List.length ps = List.length params) then find_possible_type typ t env contexts else match List.fold_left (fun acc ((_,p1),(_,p2)) -> if Result.is_ok acc then acc else (if type_equal typ p1 then (if not(is_generic p2) then (Ok p2) else acc) else acc) ) (Error "Sad") (List.combine params ps) with
+        | T_Routine(_,ps) -> ( if not(List.length ps = List.length params) then find_possible_type typ t env contexts else match List.fold_left (fun acc ((_,p1),(_,p2)) -> if Result.is_ok acc then acc else (if type_equal typ p1 then (if not(is_generic p2) then (Ok p2) else acc) else acc) ) (Error "Sad") (List.combine params ps) with
           | Ok t -> Ok(NOp_T t)
           | _ -> find_possible_type typ t env contexts
         )
@@ -424,7 +425,7 @@ let parameters_check typ_vars structs params =
       | Some(tvs, _) -> List.length tvs = List.length typ_args && List.fold_left (fun acc field_ty -> (check (Option.get field_ty)) && acc) true typ_args
       | None -> false
     )
-    | T_Routine(types) -> List.fold_left (fun acc (_,typ) -> (check typ) && acc) true types
+    | T_Routine(_,types) -> List.fold_left (fun acc (_,typ) -> (check typ) && acc) true types
   in
   List.fold_left (fun acc (_,ty,_) -> (check ty) && acc) true params
 
@@ -437,7 +438,7 @@ let rec well_defined_type typ_opt var_env =
     | None -> false
     | Some(tvs,_) -> (List.length tvs = List.length typ_args) && List.fold_left (fun acc ta -> (well_defined_type ta var_env) && acc) true typ_args 
   )
-  | Some(T_Routine(ts)) -> List.fold_left (fun acc (_,t) -> well_defined_type (Some t) var_env && acc) true ts
+  | Some(T_Routine(_,ts)) -> List.fold_left (fun acc (_,t) -> well_defined_type (Some t) var_env && acc) true ts
   | _ -> true
 
 let check_topdecs file structs =
@@ -566,7 +567,7 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
     in match ref with
     | LocalContext (Access n) 
     | OtherContext (_,Access n) when (name_type n ref_env = RoutineName) -> ( match lookup_routine n ref_env.routine_env with
-      | Some(_,_,_,[],ps,_)  -> Ok(NOp_T(T_Routine(List.map (fun (a,b,_) -> (a,b)) ps)))
+      | Some(_,_,_,[],ps,_)  -> Ok(NOp_T(T_Routine([],List.map (fun (a,b,_) -> (a,b)) ps)))
       | None -> raise_failure "Should not happen"
       | _ -> Error "Cannot infere type variables for routine"
     )
@@ -586,9 +587,9 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
     if Result.is_ok t then type_check checks vmod (Some(T_Array(Some(translate_operational_type(Result.get_ok t))))) expr env contexts else t
   )
   | Some(T_Array(Some st)), Value(ArrayLiteral []) -> if well_defined_type (Some st) env.var_env then Ok(NOp_T(T_Array(Some(st)))) else Error "Not a well defined type"
-  | Some(T_Array(Some(T_Routine rst))), Value(ArrayLiteral elems) -> (
-    let ress = List.map (fun elem -> type_check checks vmod (Some(T_Routine rst)) elem env contexts) elems in
-    List.fold_left (fun acc res -> if Result.is_error acc then acc else if Result.is_error res then res else acc) (Ok(NOp_T(T_Array(Some(T_Routine rst))))) ress
+  | Some(T_Array(Some(T_Routine(tv,rst)))), Value(ArrayLiteral elems) -> (
+    let ress = List.map (fun elem -> type_check checks vmod (Some(T_Routine(tv,rst))) elem env contexts) elems in
+    List.fold_left (fun acc res -> if Result.is_error acc then acc else if Result.is_error res then res else acc) (Ok(NOp_T(T_Array(Some(T_Routine(tv,rst)))))) ress
   )
   | Some(T_Array(Some st)), Value(ArrayLiteral elems) -> (
     let elem_types = List.map (fun elem -> type_check checks vmod (Some st) elem env contexts) elems in
@@ -611,7 +612,7 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
     )
     | e -> e
   )
-  | Some(T_Routine params), Reference(ref) -> ( 
+  | Some(T_Routine(tv,params)), Reference(ref) -> ( 
     let ref_env = ( match ref with
       | LocalContext (Access _) -> env
       | OtherContext (other,Access _) -> ( match lookup_context other env.file_refs contexts with
@@ -624,8 +625,8 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
     | LocalContext (Access n)
     | OtherContext (_,Access n) when (name_type n ref_env = RoutineName) -> ( match lookup_routine n ref_env.routine_env with
       | None -> raise_failure "Should not happen"
-      | Some(_,_,_,[],ps,_)  -> if List.fold_left2 (fun acc (vm1,t1) (vm2,t2,_) -> (vm1 = vm2 && (type_equal t1 t2)) && acc) true params ps then Ok(NOp_T(T_Routine params)) else Error "Type mismatch"
-      | Some(_,_,_,_,ps,_) -> (let rec aux pairs resolved acc = match pairs with
+      | Some(_,_,_,[],ps,_)  -> if List.fold_left2 (fun acc (vm1,t1) (vm2,t2,_) -> (vm1 = vm2 && (type_equal t1 t2)) && acc) true params ps then Ok(NOp_T(T_Routine([],params))) else Error "Type mismatch"
+      | Some(_,_,_,tv,ps,_) -> (let rec aux pairs resolved acc = match pairs with
         | [] -> acc
         | ((vm1,t1), (vm2,T_Generic c,_))::t -> ( if vm1 != vm2 then raise_failure "" else match List.find_opt (fun (tv,_) -> tv = c) resolved with
           | None -> aux t ((c,t1)::resolved) ((vm1,t1)::acc)
@@ -633,16 +634,16 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
         )
         | ((vm1,t1), (vm2,t2,_))::t -> if type_equal t1 t2 && vm1 = vm2 then aux t resolved ((vm1,t1)::acc) else raise_failure ""
       in try (
-        let inf_typ = T_Routine (aux (List.combine params ps) [] []) in
+        let inf_typ = T_Routine (tv,aux (List.combine params ps) [] []) in
         if well_defined_type (Some inf_typ) env.var_env then Ok(NOp_T inf_typ) else Error ""
       ) with _ -> Error "Could not coerce generic routine to the required type" )
     )
-    | Null -> Ok(NOp_T(T_Routine params))
+    | Null -> Ok(NOp_T(T_Routine([], params)))
     | _ -> (
       let (vm,res) = type_expr expr env contexts in 
       match res with
       | Error _ as e -> e
-      | Ok(expr_typ) -> checks vmod (T_Routine params) vm expr_typ
+      | Ok(expr_typ) -> checks vmod (T_Routine(tv,params)) vm expr_typ
     )
   )
   | Some(T_Struct(_,_)), (Ternary(cond,exp1,exp2)) -> (

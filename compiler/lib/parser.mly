@@ -103,7 +103,8 @@ typ:
   | NAME                { T_Struct ($1, []) }
   | NAME LT typ_args GT { T_Struct ($1, $3) }
   | TYPE_VAR            { T_Generic $1 }
-  | LPAR typ_list RPAR  { T_Routine $2 }
+  | LPAR typ_list RPAR  { T_Routine ([], $2) }
+  | LT typ_vars GT LPAR typ_list RPAR  { T_Routine ($2, $5) }
 ;
 
 typ_list:
@@ -180,6 +181,8 @@ value:
   | expression_not_ternary PLUS expression_not_ternary      { Binary_op ("+", $1, $3) }
   | expression_not_ternary TIMES expression_not_ternary     { Binary_op ("*", $1, $3) }
   | expression_not_ternary MINUS expression_not_ternary     { Binary_op ("-", $1, $3) }
+  | LPAR params RPAR block                    { AnonRoutine ([], $2, $4) }
+  | LT typ_vars GT LPAR params RPAR block     { AnonRoutine ($2, $5, $7) }
 ;
 
 arguments:
