@@ -28,6 +28,14 @@ let addHalt acc =
   | CStop::acc1 -> CHalt :: acc1
   | _ -> CHalt :: acc
 
+let rec ternary_is_reference expr1 expr2 =
+  match expr1, expr2 with
+  | Reference _, Reference _ -> true
+  | Ternary(_,t1e1,t1e2), Ternary(_,t2e1,t2e2) -> ternary_is_reference t1e1 t1e2 && ternary_is_reference t2e1 t2e2
+  | Ternary(_,e1,e2), Reference _ -> ternary_is_reference e1 e2
+  | Reference _ , Ternary(_,e1,e2) -> ternary_is_reference e1 e2
+  | _,_ -> false
+
 (* Scanning *)
 let count_decl stmt_dec_list =
   let rec aux sdl c =
@@ -101,6 +109,7 @@ let get_globvar_dependencies gvs =
       | ArrayLiteral exprs -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
       | NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
       | StructLiteral (exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
+      | AnonRoutine _ -> failwith "AnonRoutine not supported on toplevel"
     )
     | Ternary (cond, expr1, expr2) -> dependencies_from_assignable cond (dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc))
   in
@@ -200,6 +209,7 @@ and optimize_value expr var_env =
   | ArrayLiteral _ -> Value(expr)
   | NewStruct (_,_,_) -> Value(expr)
   | StructLiteral(exprs) -> Value(StructLiteral( List.map (fun e -> optimize_expr e var_env) exprs ))
+  | AnonRoutine _ as ar -> Value(ar)
 
 
 (*** Compiling functions ***)
@@ -319,31 +329,31 @@ and compile_structure_arg arg (op_typ:op_typ) idx env contexts acc =
 and compile_structure args typs var_env contexts acc =
   PlaceFull(C_Int (List.length args)) :: DeclareStruct :: (List.fold_left (fun acc (typ, (arg, c)) -> compile_structure_arg arg typ c var_env contexts acc) acc (List.combine typs (List.mapi (fun i a -> (a,i)) args)))
 
-and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
+and compile_value val_expr (op_typ: op_typ) env contexts acc =
   match val_expr with
   | Bool b -> PlaceByte(C_Bool b) :: acc
   | Int i -> PlaceFull(C_Int i) :: acc
   | Char c -> PlaceByte(C_Char c) :: acc
-  | ArraySize refer -> compile_inner_reference refer var_env contexts (FetchFull :: SizeOf :: acc)
+  | ArraySize refer -> compile_inner_reference refer env contexts (FetchFull :: SizeOf :: acc)
   | GetInput ty -> ( match type_index ty with
     | -1 -> raise_failure "Unsupported GetInput variant"
     | x -> GetInput(x) :: acc
   )
   | NewArray (_, size_expr) -> (
-    compile_expr_as_value (optimize_expr size_expr var_env) (NOp_T T_Int) var_env contexts (DeclareStruct :: IncrRef :: acc)
+    compile_expr_as_value (optimize_expr size_expr env) (NOp_T T_Int) env contexts (DeclareStruct :: IncrRef :: acc)
   )
   | ArrayLiteral exprs -> ( match translate_operational_type op_typ with
     | T_Array st -> (
       let typs = List.map (fun _ -> NOp_T (Option.get st)) exprs in
-      compile_structure exprs typs var_env contexts acc 
+      compile_structure exprs typs env contexts acc 
     )
     | _ -> raise_failure "Not an array type"
   )
   | NewStruct (_, _, exprs)
   | StructLiteral (exprs) -> ( match translate_operational_type op_typ with
-    | T_Struct(name,typ_args) -> ( match lookup_struct name var_env.var_env.structs with
+    | T_Struct(name,typ_args) -> ( match lookup_struct name env.var_env.structs with
       | Some(tvs,ps) -> ( match replace_generics (List.map (fun (a,b,_) -> (a,b)) ps) tvs typ_args with
-        | Ok typs -> compile_structure exprs (List.map (fun (_,t) -> NOp_T t) typs) var_env contexts acc 
+        | Ok typs -> compile_structure exprs (List.map (fun (_,t) -> NOp_T t) typs) env contexts acc 
         | Error m -> raise_failure (m^"what is going on")
       )
        (* let typs = List.map (fun t -> match t with Ok(_,t) -> NOp_T t | _ -> raise_failure ":(") () in
@@ -353,28 +363,28 @@ and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
     | _ -> raise_failure "Not a struct type"
   )
   | Binary_op (op, e1, e2) -> ( match op, e1, e2 with
-    | "=", Reference(r), Reference(Null) -> compile_reference r var_env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: acc)
-    | "=", Reference(Null), Reference(r) -> compile_reference r var_env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: acc)
-    | "!=", Reference(r), Reference(Null) -> compile_reference r var_env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: BoolNot :: acc)
-    | "!=", Reference(Null), Reference(r) -> compile_reference r var_env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: BoolNot :: acc)
+    | "=", Reference(r), Reference(Null) -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: acc)
+    | "=", Reference(Null), Reference(r) -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: acc)
+    | "!=", Reference(r), Reference(Null) -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: BoolNot :: acc)
+    | "!=", Reference(Null), Reference(r) -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: BoolNot :: acc)
     | _ -> (
       match op_typ with
       | BinOp_T(op, ot1, ot2) -> ( match op, translate_operational_type ot1, translate_operational_type ot2 with
-        | "&&", T_Bool, T_Bool -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts(BoolAnd :: acc))
-        | "||", T_Bool, T_Bool -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts(BoolOr :: acc))
-        | "=", T_Bool, T_Bool -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (BoolEq :: acc))
-        | "=", T_Char, T_Char -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (ByteEq :: acc))
-        | "=", T_Int, T_Int -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (FullEq :: acc))
-        | "!=", T_Bool, T_Bool -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (BoolEq :: BoolNot :: acc))
-        | "!=", T_Char, T_Char -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (ByteEq :: BoolNot :: acc))
-        | "!=", T_Int, T_Int -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (FullEq :: BoolNot :: acc))
-        | "<=", T_Int, T_Int -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (IntLt :: BoolNot :: acc))
-        | "<", T_Int, T_Int -> compile_expr_as_value e2 ot2 var_env contexts (compile_expr_as_value e1 ot1 var_env contexts (IntLt :: acc))
-        | ">=", T_Int, T_Int -> compile_expr_as_value e2 ot2 var_env contexts (compile_expr_as_value e1 ot1 var_env contexts (IntLt :: BoolNot :: acc))
-        | ">", T_Int, T_Int -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (IntLt :: acc))
-        | "+", T_Int, T_Int -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (IntAdd :: acc))
-        | "-", T_Int, T_Int -> compile_expr_as_value e2 ot2 var_env contexts (compile_expr_as_value e1 ot1 var_env contexts (IntSub :: acc))
-        | "*", T_Int, T_Int -> compile_expr_as_value e1 ot1 var_env contexts (compile_expr_as_value e2 ot2 var_env contexts (IntMul :: acc))
+        | "&&", T_Bool, T_Bool -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts(BoolAnd :: acc))
+        | "||", T_Bool, T_Bool -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts(BoolOr :: acc))
+        | "=", T_Bool, T_Bool -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (BoolEq :: acc))
+        | "=", T_Char, T_Char -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (ByteEq :: acc))
+        | "=", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (FullEq :: acc))
+        | "!=", T_Bool, T_Bool -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (BoolEq :: BoolNot :: acc))
+        | "!=", T_Char, T_Char -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (ByteEq :: BoolNot :: acc))
+        | "!=", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (FullEq :: BoolNot :: acc))
+        | "<=", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntLt :: BoolNot :: acc))
+        | "<", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntLt :: acc))
+        | ">=", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntLt :: BoolNot :: acc))
+        | ">", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntLt :: acc))
+        | "+", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntAdd :: acc))
+        | "-", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntSub :: acc))
+        | "*", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntMul :: acc))
         | _ -> raise_failure "Unknown binary operation"
       )
       | _ -> raise_failure "Not a binary operation"
@@ -383,14 +393,19 @@ and compile_value val_expr (op_typ: op_typ) var_env contexts acc =
   | Unary_op (_, e) -> (
     match op_typ with
     | UnOp_T(op, ot) -> ( match op, translate_operational_type ot with 
-      | "!", T_Bool -> compile_expr_as_value e ot var_env contexts (BoolNot :: acc)
-      | "$", _ -> if e = Reference(Null) then raise_failure "Direct null dereference" else compile_expr_as_value e ot var_env contexts acc
+      | "!", T_Bool -> compile_expr_as_value e ot env contexts (BoolNot :: acc)
+      | "$", _ -> if e = Reference(Null) then raise_failure "Direct null dereference" else compile_expr_as_value e ot env contexts acc
       | _ -> raise_failure "Unknown unary operation"
     )
     | _ -> raise_failure "Not a unary operation"
   )
+  | AnonRoutine(_,args,stmt) -> (
+    let label = new_label () in
+    let skip = new_label () in
+    CPlaceLabel label :: GoTo skip :: CLabel label :: compile_stmt stmt {env with var_env = ({env.var_env with locals = args}) } contexts None None 0 (addStop(CLabel skip :: acc))
+  )
 
-let rec compile_argument arg (env : environment) contexts acc =
+and compile_argument arg (env : environment) contexts acc =
   match arg with ((pmod, pty),eh) -> (
       let opteh = optimize_expr eh env.var_env in
       let typ_res = argument_type_check pmod (Some pty) opteh env contexts in
@@ -447,7 +462,7 @@ let rec compile_argument arg (env : environment) contexts acc =
     )
     )
 
-let compile_arguments args (env : environment) contexts acc =
+and compile_arguments args (env : environment) contexts acc =
   let rec aux ars acc =
     match ars with
     | [] -> acc
@@ -455,7 +470,7 @@ let compile_arguments args (env : environment) contexts acc =
   in
   aux (List.rev args) acc
 
-let rec compile_assignment target assign (env : environment) contexts acc =
+and compile_assignment target assign (env : environment) contexts acc =
   let assign_type_res = Typing.assignment_type_check target assign env contexts in
   match assign_type_res with
   | Error m -> raise_failure m
@@ -487,7 +502,7 @@ let rec compile_assignment target assign (env : environment) contexts acc =
       | T_Struct _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
       | T_Null -> compile_reference target env contexts (compile_value v assign_type  env contexts (RefAssign :: acc))
       | T_Generic _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
-      | T_Routine _ -> raise_failure "There is no Values of this type yet"
+      | T_Routine _ -> compile_reference target env contexts (compile_value v assign_type env contexts (AssignFull :: acc))
     )
     | (LocalContext(Access _), Reference re) -> ( match translate_operational_type assign_type with 
       | T_Int -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
@@ -582,25 +597,14 @@ let rec compile_assignment target assign (env : environment) contexts acc =
       | (_, Error m) -> raise_failure m
     )
   )
-  
-let rec ternary_is_reference expr1 expr2 =
-  match expr1, expr2 with
-  | Reference _, Reference _ -> true
-  | Ternary(_,t1e1,t1e2), Ternary(_,t2e1,t2e2) -> ternary_is_reference t1e1 t1e2 && ternary_is_reference t2e1 t2e2
-  | Ternary(_,e1,e2), Reference _ -> ternary_is_reference e1 e2
-  | Reference _ , Ternary(_,e1,e2) -> ternary_is_reference e1 e2
-  | _,_ -> false
 
-let update_locals env (vmod : var_mod) typ name =
-  ({ env with var_env = ({ env.var_env with locals = (vmod, typ, name)::env.var_env.locals }) })
-
-let rec compile_declaration dec env contexts =
+and compile_declaration dec env contexts =
   match dec with
   | TypeDeclaration (vmod, typ, name) -> (
     if localvar_exists name env.var_env.locals then raise_failure ("Duplicate variable name '" ^ name ^ "'")
     else if not(well_defined_type (Some typ) env.var_env) then raise_failure "Ill defined type"
     else 
-    ( update_locals env vmod typ name,
+    ( Helpers.update_locals env vmod typ name,
       match typ with
       | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: PlaceFull(C_Int 0) :: AssignFull :: a
       | T_Bool -> fun a -> DeclareByte :: IncrRef :: CloneFull :: PlaceByte(C_Bool false) :: AssignByte :: a
@@ -623,7 +627,7 @@ let rec compile_declaration dec env contexts =
       | Reference(LocalContext(Access _)) -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
       | Reference(OtherContext(_, Access _)) -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
       | Reference _ -> fun a -> compile_expr opt_expr o_typ env contexts (IncrRef :: a)
-      | Value _ -> (
+      | Value v -> (
         match typ with
         | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (AssignFull :: a))
         | T_Bool -> fun a -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (AssignByte :: a))
@@ -632,7 +636,7 @@ let rec compile_declaration dec env contexts =
         | T_Struct _ -> fun a -> compile_expr opt_expr o_typ env contexts (IncrRef :: a)
         | T_Generic _ -> fun a -> compile_expr opt_expr o_typ env contexts (IncrRef :: a)
         | T_Null -> fun a -> compile_expr opt_expr o_typ env contexts a
-        | T_Routine _ -> raise_failure "There is no Values of this type yet"
+        | T_Routine _ -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_value v o_typ env contexts (AssignFull :: a))
       )
       | Ternary(cond,expr1,expr2) -> (
         match cond with
@@ -655,7 +659,7 @@ let rec compile_declaration dec env contexts =
     )
   )
 
-let rec compile_sod_list sod_list env contexts break continue cleanup acc =
+and compile_sod_list sod_list env contexts break continue cleanup acc =
   match sod_list with
   | [] -> acc
   | h::t -> (
@@ -728,14 +732,14 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     )
     | LocalContext(Access n) -> ( 
       if (localvar_exists n env.var_env.locals) || (globvar_exists n env.var_env.globals) then match type_inner_reference (Access n) env contexts with
-        | (_, Ok T_Routine ts) -> ([], ts, (fun acc -> compile_expr_as_value (Reference ref) (NOp_T(T_Routine ts)) env contexts (Call :: acc)), env)
+        | (_, Ok T_Routine(tvs, ts)) -> (tvs, ts, (fun acc -> compile_expr_as_value (Reference ref) (NOp_T(T_Routine(tvs,ts))) env contexts (Call :: acc)), env)
         | _ -> raise_failure "Call to non-routine value"
       else match lookup_routine n env.routine_env with
       | None -> raise_failure ("No such routine '" ^n^ "' in context '" ^env.context_name^ "'" )
       | Some(_,_,_,tvs,ps,_) -> (tvs,List.map (fun (a,b,_) -> (a,b)) ps, (fun acc -> CPlaceLabel((env.context_name)^"#"^n) :: Call :: acc),env)
     )
     | LocalContext(access) -> ( match type_inner_reference access env contexts with
-      | (_, Ok T_Routine ts) -> ([], ts, (fun acc -> compile_inner_reference access env contexts (FetchFull :: FetchFull :: Call :: acc)), env)
+      | (_, Ok T_Routine(_,ts)) -> ([], ts, (fun acc -> compile_inner_reference access env contexts (FetchFull :: FetchFull :: Call :: acc)), env)
       | _ -> raise_failure "Call to non-routine value"
     )
     | _ -> raise_failure "Illegal call"

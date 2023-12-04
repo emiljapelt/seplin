@@ -22,6 +22,9 @@ type context =
 
 type label_generator = { mutable next : int }
 
+let update_locals env (vmod : var_mod) typ name =
+  ({ env with var_env = ({ env.var_env with locals = (vmod, typ, name)::env.var_env.locals }) })
+
 (* Labels *)
 let lg = ( {next = 0;} )
 
@@ -98,7 +101,7 @@ let var_type (name: string) env : (typ, string) result =
     match lookup_globvar name env.var_env.globals with
     | Some (_,gty,_) -> Ok gty
     | None -> match lookup_routine name env.routine_env with 
-      | Some (_,_,_,_,ps,_) -> Ok (T_Routine(List.map (fun (vm,t,_) -> (vm,t)) ps))
+      | Some (_,_,_,tv,ps,_) -> Ok (T_Routine(tv, List.map (fun (vm,t,_) -> (vm,t)) ps))
       | None -> raise_failure ("No such variable '" ^ name ^ "'")
 
 let globvar_exists (name: string) globvars =

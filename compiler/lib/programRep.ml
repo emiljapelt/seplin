@@ -26,7 +26,7 @@ and typ =
   | T_Struct of string * typ option list
   | T_Null
   | T_Generic of char
-  | T_Routine of (var_mod * typ) list
+  | T_Routine of char list * (var_mod * typ) list
 
 and op_typ =
   | NOp_T of typ

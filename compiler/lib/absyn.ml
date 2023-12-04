@@ -47,6 +47,7 @@ and value =
     | ArrayLiteral of expression list
     | NewStruct of string * typ option list * expression list
     | StructLiteral of expression list
+    | AnonRoutine of char list * (var_mod * typ * string) list * statement
 
 and top_declaration =
     | Routine of access_mod * string * char list * (var_mod * typ * string) list * statement
