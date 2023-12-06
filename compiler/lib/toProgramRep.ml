@@ -739,7 +739,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       | Some(_,_,_,tvs,ps,_) -> (tvs,List.map (fun (a,b,_) -> (a,b)) ps, (fun acc -> CPlaceLabel((env.context_name)^"#"^n) :: Call :: acc),env)
     )
     | LocalContext(access) -> ( match type_inner_reference access env contexts with
-      | (_, Ok T_Routine(_,ts)) -> ([], ts, (fun acc -> compile_inner_reference access env contexts (FetchFull :: FetchFull :: Call :: acc)), env)
+      | (_, Ok T_Routine(tvs,ts)) -> (tvs, ts, (fun acc -> compile_inner_reference access env contexts (FetchFull :: FetchFull :: Call :: acc)), env)
       | _ -> raise_failure "Call to non-routine value"
     )
     | _ -> raise_failure "Illegal call"
