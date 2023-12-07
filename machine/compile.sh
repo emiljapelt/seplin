@@ -1,1 +1,1 @@
-gcc ./ISA.c ./types.c ./commands.c ./memory.c ./file_analysis.c ./seplin.c -o seplin
+gcc -O2 ./ISA.c ./types.c ./commands.c ./memory.c ./file_analysis.c ./seplin.c -o seplin
