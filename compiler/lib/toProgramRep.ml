@@ -502,7 +502,8 @@ and compile_assignment target assign (env : environment) contexts acc =
       | T_Struct _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
       | T_Null -> compile_reference target env contexts (compile_value v assign_type  env contexts (RefAssign :: acc))
       | T_Generic _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
-      | T_Routine _ -> compile_reference target env contexts (compile_value v assign_type env contexts (AssignFull :: acc))
+      | T_Routine _ -> compile_reference target env contexts (FetchFull::(compile_value v assign_type env contexts (AssignFull :: acc))
+      )
     )
     | (LocalContext(Access _), Reference re) -> ( match translate_operational_type assign_type with 
       | T_Int -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
@@ -512,7 +513,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       | T_Struct _ -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
       | T_Null -> compile_reference target env contexts (compile_reference re env contexts (RefAssign :: acc))
       | T_Generic _ -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
-      | T_Routine _ -> compile_reference target env contexts (FetchFull :: compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
+      | T_Routine _ -> compile_reference target env contexts (FetchFull :: compile_reference re env contexts (FetchFull:: FetchFull :: IncrRef :: RefAssign :: acc))
     )
     | (LocalContext(StructAccess(refer, field)), Value v) -> ( match Typing.type_inner_reference refer env contexts with
       | (_,Ok T_Struct (str_name, _)) -> ( match lookup_struct str_name env.var_env.structs with
@@ -526,7 +527,7 @@ and compile_assignment target assign (env : environment) contexts acc =
             | T_Struct _ -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc)))
             | T_Null  -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: (compile_value v assign_type  env contexts (FieldAssign :: acc)))
             | T_Generic _ -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc)))
-            | T_Routine _ -> raise_failure "There is no Values of this type yet"
+            | T_Routine _ -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: FieldFetch :: FetchFull :: (compile_value v assign_type  env contexts (AssignFull :: acc)))
           )
         )
       )
@@ -565,7 +566,7 @@ and compile_assignment target assign (env : environment) contexts acc =
             | T_Struct _ -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc))))
             | T_Null -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (compile_value v assign_type  env contexts (FieldAssign :: acc))))
             | T_Generic _ -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc))))
-            | T_Routine _ -> raise_failure "There is no Values of this type yet"
+            | T_Routine _ -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (FieldFetch :: FetchFull :: (compile_value v assign_type env contexts (AssignFull :: acc)))))
           )
           | _ -> raise_failure "Array index must be of type 'int'"
         )
@@ -739,7 +740,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       | Some(_,_,_,tvs,ps,_) -> (tvs,List.map (fun (a,b,_) -> (a,b)) ps, (fun acc -> CPlaceLabel((env.context_name)^"#"^n) :: Call :: acc),env)
     )
     | LocalContext(access) -> ( match type_inner_reference access env contexts with
-      | (_, Ok T_Routine(tvs,ts)) -> (tvs, ts, (fun acc -> compile_inner_reference access env contexts (FetchFull :: FetchFull :: Call :: acc)), env)
+      | (_, Ok T_Routine(tvs,ts)) -> (tvs, ts, (fun acc -> compile_inner_reference access env contexts (RefFetch :: FetchFull :: Call :: acc)), env)
       | _ -> raise_failure "Call to non-routine value"
     )
     | _ -> raise_failure "Illegal call"

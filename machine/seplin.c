@@ -97,12 +97,13 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
     if (trace) { print_stack(stack, bp, sp); printf("\n"); }
 
     while(true) {
-        byte_t i = p[ip];
 
         if (sp < bp) { printf("Failure: stack underflow!\n"); return -1; }
         if (sp > STACKSIZE) { printf("Failure: stack overflow!\n"); return -1; }
 
-        if (trace) printf("instruction #%llu: 0x%x %s\n", ip, i, instruction_to_string(i));
+        if (trace) printf("instruction #%llu: ", ip);
+        byte_t i = p[ip];
+        if (trace) printf("0x%x %s\n", i, instruction_to_string(i) );
 
         switch (i)
         {
