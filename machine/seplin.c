@@ -572,23 +572,22 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
 
 
 char compile(char** path) {
-    if (string_ends_with(4, ".sec", strlen(*path), *path)) {}
-    else if (string_ends_with(4, ".sep", strlen(*path), *path)) {
-        int command_length = strlen((*path)+11);
+    unsigned long path_length = strlen(*path);
+    if (string_ends_with(4, ".sec", path_length, *path)) {}
+    else if (string_ends_with(4, ".sep", path_length, *path)) {
+        int command_length = path_length+11;
         char command[command_length+1];
         memset(command, 0, command_length);
         
         strcat(command, "seplinc ");
         strcat(command, *path);
-
         int result = system(command);
         if (result != 0) { printf("Failure: Compilation failed.\n"); return 0;}
-        int compiled_file_name_length = strlen(*path);
-        char* compiled_file_name = (char*)malloc(sizeof(char)*(compiled_file_name_length+1));
-        memset(compiled_file_name, 0, compiled_file_name_length);
+        char* compiled_file_name = (char*)malloc(sizeof(char)*path_length);
+        memset(compiled_file_name, 0, path_length);
 
         strcat(compiled_file_name, *path);
-        compiled_file_name[compiled_file_name_length-1] = 'c';
+        compiled_file_name[path_length-1] = 'c';
         *path = compiled_file_name;
         return 1;
     }
