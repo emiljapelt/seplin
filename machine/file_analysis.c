@@ -39,12 +39,20 @@ int type_rep_size(byte_t* file) {
         case GENERIC:
             size += 2;
             break;
+        case ROUTINE:
+            size += 2;
+            byte_t params = *(file+1);
+            while(params > 0) {
+                size += 1 + type_rep_size(file+2); // varmod + type
+                params--;
+            }
+            break;
     }
     return size;
 }
 
 void skip_type(byte_t** file) {
-    *file += 1 + type_rep_size((*file)+1); // lock + type
+    *file += 1 + type_rep_size((*file)+1); // varmod + type
 }
 
 void skip_type_vars(byte_t** file) {
@@ -137,20 +145,22 @@ struct entry_point_info find_entry_point(byte_t* ptr, char* name) {
     return info;
 }
 
-void print_type(byte_t* ptr, byte_t* struct_seg) {
-    switch (*ptr) {
-        case INT: printf("int"); break;
-        case BOOL: printf("bool"); break;
-        case CHAR: printf("char"); break;
+void print_type_info(byte_t** ptr, byte_t* struct_seg);
+
+void print_type(byte_t** ptr, byte_t* struct_seg) {
+    switch (**ptr) {
+        case INT: printf("int"); *ptr += 1; break;
+        case BOOL: printf("bool"); *ptr += 1; break;
+        case CHAR: printf("char"); *ptr += 1; break;
         case ARRAY: {
-            ptr += 1;
+            *ptr += 1;
             print_type(ptr, struct_seg);
             printf("[]");
             break;
         }
         case STRUCT: {
-            ptr += 1;
-            full_t idx = *(full_t*)ptr;
+            *ptr += 1;
+            full_t idx = **(full_t**)ptr;
             struct_seg += 8;
             while (idx > 0) {
                 skip_string(&struct_seg);
@@ -166,9 +176,22 @@ void print_type(byte_t* ptr, byte_t* struct_seg) {
             break;
         }
         case GENERIC: {
-            ptr += 1;
-            printf("%c", *ptr);
-            ptr += 1;
+            *ptr += 1;
+            printf("%c", **ptr);
+            *ptr += 1;
+            break;
+        }
+        case ROUTINE: {
+            printf("(");
+            *ptr += 1;
+            byte_t param_count = **ptr;
+            *ptr += 1;
+            while(param_count > 0) {
+                print_type_info(ptr, struct_seg);
+                if (param_count > 1) printf(",");
+                param_count--;
+            }
+            printf(")");
             break;
         }
         default:
@@ -176,10 +199,10 @@ void print_type(byte_t* ptr, byte_t* struct_seg) {
     }
 }
 
-void print_type_info(byte_t* ptr, byte_t* struct_seg) {
-    if (*ptr == 1) printf("stable ");
-    else if (*ptr == 2) printf("const ");
-    ptr += 1;
+void print_type_info(byte_t** ptr, byte_t* struct_seg) {
+    if (**ptr == 1) printf("stable ");
+    else if (**ptr == 2) printf("const ");
+    *ptr += 1;
     print_type(ptr, struct_seg);
 }
 
@@ -211,9 +234,9 @@ void print_structs(byte_t* structs) {
         byte_t fields = *(byte_t*)ptr;
         ptr += 1;
         while (fields > 0) {
-            print_type_info(ptr, structs);
+            print_type_info(&ptr, structs);
             if (fields > 1) printf(", ");
-            skip_type(&ptr);
+            //skip_type(&ptr);
             fields--;
         }
         
@@ -230,8 +253,8 @@ void print_global_vars(byte_t* ptr, byte_t* structs) {
     while (globvar_count > 0) {
         printf("    %s: ", ptr);
         skip_string(&ptr);
-        print_type_info(ptr, structs);
-        skip_type(&ptr);
+        print_type_info(&ptr, structs);
+        //skip_type(&ptr);
         printf("\n");
         globvar_count--;
     }
@@ -254,8 +277,8 @@ void print_entry_points(byte_t* ptr, byte_t* struct_seg) {
         ptr += 1;
 
         while(argc > 0) {
-            print_type_info(ptr, struct_seg);
-            skip_type(&ptr);
+            print_type_info(&ptr, struct_seg);
+            //skip_type(&ptr);
             if (argc > 1) printf(", ");
             argc--;
         }

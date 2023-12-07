@@ -64,7 +64,7 @@ let variable_mod vmod =
   | Stable -> "\x01"
   | Const -> "\x02"
 
-let write_type_info file vmod ty structs =
+let rec write_type_info file vmod ty structs =
   let rec write_type ty =
     fprintf file "%c" (Char.chr (ProgramRep.type_index ty)) ; 
     match ty with
@@ -74,6 +74,10 @@ let write_type_info file vmod ty structs =
       match get_index structs (fun (name, _, _) -> str_name = name) with
       | None -> failwith "struct not found while writing binary"
       | Some i -> write_word file (Int64.of_int i)
+    )
+    | T_Routine(_,params) -> (
+      fprintf file "%c" (Char.chr (List.length params));
+      List.iter (fun (vm,t) -> write_type_info file vm t structs ) params;
     )
     | _ -> ()
   in

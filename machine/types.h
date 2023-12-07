@@ -6,6 +6,7 @@
 #define ARRAY 3
 #define STRUCT 4
 #define GENERIC 5
+#define ROUTINE 6
 
 char* type_name(char index);
 ufull_t parse_int(char* str);

@@ -109,7 +109,7 @@ let get_globvar_dependencies gvs =
       | ArrayLiteral exprs -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
       | NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
       | StructLiteral (exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
-      | AnonRoutine _ -> failwith "AnonRoutine not supported on toplevel"
+      | AnonRoutine _ -> acc (*failwith "AnonRoutine not supported on toplevel"*)
     )
     | Ternary (cond, expr1, expr2) -> dependencies_from_assignable cond (dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc))
   in
