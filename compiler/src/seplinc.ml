@@ -34,7 +34,7 @@ let resolve_output i =
     )
     else raise_failure "Invalid output destination"
   ) with
-  | Invalid_argument _ -> "./" ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".sec"
+  | Invalid_argument _ -> (String.sub i 0 ((String.length i) - 3)) ^ "sec"
   | ex -> raise ex
 
 let print_line ls l =
