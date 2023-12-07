@@ -402,7 +402,7 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
   | AnonRoutine(_,args,stmt) -> (
     let label = new_label () in
     let skip = new_label () in
-    CPlaceLabel label :: GoTo skip :: CLabel label :: compile_stmt stmt {env with var_env = ({env.var_env with locals = args}) } contexts None None 0 (addStop(CLabel skip :: acc))
+    CPlaceLabel label :: GoTo skip :: CLabel label :: compile_stmt stmt {env with var_env = ({env.var_env with locals = List.rev args}) } contexts None None 0 (addStop(CLabel skip :: acc))
   )
 
 and compile_argument arg (env : environment) contexts acc =
