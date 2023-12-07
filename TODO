@@ -7,11 +7,10 @@
 11. Implement routine name overloading
 12. Fix machine/compiler interaction 
     - currently failes if the source file is not in 'cwd'
-13. Implement anonymous routines
-    - syntax: (i: int) { i *:= 2; }
-    - example: array#each("Hi there", (c: char){ print c; });
-    - example: square ::= (i: int, o: int) { o := i*i; };
-    - example: square :(int,int):= (i, o) { o := i*i; };
-    - At compile-time these should "just" be translated to internal routines, with an unreachable name.
-    - Could principally replace internal routines, which would allow removing the keywords 'internal' and 'external'
-    - Would make the language even more side-effecty, as routines could now be overwritten, if they are not 'const'/'stable'.
+13. Replace routine declaration with variable declarations of anonymous routines
+    - likely required changing how the binaries are handled by machine
+        - Specifically the TO_START instruction
+    - 'internal', 'external' and 'entry' will need to apply to variables
+    - the environment structure needs to change, i.e. no longer contain routines seperatly
+    - variables from other contexts need to become available to the local context
+        - 'internal's should still be inaccesible
