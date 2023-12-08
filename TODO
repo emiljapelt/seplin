@@ -14,3 +14,4 @@
     - the environment structure needs to change, i.e. no longer contain routines seperatly
     - variables from other contexts need to become available to the local context
         - 'internal's should still be inaccesible
+14. Fix variable modifiers, broken for const array index assignments
