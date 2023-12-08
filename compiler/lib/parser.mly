@@ -80,14 +80,17 @@ topdec:
 ;
 
 typ_vars:
-    TYPE_VAR                { [$1] }
-  | TYPE_VAR COMMA typ_vars { $1 :: $3 }
+    TYPE_VAR                  { [$1] }
+  | TYPE_VAR COMMA            { [$1] }
+  | TYPE_VAR COMMA typ_vars   { $1 :: $3 }
 ;
 
 typ_args:
-    typ                 { [Some $1] }
-  | UNDERSCORE          { [None] }
-  | typ COMMA typ_args  { (Some $1) :: $3 }
+    typ                       { [Some $1] }
+  | UNDERSCORE                { [None] }
+  | typ COMMA                 { [Some $1] }
+  | UNDERSCORE COMMA          { [None] }
+  | typ COMMA typ_args        { (Some $1) :: $3 }
   | UNDERSCORE COMMA typ_args { None :: $3 }
 ;
 
@@ -109,12 +112,15 @@ typ:
 
 typ_list:
    { [] }
-  | typ               { [(Open, $1)] }  
-  | STABLE typ        { [(Stable, $2)] }
-  | CONST typ         { [(Const, $2)] }
-  | typ COMMA typ_list {(Open, $1)::$3}
-  | STABLE typ COMMA typ_list {(Stable, $2)::$4}
-  | CONST typ COMMA typ_list {(Const, $2)::$4}
+  | typ                           { [(Open, $1)] }  
+  | varmod typ                    { [($1, $2)] }
+  | typ COMMA typ_list            { (Open, $1)::$3 }
+  | varmod typ COMMA typ_list     { ($1, $2)::$4 }
+;
+
+varmod:
+    STABLE { Stable }
+  | CONST { Const }
 ;
 
 block:
@@ -192,6 +198,7 @@ arguments:
 
 arguments1:
     expression                     { [$1] }
+  | expression COMMA               { [$1] }
   | expression COMMA arguments1    { $1 :: $3 }
 ;
 
@@ -207,14 +214,11 @@ stmtOrDec:
 
 dec:
     NAME COLON typ SEMI                                      { TypeDeclaration (Open, $3, $1) }
-  | NAME COLON STABLE typ SEMI                               { TypeDeclaration (Stable, $4, $1) }
-  | NAME COLON CONST typ SEMI                                { TypeDeclaration (Const, $4, $1) }
+  | NAME COLON varmod typ SEMI                               { TypeDeclaration ($3, $4, $1) }
   | NAME COLON typ ASSIGNMENT expression SEMI                { AssignDeclaration (Open, Some $3, $1, $5) }
-  | NAME COLON STABLE typ ASSIGNMENT expression SEMI         { AssignDeclaration (Stable, Some $4, $1, $6) }
-  | NAME COLON CONST typ ASSIGNMENT expression SEMI          { AssignDeclaration (Const, Some $4, $1, $6) }
+  | NAME COLON varmod typ ASSIGNMENT expression SEMI         { AssignDeclaration ($3, Some $4, $1, $6) }
   | NAME COLON ASSIGNMENT expression SEMI                    { AssignDeclaration (Open, None, $1, $4) }
-  | NAME COLON STABLE ASSIGNMENT expression SEMI             { AssignDeclaration (Stable, None, $1, $5) }
-  | NAME COLON CONST ASSIGNMENT expression SEMI              { AssignDeclaration (Const, None, $1, $5) }
+  | NAME COLON varmod ASSIGNMENT expression SEMI             { AssignDeclaration ($3, None, $1, $5) }
 ;
 
 stmt:
@@ -315,13 +319,13 @@ simple_params:
 
 simple_params1:
     simple_param                         { [$1] }
+  | simple_param COMMA                   { [$1] }
   | simple_param COMMA simple_params1    { $1 :: $3 }
 ;
 
 simple_param:
     NAME COLON simple_typ                  { (Open, $3, $1) }
-  | NAME COLON STABLE simple_typ           { (Stable, $4, $1) }
-  | NAME COLON CONST simple_typ            { (Const, $4, $1) }
+  | NAME COLON varmod simple_typ           { ($3, $4, $1) }
 ;
 
 params:
@@ -331,13 +335,13 @@ params:
 
 params1:
     param                  { [$1] }
+  | param COMMA            { [$1] }
   | param COMMA params1    { $1 :: $3 }
 ;
 
 param:
   | NAME COLON typ                  { (Open, $3, $1) }
-  | NAME COLON STABLE typ           { (Stable, $4, $1) }
-  | NAME COLON CONST typ            { (Const, $4, $1) }
+  | NAME COLON varmod typ           { ($3, $4, $1) }
 ;
 
 
@@ -348,12 +352,12 @@ struct_params:
 ;
 
 struct_params1:
-    struct_param                  { [$1] }
-  | struct_param COMMA struct_params1    { $1 :: $3 }
+    struct_param                        { [$1] }
+  | struct_param COMMA                  { [$1] }
+  | struct_param COMMA struct_params1   { $1 :: $3 }
 ;
 
 struct_param:
   | NAME COLON typ                  { (Open, $3, $1) }
-  | NAME COLON STABLE typ           { (Stable, $4, $1) }
-  | NAME COLON CONST typ            { (Const, $4, $1) }
+  | NAME COLON varmod typ           { ($3, $4, $1) }
 ;
