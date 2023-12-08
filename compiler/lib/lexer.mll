@@ -51,7 +51,7 @@
 rule lex = parse
         [' ' '\t']               { lex lexbuf }
     |   ('\r''\n' | '\n')        { incr_linenum lexbuf ; lex lexbuf }
-    |   "//" [^ '\n' '\r']* ('\r''\n' | '\n')       { incr_linenum lexbuf ; lex lexbuf }
+    |   "//" [^ '\n' '\r']* ('\r''\n' | '\n' | eof)       { incr_linenum lexbuf ; lex lexbuf }
     |   ['0'-'9']+ as lxm { CSTINT (int_of_string lxm) }
     |   ''' ['\\']? _ ''' as lxm { CSTCHAR (char_of_string lxm lexbuf) }
     |   "true"            { CSTBOOL true }
