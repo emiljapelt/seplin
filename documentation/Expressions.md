@@ -22,6 +22,7 @@ In Seplin expressions are the only constructs which have some inherent value. Th
   - [ArrayLiteral](#arrayliteral)
   - [NewStruct](#newstruct)
   - [StructLiteral](#structliteral)
+  - [AnonymousRoutine](#anonymousroutine)
 - [Binary operators](#binary-operators)
 - [Unary operators](#unary-operators)
 
@@ -284,6 +285,29 @@ ___
 ```
 {1,2}
 {1, {2, null}}
+```
+___
+## AnonymousRoutine
+**Flavour:** value
+<br>
+**Syntax:**
+<br>
+( _simple_parameters_ ) [_block_](StatementsAndDeclarations.md#block)
+<br>
+_routine_name_ < _type_variables_ > ( _parameters_ ) [_block_](StatementsAndDeclarations.md#block)
+<br>
+**Type:** Routine type of the types in _parameters_.
+<br>
+**Explaination:** Declares an unnamed routine.
+<br>
+**Examples:**
+```
+(i: int) { i +:= 10; }
+<T>(a: T, b: T) {
+  tmp ::= a;
+  a := b;
+  b := tmp;
+}
 ```
 ___
 
