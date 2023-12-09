@@ -399,10 +399,12 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
     )
     | _ -> raise_failure "Not a unary operation"
   )
-  | AnonRoutine(_,args,stmt) -> (
-    let label = new_label () in
+  | AnonRoutine(tvs,params,stmt) -> (
+    if not(elements_unique tvs) then raise_failure ("Non-unique type variables in anonymous routine")
+    else if not(parameters_check tvs env.var_env.structs params) then raise_failure ("illegal parameters in anonymous routine")
+    else let label = new_label () in
     let skip = new_label () in
-    CPlaceLabel label :: GoTo skip :: CLabel label :: compile_stmt stmt {env with var_env = ({env.var_env with locals = List.rev args}) } contexts None None 0 (addStop(CLabel skip :: acc))
+    CPlaceLabel label :: GoTo skip :: CLabel label :: compile_stmt stmt {env with var_env = ({env.var_env with locals = List.rev params; typ_vars = tvs}) } contexts None None 0 (addStop(CLabel skip :: acc))
   )
 
 and compile_argument arg (env : environment) contexts acc =
