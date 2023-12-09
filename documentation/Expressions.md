@@ -15,7 +15,6 @@ In Seplin expressions are the only constructs which have some inherent value. Th
   - [BinaryOperation](#binaryoperation)
   - [UnaryOperation](#unaryoperation)
   - [Ternary](#ternary)
-  - [ValueOf](#valueof)
   - [ArraySize](#arraysize)
   - [Read](#read)
   - [NewArray](#newarray)
@@ -292,9 +291,9 @@ ___
 <br>
 **Syntax:**
 <br>
-( _simple_parameters_ ) [_block_](StatementsAndDeclarations.md#block)
+( _parameters_ ) [_block_](StatementsAndDeclarations.md#block)
 <br>
-_routine_name_ < _type_variables_ > ( _parameters_ ) [_block_](StatementsAndDeclarations.md#block)
+< _type_variables_ > ( _parameters_ ) [_block_](StatementsAndDeclarations.md#block)
 <br>
 **Type:** Routine type of the types in _parameters_.
 <br>
