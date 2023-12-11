@@ -782,7 +782,7 @@ let rec compile_globalvars globvars structs contexts acc =
       )
     )
     with
-    | e -> raise e
+    | Failure(_,line_opt,expl_opt) -> raise (Failure(Some context_name,line_opt,expl_opt))
   )
 
 let compress_path path =
