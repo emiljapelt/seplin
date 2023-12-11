@@ -13,11 +13,8 @@ let count_entry_points program =
   let rec aux p acc =
     match p with
     | [] -> acc
-    | h::t -> (
-      match h with
-      | EntryPoint _ -> aux t (acc+1)
-      | _ -> aux t acc 
-    )
+    | (Entry,_,_,_,_)::t -> aux t (acc+1)
+    | _::t -> aux t acc
   in
   aux program 0
 
@@ -27,7 +24,6 @@ let rec retrieve_labels program c acc =
     | h::t -> (
       match h with
       | Label (s) -> retrieve_labels t c ((s, c)::acc)
-      | EntryPoint (_,l,_) -> retrieve_labels t c ((l, c)::acc)
       | FullInstruction _ -> retrieve_labels t (c+9) acc
       | ByteInstruction _ -> retrieve_labels t (c+2) acc
       | LabelInstruction _ -> retrieve_labels t (c+9) acc
@@ -104,21 +100,18 @@ let write_entry_point_info file name addr args structs =
   in
   print_args args
 
-let write_entry_points file pps structs =
-  write_word file (Int64.of_int (count_entry_points pps)) ;
-  let rec aux parts addr =
-    match parts with
+
+(* (access_mod * var_mod * typ * string) list *)
+let write_entry_points file globs structs =
+  write_word file (Int64.of_int (count_entry_points globs)) ;
+  let rec aux globs =
+    match globs with
     | [] -> ()
-    | h::t -> match h with
-      | Label _ -> aux t addr
-      | EntryPoint (name,_,args) -> write_entry_point_info file name addr args structs ; aux t addr
-      | FullInstruction _ -> aux t (addr+9)
-      | ByteInstruction _ -> aux t (addr+2)
-      | LabelInstruction _ -> aux t (addr+9)
-      | PlaceLabel _ -> aux t (addr+9)
-      | _ -> aux t (addr+1)
+    | (Entry,_,T_Routine(_,ps),idx,name)::t -> 
+      write_entry_point_info file name idx ps structs ; aux t
+    | _::t -> aux t
   in
-  aux pps 0
+  aux globs
 
 
 
@@ -130,7 +123,7 @@ let write_global_vars file gvs structs =
   let rec aux gs = 
     match gs with
     | [] -> ()
-    | (lock,ty,name)::t -> write_global_var_info file name lock ty structs ; aux t
+    | (_,varmod,ty,_,name)::t -> write_global_var_info file name varmod ty structs ; aux t
   in
   aux gvs
 
@@ -215,6 +208,6 @@ let write program dest =
   let output = open_out dest in
   let () = write_structs output structs in
   let () = write_global_vars output global_vars structs in
-  let () = write_entry_points output program_parts structs in
+  let () = write_entry_points output global_vars structs in
   let () = write_program_parts output program_parts labels in
   close_out output
