@@ -5,7 +5,7 @@ open Absyn
 (*** Types ***)
 type variable_environment = { 
   locals: (var_mod * typ * string) list; (* modifier, type, name *)
-  globals: (string * string * int * var_mod * typ * declaration) list; (* name, stack_index, modifier, type, expression *)
+  globals: (access_mod * string * string * int * var_mod * typ * declaration) list; (* name, stack_index, modifier, type, expression *)
   structs: (string * char list * (var_mod * typ * string) list) list; (* name, type_vars, parameters(modifier, type, name) *)
   typ_vars: char list;
 }
@@ -13,7 +13,7 @@ type variable_environment = {
 type environment = { 
   context_name: string;
   var_env: variable_environment;
-  routine_env: (access_mod * string * string * char list * (var_mod * typ * string) list * statement) list; (* name, type_vars, parameters(modifier, type, name) *)
+  (*routine_env: (access_mod * string * string * char list * (var_mod * typ * string) list * statement) list; (* name, type_vars, parameters(modifier, type, name) *)*)
   file_refs: (string * string) list;
 }
 
@@ -66,7 +66,7 @@ let lookup_struct (name: string) structs =
   lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs
 
 let lookup_globvar (name: string) globvars =
-  lookup (fun (n,_,cnt,vmod,ty,_) -> if n = name then Some(cnt,ty,vmod) else None) globvars
+  lookup (fun (accmod,n,_,cnt,vmod,ty,_) -> if n = name then Some(accmod,cnt,ty,vmod) else None) globvars
 
 let lookup_localvar (name: string) localvars =
   lookup_i (fun i (vmod,ty,n) -> if n = name then Some(i,ty,vmod) else None) localvars
@@ -84,25 +84,29 @@ let strictest_mod m1 m2 =
   else if m1 = Stable || m2 = Stable then Stable
   else Open
 
+let access_modifier (name: string) env =
+  match lookup_localvar name env.var_env.locals with
+    | Some (_,_,_) -> Internal
+    | None -> 
+      match lookup_globvar name env.var_env.globals with
+      | Some (g_amod,_,_,_) -> g_amod
+      | None -> raise_failure ("No such variable '" ^ name ^ "'")
+
 let var_modifier (name: string) env = 
   match lookup_localvar name env.var_env.locals with
     | Some (_,_,l_vmod) -> l_vmod
     | None -> 
       match lookup_globvar name env.var_env.globals with
-      | Some (_,_,g_vmod) -> g_vmod
-      | None -> match lookup_routine name env.routine_env with 
-        | Some _ -> Open
-        | None -> raise_failure ("No such variable '" ^ name ^ "'")
+      | Some (_,_,_,g_vmod) -> g_vmod
+      | None -> raise_failure ("No such variable '" ^ name ^ "'")
 
 let var_type (name: string) env : (typ, string) result = 
   match lookup_localvar name env.var_env.locals with
   | Some (_,lty,_) -> Ok lty
   | None -> 
     match lookup_globvar name env.var_env.globals with
-    | Some (_,gty,_) -> Ok gty
-    | None -> match lookup_routine name env.routine_env with 
-      | Some (_,_,_,tv,ps,_) -> Ok (T_Routine(tv, List.map (fun (vm,t,_) -> (vm,t)) ps))
-      | None -> raise_failure ("No such variable '" ^ name ^ "'")
+    | Some (_,_,gty,_) -> Ok gty
+    | None -> raise_failure ("No such variable '" ^ name ^ "'")
 
 let globvar_exists (name: string) globvars =
   Option.is_some (lookup_globvar name globvars)
@@ -126,6 +130,4 @@ let name_type name env =
   | Some _ -> LocalVariableName
   | None ->  match lookup_globvar name env.var_env.globals with
     | Some _ -> GlobalVariableName
-    | None -> match lookup_routine name env.routine_env with 
-      | Some _ -> RoutineName
-      | None -> raise_failure ("Nothing given the name '" ^ name ^ "'")
+    | None -> raise_failure ("Nothing given the name '" ^ name ^ "'")

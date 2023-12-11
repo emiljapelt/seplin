@@ -497,13 +497,13 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                 ip++;
                 break;
             }
-            case TO_START: {
+            case START: {
                 for(short i = 0; i < argument_count; i++) {
                     *(byte_t**)(stack + sp + MOVE(FULL, i)) = arguments[i];
                 }
                 bp = sp;
                 sp += MOVE(FULL, argument_count);
-                ip = entry_point;
+                ip = **(((ufull_t**)stack) + entry_point);
                 break;
             }
             case INCR_REF: {

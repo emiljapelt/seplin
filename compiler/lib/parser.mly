@@ -1,7 +1,7 @@
 %{
   open Absyn
   open ProgramRep
-  open Exceptions
+  (*open Exceptions*)
   open Lexing
 
   type var_name_generator = { mutable next : int }
@@ -67,16 +67,21 @@ topdecs:
 ;
 
 topdec:
-    dec { GlobalDeclaration $1 }
-  | INTERNAL NAME LPAR params RPAR block                    { Routine (Internal, $2, [], $4, $6) }
-  | INTERNAL NAME LT typ_vars GT LPAR params RPAR block     { Routine (Internal, $2, $4, $7, $9) }
-  | EXTERNAL NAME LPAR params RPAR block                    { Routine (External, $2, [], $4, $6) }
-  | EXTERNAL NAME LT typ_vars GT LPAR params RPAR block     { Routine (External, $2, $4, $7, $9) }
-  | ENTRY NAME LPAR simple_params RPAR block                { Routine (Entry, $2, [], $4, $6) }
-  | ENTRY NAME LT typ_vars GT LPAR simple_params RPAR block { raise_failure "Entrypoints cannot be generic" }
-  | STRUCT NAME LPAR struct_params RPAR SEMI                       { Struct ($2, [], $4) }
-  | STRUCT NAME LT typ_vars GT LPAR struct_params RPAR SEMI        { Struct ($2, $4, $7) }
-  | REFERENCE PATH AS NAME SEMI                             { FileReference($4, $2) }
+    accmod dec                                                { GlobalDeclaration ($1, $2) }
+  | STRUCT NAME LPAR struct_params RPAR SEMI                  { Struct ($2, [], $4) }
+  | STRUCT NAME LT typ_vars GT LPAR struct_params RPAR SEMI   { Struct ($2, $4, $7) }
+  | REFERENCE PATH AS NAME SEMI                               { FileReference($4, $2) }
+;
+
+varmod:
+    STABLE { Stable }
+  | CONST { Const }
+;
+
+accmod:
+    INTERNAL { Internal }
+  | EXTERNAL { External }
+  | ENTRY    { Entry }
 ;
 
 typ_vars:
@@ -116,11 +121,6 @@ typ_list:
   | varmod typ                    { [($1, $2)] }
   | typ COMMA typ_list            { (Open, $1)::$3 }
   | varmod typ COMMA typ_list     { ($1, $2)::$4 }
-;
-
-varmod:
-    STABLE { Stable }
-  | CONST { Const }
 ;
 
 block:
@@ -239,7 +239,7 @@ stmt2:
       Statement(While(Value(Binary_op("<", Reference(LocalContext(Access var_name)), Value $3)), 
         Block([
           Statement($5,$symbolstartpos.pos_lnum); 
-          Statement(Assign(Access(var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))), $symbolstartpos.pos_lnum);
+          Statement(Assign(LocalContext(Access var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))), $symbolstartpos.pos_lnum);
         ])
       ),$symbolstartpos.pos_lnum);
     ]) 
@@ -254,7 +254,7 @@ stmt2:
       Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
         Block([
           Statement($5, $symbolstartpos.pos_lnum); 
-          Statement(Assign(Access count_name, Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))), $symbolstartpos.pos_lnum);
+          Statement(Assign(LocalContext(Access count_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))), $symbolstartpos.pos_lnum);
         ])
       ), $symbolstartpos.pos_lnum);
     ]) 
@@ -274,7 +274,7 @@ stmt1: /* No unbalanced if-else */
       Statement(While(Value(Binary_op("<", Reference(LocalContext(Access var_name)), Value $3)), 
         Block([
           Statement($5,$symbolstartpos.pos_lnum); 
-          Statement(Assign(Access(var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))), $symbolstartpos.pos_lnum);
+          Statement(Assign(LocalContext(Access var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))), $symbolstartpos.pos_lnum);
         ])
       ),$symbolstartpos.pos_lnum);
     ]) 
@@ -289,7 +289,7 @@ stmt1: /* No unbalanced if-else */
       Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
         Block([
           Statement($5, $symbolstartpos.pos_lnum); 
-          Statement(Assign(Access count_name, Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))), $symbolstartpos.pos_lnum);
+          Statement(Assign(LocalContext(Access count_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))), $symbolstartpos.pos_lnum);
         ])
       ), $symbolstartpos.pos_lnum);
     ]) 
@@ -302,30 +302,14 @@ stmt1: /* No unbalanced if-else */
 ;
 
 non_control_flow_stmt:
-    inner_reference ASSIGNMENT expression        { Assign ($1, $3) }
-  | inner_reference PLUS ASSIGNMENT expression   { Assign ($1, Value(Binary_op("+", Reference(LocalContext $1), $4))) }
-  | inner_reference MINUS ASSIGNMENT expression  { Assign ($1, Value(Binary_op("-", Reference(LocalContext $1), $4))) }
-  | inner_reference TIMES ASSIGNMENT expression  { Assign ($1, Value(Binary_op("*", Reference(LocalContext $1), $4))) }
-  | inner_reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
+    reference ASSIGNMENT expression        { Assign ($1, $3) }
+  | reference PLUS ASSIGNMENT expression   { Assign ($1, Value(Binary_op("+", Reference $1, $4))) }
+  | reference MINUS ASSIGNMENT expression  { Assign ($1, Value(Binary_op("-", Reference $1, $4))) }
+  | reference TIMES ASSIGNMENT expression  { Assign ($1, Value(Binary_op("*", Reference $1, $4))) }
+  | reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
   | reference LPAR arguments RPAR                      { Call ($1, [], $3) }
   | reference LT typ_args GT LPAR arguments RPAR       { Call ($1, $3, $6) }
   | PRINT arguments1                          { Print $2 }
-;
-
-simple_params:
-                      { [] }
-  | simple_params1    { $1 }
-;
-
-simple_params1:
-    simple_param                         { [$1] }
-  | simple_param COMMA                   { [$1] }
-  | simple_param COMMA simple_params1    { $1 :: $3 }
-;
-
-simple_param:
-    NAME COLON simple_typ                  { (Open, $3, $1) }
-  | NAME COLON varmod simple_typ           { ($3, $4, $1) }
 ;
 
 params:

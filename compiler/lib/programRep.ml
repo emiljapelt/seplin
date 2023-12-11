@@ -7,10 +7,9 @@ type full_container =
   | C_Int of int
 
 type program =
-  | Program of (string * char list * (var_mod * typ * string) list) list * (var_mod * typ * string) list * program_part list
+  | Program of (string * char list * (var_mod * typ * string) list) list * (access_mod * var_mod * typ * int * string) list * program_part list
 
 and program_part =
-  | EntryPoint of string * string * (var_mod * typ) list
   | Label of string
   | PlaceLabel of string
   | Instruction of int
@@ -39,6 +38,11 @@ and var_mod =
   | Stable
   | Const
 
+and access_mod =
+  | Internal
+  | External
+  | Entry
+
 let type_index ty =
   match ty with
   | T_Int -> 0
@@ -51,7 +55,6 @@ let type_index ty =
   | T_Null -> failwith "typing a null"
 
 type concrete_program_part =
-  | CEntryPoint of string * string * (var_mod * typ) list
   | CLabel of string
   | CHalt
   | CStop
@@ -100,7 +103,7 @@ type concrete_program_part =
   | StackFetch of int
   | BPFetch of int
   | SizeOf
-  | ToStart
+  | Start
   | RefFetch
   | IncrRef
   | PrintChar
@@ -110,7 +113,6 @@ type concrete_program_part =
   | ByteEq
 
 let translate_single c = match c with
-    | CEntryPoint (name, label, tl) -> EntryPoint(name,label,tl)
     | CLabel (s) -> Label(s)
     | CHalt -> Instruction(0)
     | CStop -> Instruction(1)
@@ -159,7 +161,7 @@ let translate_single c = match c with
     | StackFetch (i) -> FullInstruction(43, C_Int i)
     | BPFetch (i) -> FullInstruction(44, C_Int i)
     | SizeOf -> Instruction(45)
-    | ToStart -> Instruction(46)
+    | Start -> Instruction(46)
     | RefFetch -> Instruction(47)
     | IncrRef -> Instruction(48)
     | PrintChar -> Instruction(49)
