@@ -297,15 +297,20 @@ ___
 <br>
 **Type:** Routine type of the types in _parameters_.
 <br>
-**Explaination:** Declares an unnamed routine.
+**Explaination:** Declares an unnamed routine. Parameters to routines can be of a routine type, making it a higher-order routine.
 <br>
 **Examples:**
 ```
 (i: int) { i +:= 10; }
+
 <T>(a: T, b: T) {
   tmp ::= a;
   a := b;
   b := tmp;
+}
+
+(i: int, routine: (int)) { 
+  f(i); 
 }
 ```
 ___

@@ -1,18 +1,27 @@
 # Top level
-At the top level global variables, structs, routines and file interactions exist. Everything defined at this level is accessible from anywhere else in the file.
+At the top level global variables, structs and file interactions exist. Everything defined at this level is accessible from anywhere else in the file.
 
 ___
 ## Variable Declaration
-This declares a variable accessible to the context, in which it is declared. Syntactically these are exactly like usual [declarations](StatementsAndDeclarations.md#declarations), except that type inference is not currently available.
+This declares a variable accessible to the context, in which it is declared. This is also how routines are declared, by assigning an anonymous routine to a variable. 
+
+Syntactically these are exactly like usual [declarations](StatementsAndDeclarations.md#declarations), except that type inference is not currently available, and they must start with an access modifier, which is either 'internal', 'external' or 'entry'. 'entry' can only apply to routine variables.
 <br>
 **Example**
 ```
-counter: int := 0;
+internal counter :int:= 0;
 
-internal some_routine() {
+external some_routine ::= <T>(v: T) {
     ...
-}
+};
+
+entry main ::= (i: int) {
+    ...
+};
 ```
+Internal variables are only available in the context in which it is defined. External variables are available in the context in which it is declared, and to other contexts. Entry variables are like external variables, and additionally they can be used as entrypoints to the file in which they are declared, but they cannot be generic or have structs, routines or arrays as parameters.
+
+By default variable are open to modification, including routine variables. To protect data from modification [variable modifiers](TypesAndProtection.md#protection) can be applied.
 ___
 ## File referencing
 **Syntax:** reference _file_path_ as _context_alias_ ;
@@ -33,41 +42,5 @@ ___
 ```
 struct int_tuple(fst: int, snd: int);
 struct stack<T>(top: T, rest: stack<T>);
-```
-___
-## Routines
-**Syntax:** <br> internal _routine_name_ < _type_variables_ > ( _parameters_ ) [_block_](StatementsAndDeclarations.md#block)
-<br> external _routine_name_ < _type_variables_ > ( _parameters_ ) [_block_](StatementsAndDeclarations.md#block)
-<br> entry _routine_name_ ( _simple_parameters_ ) [_block_](StatementsAndDeclarations.md#block)
-<br>
-**Explaination:** Type variables are a single capital letter, and parameters consist of a variable name and its type. Internal routines are only available in the context in which it is defined. External routines are available in the context in which it is declared, and to other contexts. Entry routines are available everywhere, including as entrypoints, but they cannot be generic or have structs or arrays as parameters. <br><br>
-Parameters to external or internal functions can be of a routine type, making it a higher-order routine.
-<br><br>
-**Examples**
-```
-entry main(x: int) {
-    s ::= new stack(1, null);
-    push(2, s);
-    push(3, s);
-
-    i ::= 2;
-    int_apply(double, i);
-}
-
-external load_4(to: int) {
-    to := 4;
-}
-
-internal push<T>(element: T, stck: stack<T>) {
-    stck := {element, stck};
-}
-
-external apply<T>(f:(T), i: T) {
-    f(i);
-}
-
-internal double(i: int) {
-    i *:= 2;
-}
 ```
 ___

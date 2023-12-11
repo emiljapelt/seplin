@@ -20,13 +20,21 @@ Here comes some example use cases:
 1. Having a constant datastructure, while still being able to traverse it with a stable variable.
 2. Declaring guaranties for a routine, for example promising that summing a ```list<int>``` will not modify said list.
 
+```
+i :const:= 100;
+
+add ::= (a: const int, b: const int, o: int) {
+  o := a + b;
+};
+```
+
 # Inference
 To avoid unnecessary verbosity you can leave out types or parts of types, whenever the complete type can be infered from the context, e.g. routine arguments, declarations with assignments. Here comes some examples with explainations:
 ```
 struct tuple<T,U>(fst: T, snd: U);
 struct list<T>(head: T, tail: list<T>);
 
-entry main() {
+entry main ::= () {
   t0 :tuple<int,char>:= {1,'a'};
   t1 :tuple:= {1,'a'};
   t2 :tuple<int,_>:= {null, 'a'};
