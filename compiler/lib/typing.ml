@@ -134,12 +134,7 @@ let rec type_expr expr env is_other contexts : var_mod * (op_typ, string) result
 
 and type_inner_reference iref env is_other contexts : var_mod * (typ, string) result =
   match iref with
-  | Access name -> 
-    if not(is_other) then (var_modifier name env, var_type name env) 
-    else ( match access_modifier name env with
-      | Internal -> raise_failure "Internal access to referenced context." 
-      | _ -> (var_modifier name env, var_type name env) 
-    )
+  | Access name -> (var_modifier name env, var_type name env) 
   | StructAccess (refer, field) -> (
     let (vmod, typ_res) = type_inner_reference refer env is_other contexts in
     match typ_res with
