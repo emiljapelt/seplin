@@ -46,7 +46,6 @@ let read_file path =
   let () = close_in_noerr file in
   content
     
-  
 let () = try (
   let (input, in_type) = resolve_input () in
   let output = resolve_output input in

@@ -864,10 +864,15 @@ let create_contexts globals context_infos : context list =
 
 let compile path parse =
   let path = (compress_path (total_path path)) in
-  let context_infos = gather_context_infos path parse in
-  let (topdecs,globals,structs) = merge_contexts context_infos in
-  let globals_ordered = (order_dep_globvars (get_globvar_dependencies globals)) in
-  let contexts = create_contexts globals_ordered context_infos in
-  let () = check_topdecs topdecs structs in
-  let () = check_structs structs in
-  Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars (List.rev globals_ordered) structs contexts [Start]))
+  try (
+    let context_infos = gather_context_infos path parse in
+    let (topdecs,globals,structs) = merge_contexts context_infos in
+    let globals_ordered = (order_dep_globvars (get_globvar_dependencies globals)) in
+    let contexts = create_contexts globals_ordered context_infos in
+    let () = check_topdecs topdecs structs in
+    let () = check_structs structs in
+    Program(structs, (gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals)), ProgramRep.translate(compile_globalvars (List.rev globals_ordered) structs contexts [Start]))
+  )
+  with 
+  | Failure _ as f -> raise f
+  | _ -> raise (Failure(Some path, None, "Parser error"))
