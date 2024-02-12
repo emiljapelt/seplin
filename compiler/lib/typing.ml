@@ -580,29 +580,6 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
   match typ, expr with
   | None, Value(StructLiteral(_)) -> Error "Cannot infer a type from a struct literal"
   | Some(T_Struct _ as t), Reference(Null) -> if well_defined_type (Some t) env.var_env then Ok (NOp_T t) else Error "Cannot infer a type from 'null'"
-  (*| None, Reference(ref) -> ( 
-    let ref_env = ( match ref with
-      | LocalContext (Access _) -> env
-      | OtherContext (other,Access _) -> ( match lookup_context other env.file_refs contexts with
-        | None -> raise_failure ("Unknown context alias: "^other)
-        | Some(e) -> e
-        )
-      | _ -> env
-    )
-    in match ref with
-    | LocalContext (Access n) 
-    | OtherContext (_,Access n) when (name_type n ref_env = RoutineName) -> ( match lookup_routine n ref_env.routine_env with
-      | Some(_,_,_,[],ps,_)  -> Ok(NOp_T(T_Routine([],List.map (fun (a,b,_) -> (a,b)) ps)))
-      | None -> raise_failure "Should not happen"
-      | _ -> Error "Cannot infere type variables for routine"
-    )
-    | _ -> (
-      let (vm,res) = type_expr expr env true contexts in 
-      match res with
-      | Ok(expr_typ) -> checks vmod (translate_operational_type expr_typ) vm expr_typ
-      | Error m -> Error m
-    )
-  )*)
   | None, Value(ArrayLiteral elems) -> (
     let elem_types = List.map (fun elem -> type_check checks vmod None elem env contexts) elems in
     let t = List.fold_left (fun acc t -> match acc with
@@ -637,40 +614,6 @@ let rec type_check checks vmod typ expr (env : environment) contexts : (op_typ, 
     )
     | e -> e
   )
-  (*| Some(T_Routine(tv,params)), Reference(ref) -> ( 
-    let ref_env = ( match ref with
-      | LocalContext (Access _) -> env
-      | OtherContext (other,Access _) -> ( match lookup_context other env.file_refs contexts with
-        | None -> raise_failure ("Unknown context alias: "^other)
-        | Some(e) -> e
-        )
-      | _ -> env
-    )
-    in match ref with
-    | LocalContext (Access n)
-    | OtherContext (_,Access n) when (name_type n ref_env = RoutineName) -> ( match lookup_routine n ref_env.routine_env with
-      | None -> raise_failure "Should not happen"
-      | Some(_,_,_,[],ps,_)  -> if List.fold_left2 (fun acc (vm1,t1) (vm2,t2,_) -> (vm1 = vm2 && (type_equal t1 t2)) && acc) true params ps then Ok(NOp_T(T_Routine([],params))) else Error "Type mismatch"
-      | Some(_,_,_,tv,ps,_) -> (let rec aux pairs resolved acc = match pairs with
-        | [] -> acc
-        | ((vm1,t1), (vm2,T_Generic c,_))::t -> ( if vm1 != vm2 then raise_failure "" else match List.find_opt (fun (tv,_) -> tv = c) resolved with
-          | None -> aux t ((c,t1)::resolved) ((vm1,t1)::acc)
-          | Some(_,ty) -> if type_equal ty t1 then aux t resolved ((vm1,t1)::acc) else raise_failure ""
-        )
-        | ((vm1,t1), (vm2,t2,_))::t -> if type_equal t1 t2 && vm1 = vm2 then aux t resolved ((vm1,t1)::acc) else raise_failure ""
-      in try (
-        let inf_typ = T_Routine (tv,aux (List.combine params ps) [] []) in
-        if well_defined_type (Some inf_typ) env.var_env then Ok(NOp_T inf_typ) else Error ""
-      ) with _ -> Error "Could not coerce generic routine to the required type" )
-    )
-    | Null -> Ok(NOp_T(T_Routine([], params)))
-    | _ -> (
-      let (vm,res) = type_expr expr env true contexts in 
-      match res with
-      | Error _ as e -> e
-      | Ok(expr_typ) -> checks vmod (T_Routine(tv,params)) vm expr_typ
-    )
-  )*)
   | Some(T_Struct(_,_)), (Ternary(cond,exp1,exp2)) -> (
     let (_,cond_typ_res) = type_expr cond env true contexts in
     match cond_typ_res with

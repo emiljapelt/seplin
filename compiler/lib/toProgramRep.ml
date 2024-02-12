@@ -271,6 +271,9 @@ and compile_expr_as_value expr (op_typ: op_typ) (env : environment) contexts acc
 and compile_structure_arg arg (op_typ:op_typ) idx env contexts acc =
   let optha = optimize_expr arg env in
   match optha with
+  | Value(AnonRoutine _) -> (
+    CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignFull :: FieldAssign :: acc)
+  )
   | Value _ -> (
     match translate_operational_type op_typ with
     | T_Int -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignFull :: FieldAssign :: acc))
@@ -721,7 +724,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       else raise_failure ("No such routine '" ^n^ "' in context '" ^env.context_name^ "'" )
     )
     | LocalContext(access) -> ( match type_inner_reference access env true contexts with
-      | (_, Ok T_Routine(tvs,ts)) -> (tvs, ts, (fun acc -> compile_inner_reference access env contexts (RefFetch :: FetchFull :: Call :: acc)), env)
+      | (_, Ok T_Routine(tvs,ts)) -> (tvs, ts, (fun acc -> compile_inner_reference access env contexts (RefFetch :: FetchFull :: FetchFull :: Call :: acc)), env)
       | _ -> raise_failure "Call to non-routine value"
     )
     | _ -> raise_failure "Illegal call"

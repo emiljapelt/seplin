@@ -159,7 +159,7 @@
 		},
 		"control_keywords": {
 			"patterns": [{
-				"name": "keyword.control.sepæin",
+				"name": "keyword.control.seplin",
 				"match": "\\b(if|while|repeat|for|stop|halt|until|repeat|else)\\b"
 			}]
 		},
