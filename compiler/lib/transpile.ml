@@ -411,7 +411,7 @@ let translate_program_part_to_c pp cnt = match pp with
   | ByteEq -> "eq_b();\n"
 
 let create_starter gs = 
-  let create_if_case name cnt = "if (strcmp(entry, \""^name^"\") == 0) return *(((void**)s)+"^string_of_int cnt^");\n" in
+  let create_if_case name cnt = "if (strcmp(entry, \""^name^"\") == 0) return **(((void***)s)+"^string_of_int cnt^");\n" in
   let rec aux gs acc cnt = match gs with
   | [] -> acc
   | h::t -> ( match h with
