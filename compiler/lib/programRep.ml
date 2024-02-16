@@ -43,8 +43,7 @@ and access_mod =
   | External
   | Entry
 
-let type_index ty =
-  match ty with
+let type_index ty = match ty with
   | T_Int -> 0
   | T_Bool -> 1
   | T_Char -> 2
