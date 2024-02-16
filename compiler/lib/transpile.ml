@@ -267,6 +267,12 @@ static inline void fetch_b() {
     sp -= 7;
 }
 
+static inline void stack_fetch(full_t offset) {
+    full_t* value = (full_t*)(s + (8*offset));
+    *(full_t*)(s + sp) = (full_t)value;
+    sp += 8;
+}
+
 static inline void incr_ref() {
     full_t* target = *(full_t**)(s + sp + -8);
     if (target) {
@@ -345,7 +351,7 @@ let translate_program_part_to_c pp cnt = match pp with
   | CPlaceLabel s -> "place_f((full_t)&&label_"^s^");\n"
   | Call -> ( 
     let call_label = "call_label_"^string_of_int cnt in
-    "next_label = call(&&"^call_label^");\ngoto *next_label;\n"^call_label^":\n"
+    "next_label = call(&&"^call_label^"); goto *next_label;\n"^call_label^":\n"
   )
   | GoTo s -> "goto label_"^s^";\n"
   | IfTrue s -> "if () goto label_"^s^";\n"
@@ -393,8 +399,8 @@ let translate_program_part_to_c pp cnt = match pp with
   | FreeVars i -> List.init i (fun _ -> "free_var();\n") |> String.concat ""
   | PrintInt -> "print_int();\n"
   | PrintBool -> "print_bool()\n"
-  | StackFetch i -> "place_f(sp+"^string_of_int i^");\n"
-  | BPFetch i -> "place_f(bp+"^string_of_int i^");\n"
+  | StackFetch i -> "stack_fetch("^string_of_int i^");\n"
+  | BPFetch i -> "bp_fetch(bp+"^string_of_int i^");\n"
   | SizeOf -> "size_of();\n"
   | Start -> "void* entry_label = start(entry); goto *entry_label;\n"
   | RefFetch -> "ref_fetch();\n"
