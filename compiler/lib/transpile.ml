@@ -106,17 +106,17 @@ static inline void declare_f() {
 
 static inline void declare_h() {
     *(full_t*)(s + sp) = (full_t)((full_t*)allocate(4));
-    sp += 4;
+    sp += 8;
 }
 
 static inline void declare_s() {
     *(full_t*)(s + sp) = (full_t)((full_t*)allocate(2));
-    sp += 2;
+    sp += 8;
 }
 
 static inline void declare_b() {
-    *(full_t*)(s + sp) = (full_t)((full_t*)allocate(2));
-    sp += 2;
+    *(full_t*)(s + sp) = (full_t)((full_t*)allocate(1));
+    sp += 8;
 }
 
 static inline void declare_struct() {
@@ -161,20 +161,20 @@ static inline void place_b(byte_t value) {
 
 static inline void print_int() {
     full_t value = *(full_t*)(s + sp + -8);
-    printf(\"%llu\\n\", value);
+    printf(\"%llu\", value);
     sp -= 8;
 }
 
 static inline void print_char() {
     byte_t value = *(byte_t*)(s + sp + -1);
-    printf(\"%c\\n\", value);
+    printf(\"%c\", value);
     sp -= 1;
 }
 
 static inline void print_bool() {
   byte_t value = *(byte_t*)(s + sp + -1);
-  if (value) printf(\"true\\n\");
-  else printf(\"false\\n\");
+  if (value) printf(\"true\");
+  else printf(\"false\");
   sp -= 1;
 }
 
@@ -273,6 +273,46 @@ static inline void stack_fetch(full_t offset) {
     sp += 8;
 }
 
+static inline void bp_fetch(full_t offset) {
+    full_t* value = (full_t*)(s + bp + (8*offset));
+    *(full_t*)(s + sp) = (full_t)value;
+    sp += 8;
+}
+
+static inline void eq_f() {
+    byte_t eq = (*(full_t*)(s + sp + -8)) == (*(full_t*)(s + sp + -16));
+    sp -= 16;
+    *(byte_t*)(s + sp) = eq; 
+    sp += 1;
+}
+
+static inline void eq_h() {
+    byte_t eq = (*(half_t*)(s + sp + -4)) == (*(half_t*)(s + sp + -8));
+    sp -= 8;
+    *(byte_t*)(s + sp) = eq; 
+    sp += 1;
+}
+
+static inline void eq_s() {
+    byte_t eq = (*(short_t*)(s + sp + -2)) == (*(short_t*)(s + sp + -4));
+    sp -= 4;
+    *(byte_t*)(s + sp) = eq; 
+    sp += 1;
+}
+
+static inline void eq_b() {
+    byte_t eq = (*(byte_t*)(s + sp + -1)) == (*(byte_t*)(s + sp + -2));
+    sp -= 2;
+    *(byte_t*)(s + sp) = eq; 
+    sp += 1;
+}
+
+static inline void bool_eq() {
+    byte_t eq = !!(*(s + sp + -1)) == !!(*(s + sp + -2));
+    *(byte_t*)(s + sp + -2) = eq;
+    sp -= 1;
+}
+
 static inline void incr_ref() {
     full_t* target = *(full_t**)(s + sp + -8);
     if (target) {
@@ -309,6 +349,11 @@ static inline void* call(void* ret) {
     depth++;
     bp = sp - (8*arg_count);
     return (void*)target;
+}
+
+static inline void size_of() {
+    full_t* target = *(full_t**)(s + sp + -8);
+    *(full_t*)(s + sp + -8) = ((((uhalf_t *)target)[-1]) >> 1);
 }
 
 static inline void* stop() {
@@ -354,10 +399,10 @@ let translate_program_part_to_c pp cnt = match pp with
     "next_label = call(&&"^call_label^"); goto *next_label;\n"^call_label^":\n"
   )
   | GoTo s -> "goto label_"^s^";\n"
-  | IfTrue s -> "if () goto label_"^s^";\n"
+  | IfTrue s -> "sp -= 1; if ((*(byte_t*)(s + sp))) goto label_"^s^";\n"
   | PlaceByte bc -> ( match bc with
-    | C_Bool true -> "place_b(1)\n;"
-    | C_Bool false -> "place_b(0)\n;"
+    | C_Bool true -> "place_b(1);\n"
+    | C_Bool false -> "place_b(0);\n"
     | C_Char c -> "place_b("^(Char.code c |> string_of_int)^");\n"
   )
   | PlaceFull fc -> ( match fc with
@@ -398,9 +443,9 @@ let translate_program_part_to_c pp cnt = match pp with
   | FreeVar -> "free_var();\n"
   | FreeVars i -> List.init i (fun _ -> "free_var();\n") |> String.concat ""
   | PrintInt -> "print_int();\n"
-  | PrintBool -> "print_bool()\n"
+  | PrintBool -> "print_bool();\n"
   | StackFetch i -> "stack_fetch("^string_of_int i^");\n"
-  | BPFetch i -> "bp_fetch(bp+"^string_of_int i^");\n"
+  | BPFetch i -> "bp_fetch("^string_of_int i^");\n"
   | SizeOf -> "size_of();\n"
   | Start -> "void* entry_label = start(entry); goto *entry_label;\n"
   | RefFetch -> "ref_fetch();\n"
@@ -426,7 +471,7 @@ let create_starter gs =
   )
   in
   let inner = aux gs ["{ printf(\"No such entry point: %s\\n\", entry); exit(1); }"] 0 |> String.concat "" in
-  "static inline void* start(char* entry) {\n" ^inner ^ "\n}\n\n"
+  "static inline void* start(char* entry) {\nbp = sp;\n" ^inner ^ "\n}\n\n"
 
 let transpile_to_c gs p =
   let program = List.mapi (fun i p -> translate_program_part_to_c p i ) p |> String.concat "" in
