@@ -876,8 +876,8 @@ let compile path parse =
     let () = check_structs structs in
     let program = compile_globalvars (List.rev globals_ordered) structs contexts [Start] in
     let global_var_info = gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals) in
-    Printf.printf "%s" (Transpile.transpile_to_c global_var_info program);
-    Program(structs, global_var_info, ProgramRep.translate(program))
+    (*Printf.printf "%s" (Transpile.transpile_to_c global_var_info program);*)
+    Program(structs, global_var_info, program)
   )
   with 
   | Failure _ as f -> raise f

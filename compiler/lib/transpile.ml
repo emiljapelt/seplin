@@ -507,6 +507,6 @@ let create_starter gs =
   let inner = aux gs ["{ printf(\"No such entry point: %s\\n\", entry); exit(1); }"] 0 |> String.concat "" in
   "static inline void* start(char* entry) {\nbp = sp;\n" ^inner ^ "\n}\n\n"
 
-let transpile_to_c gs p =
+let transpile_to_c (Program(_,gs,p)) =
   let program = List.mapi (fun i p -> translate_program_part_to_c p i ) p |> String.concat "" in
   definitions ^ includes ^ variables ^ functions ^ create_starter gs ^ wrap_program program ^ main
