@@ -313,6 +313,40 @@ static inline void bool_eq() {
     sp -= 1;
 }
 
+static inline void bool_not() {
+    *(byte_t*)(s + sp + -1) = !(*(s + sp + -1));
+}
+
+static inline void bool_and() {
+    byte_t res = (*(s + sp + -1)) && (*(s + sp + -1));
+    *(byte_t*)(s + sp + -2) = res;
+    sp -= 1;
+}
+
+static inline void bool_or() {
+    byte_t res = (*(s + sp + -1)) || (*(s + sp + -1));
+    *(byte_t*)(s + sp + -2) = res;
+    sp -= 1;
+}
+
+static inline void int_mul() {
+    full_t value = (*(full_t*)(s + sp + -8)) * (*(full_t*)(s + sp + -16));
+    *(full_t*)(s + sp + -16) = value;
+    sp -= 8;
+}
+
+static inline void int_add() {
+    full_t value = (*(full_t*)(s + sp + -8)) + (*(full_t*)(s + sp + -16));
+    *(full_t*)(s + sp + -16) = value;
+    sp -= 8;
+}
+
+static inline void int_sub() {
+    full_t value = (*(full_t*)(s + sp + -8)) - (*(full_t*)(s + sp + -16));
+    *(full_t*)(s + sp + -16) = value;
+    sp -= 8;
+}
+
 static inline void incr_ref() {
     full_t* target = *(full_t**)(s + sp + -8);
     if (target) {
