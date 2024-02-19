@@ -43,6 +43,18 @@ static inline byte_t*  allocate(unsigned int size) {
     return alloc+8;
 }
 
+void read_input(unsigned int max_size, char** ret) {
+    char buffer[max_size + 1];
+    char ch = 0;
+    unsigned int count = 0;
+    while(ch != '\\n' && count < max_size) {
+        ch = getchar();
+        buffer[count++] = ch;
+    } 
+    buffer[count-1] = '\\0';
+    *ret = buffer;
+}
+
 static inline int on_heap(full_t* target) {
     return ((byte_t*)target >= heap_min && (byte_t*)target < heap_max);
 }
@@ -390,6 +402,44 @@ static inline void size_of() {
     *(full_t*)(s + sp + -8) = ((((uhalf_t *)target)[-1]) >> 1);
 }
 
+static inline void read_int() {
+    char* int_buffer;
+    read_input(20, &int_buffer);
+    ufull_t int_value = atoi(int_buffer);
+    *(ufull_t*)(s + sp) = int_value;
+    sp += 8;
+}
+
+static inline void read_bool() {
+    char* bool_buffer;
+    read_input(10, &bool_buffer);
+    byte_t bool_value; 
+    if (strcmp(bool_buffer, \"true\") == 0) bool_value = 1;
+    else if (strcmp(bool_buffer, \"false\") == 0) bool_value = 0;
+    else { printf(\"Failure: Expected a 'bool' but got: %s\\n\", bool_buffer); exit(1); }
+    *(byte_t*)(s + sp) = bool_value;
+    sp += 1;
+}
+
+static inline void read_char() {
+    char* char_buffer;
+    read_input(3, &char_buffer);
+    byte_t char_value;
+    if (char_buffer[0] == '\\\\') {
+        if (char_buffer[2] != 0) { printf(\"Failure: Expected a 'char' but got: %s\\n\", char_buffer); exit(1); }
+        switch (char_buffer[1]) {
+            case 'n': char_value = '\\n';
+            default: { printf(\"Failure: Expected a 'char' but got: %s\\n\", char_buffer); exit(1); }
+        }
+    }
+    else {
+        if (char_buffer[1] != 0) { printf(\"Failure: Expected a 'char' but got: %s\\n\", char_buffer); exit(1); }
+        char_value = char_buffer[0];
+    }
+    *(byte_t*)(s + sp) = char_value;
+    sp += 1;
+}
+
 static inline void* stop() {
     if (depth == 0) {
         exit(0);
@@ -416,6 +466,7 @@ static inline void* stop() {
 let main = "
 
 int main(int argc, char *argv[]) {
+  if (argc < 2) { printf(\"No entrypoint specified\\n\"); exit(1); }
   program(argv[1]);
   return 1;
 }

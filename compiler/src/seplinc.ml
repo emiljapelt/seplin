@@ -65,7 +65,6 @@ let read_file path =
     
 let () = try (
   let ((input, in_type), output, comp_strat) = resolve_arguments () in
-  Printf.printf "out: %s\n%!" output;
   let program = match in_type with
     | SEA -> Seplinclib.AssemblyParser.main (Seplinclib.AssemblyLexer.start input) (Lexing.from_string (read_file input)) 
     | SEP -> compile input (fun file -> Seplinclib.Parser.main (Seplinclib.Lexer.start file) (Lexing.from_string (read_file file)))
