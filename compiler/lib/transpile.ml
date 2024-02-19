@@ -359,6 +359,13 @@ static inline void int_sub() {
     sp -= 8;
 }
 
+static inline void int_lt() {
+    byte_t lt = (*(full_t*)(s + sp + -8)) < (*(full_t*)(s + sp + -16));
+    sp -= 16;
+    *(byte_t*)(s + sp) = lt; 
+    sp += 1;
+}
+
 static inline void incr_ref() {
     full_t* target = *(full_t**)(s + sp + -8);
     if (target) {

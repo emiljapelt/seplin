@@ -764,6 +764,26 @@ and compile_stmt stmt env contexts break continue cleanup acc =
           | T_Bool -> aux t (compile_expr_as_value opte ot env contexts (PrintBool :: acc))
           | T_Int -> aux t (compile_expr_as_value opte ot env contexts (PrintInt :: acc))
           | T_Char -> aux t (compile_expr_as_value opte ot env contexts (PrintChar :: acc))
+          | T_Array (Some T_Char) -> (
+            let data_handle = new_label () in
+            let index_handle = new_label () in
+            let code =
+            Block[
+              Declaration(AssignDeclaration(Stable,Some(T_Array(Some T_Char)),data_handle,h),0);
+              Declaration(AssignDeclaration(Open,Some T_Int,index_handle,Value(Int 0)),0);
+              Statement(
+                While(Value(Binary_op("<",Reference(LocalContext(Access index_handle)), Value(ArraySize(Access data_handle)))),
+                  Block[
+                    Statement(Print [Reference(LocalContext(ArrayAccess(Access data_handle, Reference(LocalContext(Access index_handle)))))],0);
+                    Statement(Assign(LocalContext(Access index_handle),Value(Binary_op("+",Reference(LocalContext(Access index_handle)),Value(Int 1)))), 0)
+                  ]
+                ),
+                0
+              );
+            ]
+            in
+            aux t (compile_stmt code env contexts break continue cleanup acc)
+          )
           | _ -> aux t (compile_expr opte (NOp_T T_Null) env contexts (PrintInt :: acc))
         )
         | Error m -> raise_failure m
@@ -876,7 +896,6 @@ let compile path parse =
     let () = check_structs structs in
     let program = compile_globalvars (List.rev globals_ordered) structs contexts [Start] in
     let global_var_info = gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals) in
-    (*Printf.printf "%s" (Transpile.transpile_to_c global_var_info program);*)
     Program(structs, global_var_info, program)
   )
   with 
