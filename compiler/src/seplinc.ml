@@ -22,16 +22,21 @@ let resolve_input input =
   ) with
   | ex -> raise ex
 
-let resolve_output input output =
+let file_extention comp_strat = match comp_strat with
+    | CompileToSeplinVM -> ".sec"
+    | TranspileToC -> ".c"
+
+let resolve_output input output comp_strat =
+  let extension = file_extention comp_strat in
   try (
     if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*$|}) output 0 then  (* Directory *) (
-      output ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' input)))) ^ ".sec"
+      output ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' input)))) ^ extension
     )
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$|}) output 0 then (* File with extension*) (
       output
     )
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+$|}) output 0 then (* File without extension *) (
-      output ^ ".sec"
+      output ^ extension
     )
     else raise_failure "Invalid output destination"
   ) with
@@ -39,12 +44,13 @@ let resolve_output input output =
 
 
 let resolve_arguments () : ((string * input_type) * string * compilation_strategy) =
-  let arguments = Sys.argv in
+  let arguments = Array.sub Sys.argv 1 ((Array.length Sys.argv) - 1) in
   let (flags,args) = Array.fold_left (fun (flags,acc) arg -> if String.starts_with ~prefix:"-" arg then (arg::flags,acc) else (flags,arg::acc)) ([],[]) arguments in
+  let args = List.rev args in
   let comp_strat = if List.mem "-t" flags then TranspileToC else CompileToSeplinVM in
   match args with
-  | [input] -> (resolve_input input, ((String.sub input 0 ((String.length input) - 3)) ^ "sec"), comp_strat)
-  | [input;output] -> (resolve_input input, resolve_output input output, comp_strat)
+  | [input] -> (resolve_input input, ((String.sub input 0 ((String.length input) - 4)) ^ (file_extention comp_strat)), comp_strat)
+  | [input;output] -> (resolve_input input, resolve_output input output comp_strat, comp_strat)
   | _ -> raise_failure "Wrong number of arguments"
 
 
@@ -59,6 +65,7 @@ let read_file path =
     
 let () = try (
   let ((input, in_type), output, comp_strat) = resolve_arguments () in
+  Printf.printf "out: %s\n%!" output;
   let program = match in_type with
     | SEA -> Seplinclib.AssemblyParser.main (Seplinclib.AssemblyLexer.start input) (Lexing.from_string (read_file input)) 
     | SEP -> compile input (fun file -> Seplinclib.Parser.main (Seplinclib.Lexer.start file) (Lexing.from_string (read_file file)))
