@@ -201,7 +201,7 @@ let resolve_place_label program_parts labels =
 
 let write program dest =
   let structs = retrieve_structs program in
-  let program_parts = retrieve_program_parts program in
+  let program_parts = ProgramRep.translate(retrieve_program_parts program) in
   let global_vars = retrieve_global_vars program in
   let labels = retrieve_labels program_parts 0 [] in
   let program_parts = resolve_place_label program_parts labels in

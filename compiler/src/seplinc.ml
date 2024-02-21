@@ -9,33 +9,50 @@ type input_type =
 | SEP
 | SEA
 
-let resolve_input () =
+type compilation_strategy =
+| CompileToSeplinVM
+| TranspileToC
+
+let resolve_input input =
   try (
-    let input = Sys.argv.(1) in
     if not (Sys.file_exists input) then (Printf.printf "%s\n" input; raise_failure "Input file does not exist")
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.sep$|}) input 0 then (input, SEP)
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.sea$|}) input 0 then (input, SEA)
     else raise_failure "Invalid input file extension"
   ) with
-  | Invalid_argument _ -> raise_failure "No file given to compile"
   | ex -> raise ex
 
-let resolve_output i =
+let file_extention comp_strat = match comp_strat with
+    | CompileToSeplinVM -> ".sec"
+    | TranspileToC -> ".c"
+
+let resolve_output input output comp_strat =
+  let extension = file_extention comp_strat in
   try (
-    let output = Sys.argv.(2) in
     if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*$|}) output 0 then  (* Directory *) (
-      output ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' i)))) ^ ".sec"
+      output ^ List.hd (String.split_on_char '.' (List.hd (List.rev (String.split_on_char '/' input)))) ^ extension
     )
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$|}) output 0 then (* File with extension*) (
       output
     )
     else if Str.string_match (regexp {|^\(\.\.?\)?\/\(\([a-zA-Z0-9_-]+\|\(\.\.?\)\)\/\)*[a-zA-Z0-9_-]+$|}) output 0 then (* File without extension *) (
-      output ^ ".sec"
+      output ^ extension
     )
     else raise_failure "Invalid output destination"
   ) with
-  | Invalid_argument _ -> (String.sub i 0 ((String.length i) - 3)) ^ "sec"
   | ex -> raise ex
+
+
+let resolve_arguments () : ((string * input_type) * string * compilation_strategy) =
+  let arguments = Array.sub Sys.argv 1 ((Array.length Sys.argv) - 1) in
+  let (flags,args) = Array.fold_left (fun (flags,acc) arg -> if String.starts_with ~prefix:"-" arg then (arg::flags,acc) else (flags,arg::acc)) ([],[]) arguments in
+  let args = List.rev args in
+  let comp_strat = if List.mem "-t" flags then TranspileToC else CompileToSeplinVM in
+  match args with
+  | [input] -> (resolve_input input, ((String.sub input 0 ((String.length input) - 4)) ^ (file_extention comp_strat)), comp_strat)
+  | [input;output] -> (resolve_input input, resolve_output input output comp_strat, comp_strat)
+  | _ -> raise_failure "Wrong number of arguments"
+
 
 let print_line ls l =
   Printf.printf "%i | %s\n" (l+1) (List.nth ls l)
@@ -47,11 +64,13 @@ let read_file path =
   content
     
 let () = try (
-  let (input, in_type) = resolve_input () in
-  let output = resolve_output input in
-  match in_type with
-  | SEP -> write (compile input (fun file -> Seplinclib.Parser.main (Seplinclib.Lexer.start file) (Lexing.from_string (read_file file)))) output
-  | SEA -> write (Seplinclib.AssemblyParser.main (Seplinclib.AssemblyLexer.start input) (Lexing.from_string (read_file input))) output
+  let ((input, in_type), output, comp_strat) = resolve_arguments () in
+  let program = match in_type with
+    | SEA -> Seplinclib.AssemblyParser.main (Seplinclib.AssemblyLexer.start input) (Lexing.from_string (read_file input)) 
+    | SEP -> compile input (fun file -> Seplinclib.Parser.main (Seplinclib.Lexer.start file) (Lexing.from_string (read_file file)))
+  in match comp_strat with
+    | CompileToSeplinVM -> write program output
+    | TranspileToC -> Printf.fprintf (open_out output) "%s" (Seplinclib.Transpile.transpile_to_c program)
 ) with 
 | Failure(file_opt, line_opt, expl) -> (
   Printf.printf "%s" expl ;

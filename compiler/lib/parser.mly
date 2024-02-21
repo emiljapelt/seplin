@@ -1,7 +1,7 @@
 %{
   open Absyn
   open ProgramRep
-  (*open Exceptions*)
+  open Exceptions
   open Lexing
 
   type var_name_generator = { mutable next : int }
@@ -15,7 +15,14 @@
     let rec explode idx acc =
       match idx with
       | i when i >= (String.length str)-1 -> ArrayLiteral (List.rev acc)
-      | i -> explode (idx+1) ((Value(Char(str.[i])))::acc)
+      | i -> 
+        if str.[i] = '\\' then ( match str.[i+1] with
+          | 'n' -> explode (idx+2) ((Value(Char('\n')))::acc)
+          | 't' -> explode (idx+2) ((Value(Char('\t')))::acc)
+          | '\\' -> explode (idx+2) ((Value(Char('\\')))::acc)
+          | _ -> raise_failure "Unsupported escape character in string literal"
+        )
+        else explode (idx+1) ((Value(Char(str.[i])))::acc)
     in
     explode 1 []
 %}

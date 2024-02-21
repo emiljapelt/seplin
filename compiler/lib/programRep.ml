@@ -5,9 +5,9 @@ type byte_container =
 
 type full_container =
   | C_Int of int
-
+  
 type program =
-  | Program of (string * char list * (var_mod * typ * string) list) list * (access_mod * var_mod * typ * int * string) list * program_part list
+  | Program of (string * char list * (var_mod * typ * string) list) list * (access_mod * var_mod * typ * int * string) list * concrete_program_part list
 
 and program_part =
   | Label of string
@@ -43,25 +43,7 @@ and access_mod =
   | External
   | Entry
 
-let type_index ty =
-  match ty with
-  | T_Int -> 0
-  | T_Bool -> 1
-  | T_Char -> 2
-  | T_Array _ -> 3
-  | T_Struct _ -> 4
-  | T_Generic _ -> 5
-  | T_Routine _ -> 6
-  | T_Null -> failwith "typing a null"
-
-let type_input_index ty = match ty with
-  | T_Int -> 0
-  | T_Bool -> 1
-  | T_Char -> 2
-  | T_Array (Some T_Char) -> 3
-  | _ -> failwith "Not an inputable type"
-
-type concrete_program_part =
+and concrete_program_part =
   | CLabel of string
   | CHalt
   | CStop
@@ -118,6 +100,23 @@ type concrete_program_part =
   | HalfEq
   | ShortEq
   | ByteEq
+
+let type_index ty = match ty with
+  | T_Int -> 0
+  | T_Bool -> 1
+  | T_Char -> 2
+  | T_Array _ -> 3
+  | T_Struct _ -> 4
+  | T_Generic _ -> 5
+  | T_Routine _ -> 6
+  | T_Null -> failwith "typing a null"
+
+let type_input_index ty = match ty with
+  | T_Int -> 0
+  | T_Bool -> 1
+  | T_Char -> 2
+  | T_Array (Some T_Char) -> 3
+  | _ -> failwith "Not an inputable type"
 
 let translate_single c = match c with
     | CLabel (s) -> Label(s)

@@ -14,5 +14,6 @@
    parser
    toProgramRep
    typing
+   transpile
  )
 )

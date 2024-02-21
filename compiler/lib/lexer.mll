@@ -31,6 +31,8 @@
   
   let char_of_string s lexbuf = match s with
   | "\'\\n\'" -> '\n'
+  | "\'\\t\'" -> '\t'
+  | "\'\\\\'" -> '\\'
   | _ when s.[1] = '\\' -> raise (Failure (Some((Lexing.lexeme_start_p lexbuf).pos_fname), Some((Lexing.lexeme_start_p lexbuf).pos_lnum), ("Unknown escape character: " ^ s)))
   | _ -> s.[1]
 

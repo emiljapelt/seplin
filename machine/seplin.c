@@ -125,7 +125,7 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
 
                 depth--;
                 ufull_t old_bp = *(full_t*)(stack + bp + MOVE(FULL, -1));
-                ufull_t next_ip = *(full_t*)(stack + bp + MOVE(FULL, -2));;
+                ufull_t next_ip = *(full_t*)(stack + bp + MOVE(FULL, -2));
                 sp = bp - MOVE(FULL, 2);
                 bp = old_bp;
                 ip = next_ip;

@@ -77,57 +77,57 @@ program_section:
 
 program:
         {[]}
-    | LABEL NAME program { (Label $2) :: $3}
-    | HALT program { Instruction(0) :: $2 }
-    | STOP program { Instruction(1) :: $2 }
-    | CALL NAME program { LabelInstruction(2, $2) :: $3 }
-    | GOTO NAME program { LabelInstruction(3, $2) :: $3 }
-    | IF_TRUE NAME program { LabelInstruction(4, $2) :: $3 }
-    | PLACE_BOOL CST_BOOL program { ByteInstruction(5, C_Bool $2) :: $3 }
-    | PLACE_INT CST_INT program { FullInstruction(6, C_Int $2) :: $3 }
-    | CLONE_FULL program { Instruction(7) :: $2 }
-    | CLONE_HALF program { Instruction(8) :: $2 }
-    | CLONE_SHORT program { Instruction(9) :: $2 }
-    | CLONE_BYTE program { Instruction(10) :: $2 }
-    | FETCH_FULL program { Instruction(11) :: $2 }
-    | FETCH_HALF program { Instruction(12) :: $2 }
-    | FETCH_SHORT program { Instruction(13) :: $2 }
-    | FETCH_BYTE program { Instruction(14) :: $2 }
-    | FIELD_FETCH program { Instruction(15) :: $2 }
-    | DECLARE_FULL program { Instruction(16) :: $2 }
-    | DECLARE_HALF program { Instruction(17) :: $2 }
-    | DECLARE_SHORT program { Instruction(18) :: $2 }
-    | DECLARE_BYTE program { Instruction(19) :: $2 }
-    | DECLARE_STRUCT program { Instruction(20) :: $2 }
-    | ASSIGN_FULL program { Instruction(21) :: $2 }
-    | ASSIGN_HALF program { Instruction(22) :: $2 }
-    | ASSIGN_SHORT program { Instruction(23) :: $2 }
-    | ASSIGN_BYTE program { Instruction(24) :: $2 }
-    | REF_ASSIGN program { Instruction(25) :: $2 }
-    | FIELD_ASSIGN program { Instruction(26) :: $2 }
-    | INT_ADD program { Instruction(27) :: $2 }
-    | INT_MUL program { Instruction(28) :: $2 }
-    | INT_SUB program { Instruction(29) :: $2 }
-    | INT_EQ program { Instruction(30) :: $2 }
-    | INT_LT program { Instruction(31) :: $2 }
-    | BOOL_EQ program { Instruction(32) :: $2 }
-    | BOOL_NOT program { Instruction(33) :: $2 }
-    | BOOL_AND program { Instruction(34) :: $2 }
-    | BOOL_OR program { Instruction(35) :: $2 }
-    | GETSP program { Instruction(36) :: $2 }
-    | GETBP program { Instruction(37) :: $2 }
-    | MODSP CST_INT program { FullInstruction(38, C_Int $2) :: $3 }
-    | FREE_VAR program { Instruction(39) :: $2 }
-    | FREE_VARS CST_INT program { FullInstruction(40, C_Int $2) :: $3 }
-    | PRINT_VAR program { Instruction(41) :: $2 }
-    | PRINT_INT program { Instruction(42) :: $2 }
-    | PRINT_BOOL program { Instruction(43) :: $2 }
-    | STACK_FETCH CST_INT program { FullInstruction(44, C_Int $2) :: $3 }
-    | BP_FETCH CST_INT program { FullInstruction(45, C_Int $2) :: $3 }
-    | SIZE_OF program { Instruction(46) :: $2 }
-    | TO_START program { Instruction(47) :: $2 }
-    | REF_FETCH program { Instruction(48) :: $2 }
-    | INCR_REF program { Instruction(49) :: $2 }
+    | LABEL NAME program { (CLabel $2) :: $3}
+    | HALT program { CHalt :: $2 }
+    | STOP program { CStop :: $2 }
+    | CALL NAME program { CPlaceLabel $2 :: Call :: $3 }
+    | GOTO NAME program { GoTo $2 :: $3 }
+    | IF_TRUE NAME program { IfTrue $2 :: $3 }
+    | PLACE_BOOL CST_BOOL program { PlaceByte(C_Bool $2) :: $3 }
+    | PLACE_INT CST_INT program { PlaceFull(C_Int $2) :: $3 }
+    | CLONE_FULL program { CloneFull :: $2 }
+    | CLONE_HALF program { CloneHalf :: $2 }
+    | CLONE_SHORT program { CloneShort :: $2 }
+    | CLONE_BYTE program { CloneByte :: $2 }
+    | FETCH_FULL program { FetchFull :: $2 }
+    | FETCH_HALF program { FetchHalf :: $2 }
+    | FETCH_SHORT program { FetchShort :: $2 }
+    | FETCH_BYTE program { FetchByte :: $2 }
+    | FIELD_FETCH program { FieldFetch :: $2 }
+    | DECLARE_FULL program { DeclareFull :: $2 }
+    | DECLARE_HALF program { DeclareHalf :: $2 }
+    | DECLARE_SHORT program { DeclareShort :: $2 }
+    | DECLARE_BYTE program { DeclareByte :: $2 }
+    | DECLARE_STRUCT program { DeclareStruct :: $2 }
+    | ASSIGN_FULL program { AssignFull :: $2 }
+    | ASSIGN_HALF program { AssignHalf :: $2 }
+    | ASSIGN_SHORT program { AssignShort :: $2 }
+    | ASSIGN_BYTE program { AssignByte :: $2 }
+    | REF_ASSIGN program { RefAssign :: $2 }
+    | FIELD_ASSIGN program { FieldAssign :: $2 }
+    | INT_ADD program { IntAdd :: $2 }
+    | INT_MUL program { IntMul :: $2 }
+    | INT_SUB program { IntSub :: $2 }
+    | INT_EQ program { FullEq :: $2 }
+    | INT_LT program { IntLt :: $2 }
+    | BOOL_EQ program { BoolEq :: $2 }
+    | BOOL_NOT program { BoolNot :: $2 }
+    | BOOL_AND program { BoolAnd :: $2 }
+    | BOOL_OR program { BoolOr :: $2 }
+    | GETSP program { GetSP :: $2 }
+    | GETBP program { GetBP :: $2 }
+    | MODSP CST_INT program { ModSP $2 :: $3 }
+    | FREE_VAR program { FreeVar :: $2 }
+    | FREE_VARS CST_INT program { FreeVars $2 :: $3 }
+    | PRINT_VAR program { PrintInt :: $2 }
+    | PRINT_INT program { PrintInt :: $2 }
+    | PRINT_BOOL program { PrintBool :: $2 }
+    | STACK_FETCH CST_INT program { StackFetch $2 :: $3 }
+    | BP_FETCH CST_INT program { BPFetch $2 :: $3 }
+    | SIZE_OF program { SizeOf :: $2 }
+    | TO_START program { Start :: $2 }
+    | REF_FETCH program { RefFetch :: $2 }
+    | INCR_REF program { IncrRef :: $2 }
 ;
 
 type_list:
