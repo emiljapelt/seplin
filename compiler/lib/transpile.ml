@@ -44,7 +44,7 @@ static inline byte_t*  allocate(unsigned int size) {
 }
 
 void read_input(unsigned int max_size, char** ret) {
-    char buffer[max_size + 1];
+    char* buffer = malloc(max_size + 1);
     char ch = 0;
     unsigned int count = 0;
     while(ch != '\\n' && count < max_size) {
