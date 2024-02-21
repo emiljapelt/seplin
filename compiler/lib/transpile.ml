@@ -225,7 +225,7 @@ static inline void ref_assign() {
     try_free(*target, 0);
 
     *target = value;
-    sp -= -16;
+    sp -= 16;
 }
 
 static inline void field_assign() {

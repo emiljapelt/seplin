@@ -402,7 +402,7 @@ and compile_argument arg (env : environment) contexts acc =
         | LocalContext ref -> ( match ref with
           | Access name -> ( match name_type name env with
             | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-            | _ -> compile_inner_reference ref env contexts (IncrRef :: acc)
+            | _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
           )
           | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
           | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
@@ -412,7 +412,7 @@ and compile_argument arg (env : environment) contexts acc =
           | Some(env) -> ( match ref with
             | Access name -> ( match name_type name env with
               | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-              | _ -> compile_inner_reference ref env contexts (IncrRef :: acc)
+              | _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
             )
             | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
             | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
