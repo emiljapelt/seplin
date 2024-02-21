@@ -312,10 +312,7 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
   | Int i -> PlaceFull(C_Int i) :: acc
   | Char c -> PlaceByte(C_Char c) :: acc
   | ArraySize refer -> compile_inner_reference refer env contexts (FetchFull :: SizeOf :: acc)
-  | GetInput ty -> ( match type_index ty with
-    | -1 -> raise_failure "Unsupported GetInput variant"
-    | x -> GetInput(x) :: acc
-  )
+  | GetInput ty -> GetInput(type_input_index ty) :: acc
   | NewArray (_, size_expr) -> (
     compile_expr_as_value (optimize_expr size_expr env) (NOp_T T_Int) env contexts (DeclareStruct :: IncrRef :: acc)
   )
