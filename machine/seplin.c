@@ -77,7 +77,7 @@ void print_help() {
 }
 
 void read_input(unsigned int max_size, char** ret) {
-    char buffer[max_size + 1];
+    char* buffer = malloc(max_size + 1);
     char ch = 0;
     unsigned int count = 0;
     while(ch != '\n' && count < max_size) {
@@ -526,7 +526,7 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                 ufull_t typ = *(ufull_t*)(p + ip + 1);
 
                 switch (typ) {
-                    case 0: {
+                    case 0: { // Int
                         char* int_buffer;
                         read_input(20, &int_buffer);
                         ufull_t int_value = parse_int(int_buffer);
@@ -535,7 +535,7 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                         sp += MOVE(FULL, 1);
                         break;
                     }
-                    case 1: {
+                    case 1: { // Bool
                         char* bool_buffer;
                         read_input(10, &bool_buffer);
                         byte_t bool_value = parse_bool(bool_buffer);
@@ -544,7 +544,7 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                         sp += MOVE(BYTE, 1);
                         break;
                     }
-                    case 2: {
+                    case 2: { // Char
                         char* char_buffer;
                         read_input(3, &char_buffer);
                         byte_t char_value = parse_char(char_buffer);
@@ -553,8 +553,22 @@ int run(byte_t* p, full_t entry_point, byte_t stack[], byte_t* arguments[], int 
                         sp += MOVE(BYTE, 1);
                         break;
                     }
+                    case 3: { // String aka. Char[]
+                        char* char_buffer;
+                        read_input(100, &char_buffer);
+                        int string_len = strlen(char_buffer);
+                        byte_t** array_alloc = (byte_t**)allocate_struct(string_len);
+                        for(int i = 0; i < string_len; i++) {
+                            byte_t* char_alloc = allocate_simple(BYTE);
+                            *char_alloc = char_buffer[i];
+                            array_alloc[i] = char_alloc;
+                        }
+                        *(byte_t***)(stack + sp) = array_alloc;
+                        sp += MOVE(FULL, 1);
+                        break;
+                    }
                     default: 
-                        printf("Failure: Unsupported GET_INPUT type");
+                        printf("Failure: Unsupported GET_INPUT type\n");
                         return -1;
                 }
 
