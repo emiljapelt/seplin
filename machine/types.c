@@ -33,6 +33,8 @@ byte_t parse_char(char* str) {
         if (str[2] != 0) return -1;
         switch (str[1]) {
             case 'n': return '\n';
+            case 't': return '\t';
+            case '\\': return '\\';
             default: return -1;
         }
     }

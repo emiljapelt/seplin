@@ -447,6 +447,20 @@ static inline void read_char() {
     sp += 1;
 }
 
+static inline void read_string() {
+    char* char_buffer;
+    read_input(100, &char_buffer);
+    int string_len = strlen(char_buffer);
+    byte_t** array_alloc = (byte_t**)allocate_struct(string_len);
+    for(int i = 0; i < string_len; i++) {
+        byte_t* char_alloc = allocate(1);
+        *char_alloc = char_buffer[i];
+        array_alloc[i] = char_alloc;
+    }
+    *(byte_t***)(s + sp) = array_alloc;
+    sp += 8;
+}
+
 static inline void* stop() {
     if (depth == 0) {
         exit(0);
@@ -547,6 +561,7 @@ let translate_program_part_to_c pp cnt = match pp with
     | 0 -> "read_int();\n" (* T_Int *)
     | 1 -> "read_bool();\n" (* T_Bool *)
     | 2 -> "read_char();\n" (* T_Char *)
+    | 3 -> "read_string();\n" (* T_Char[] *)
     | _ -> "Not inputable type"
   )
   | HalfEq -> "eq_h();\n"
