@@ -172,12 +172,13 @@ ___
 ## Print
 **Syntax:** print _expressions_ ;
 <br>
-**Explaination:** Print out the value of some expressions. For structs and arrays, the printed value is their memory address.
+**Explaination:** Print out the value of the types bool, int, char, char[]. For structs and other arrays, the printed value is their memory address.
 <br>
 **Examples:**
 ```
 print true;
 print 'H','e','l','l','o',' ','w','o','r','l','d','!','\n';
+print "Hello world!\n";
 ```
 ___
 
