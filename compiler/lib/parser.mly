@@ -74,10 +74,15 @@ topdecs:
 ;
 
 topdec:
-    accmod dec                                                { GlobalDeclaration ($1, $2) }
-  | STRUCT NAME LPAR struct_params RPAR SEMI                  { Struct ($2, [], $4) }
-  | STRUCT NAME LT typ_vars GT LPAR struct_params RPAR SEMI   { Struct ($2, $4, $7) }
-  | REFERENCE PATH AS NAME SEMI                               { FileReference($4, $2) }
+    accmod dec semi_opt                                           { GlobalDeclaration ($1, $2) }
+  | STRUCT NAME LPAR struct_params RPAR semi_opt                  { Struct ($2, [], $4) }
+  | STRUCT NAME LT typ_vars GT LPAR struct_params RPAR semi_opt   { Struct ($2, $4, $7) }
+  | REFERENCE PATH AS NAME semi_opt                               { FileReference($4, $2) }
+;
+
+semi_opt:
+  {}
+  | SEMI {}
 ;
 
 varmod:
@@ -146,10 +151,10 @@ expression_not_ternary:
   | LPAR expression RPAR                    { $2 }
 ;
 
-simple_expression:
-    reference                               { Reference $1 }
-  | simple_value                            { Value $1 }
-;
+// simple_expression:
+//     reference                               { Reference $1 }
+//   | simple_value                            { Value $1 }
+// ;
 
 reference:
     NAME HASH inner_reference { OtherContext ($1, $3) }
@@ -183,19 +188,23 @@ simple_value:
 
 value:
     simple_value { $1 }
-  | expression_not_ternary LOGIC_AND expression_not_ternary       { Binary_op ("&&", $1, $3) }
-  | expression_not_ternary LOGIC_OR expression_not_ternary        { Binary_op ("||", $1, $3) }
-  | expression_not_ternary EQ expression_not_ternary        { Binary_op ("=", $1, $3) }
-  | expression_not_ternary NEQ expression_not_ternary       { Binary_op ("!=", $1, $3) }
-  | expression_not_ternary LTEQ expression_not_ternary      { Binary_op ("<=", $1, $3) }
-  | expression_not_ternary LT expression_not_ternary        { Binary_op ("<", $1, $3) }
-  | expression_not_ternary GTEQ expression_not_ternary      { Binary_op (">=", $1, $3) }
-  | expression_not_ternary GT expression_not_ternary        { Binary_op (">", $1, $3) }
-  | expression_not_ternary PLUS expression_not_ternary      { Binary_op ("+", $1, $3) }
-  | expression_not_ternary TIMES expression_not_ternary     { Binary_op ("*", $1, $3) }
-  | expression_not_ternary MINUS expression_not_ternary     { Binary_op ("-", $1, $3) }
+  | expression_not_ternary binop expression_not_ternary { Binary_op ($2, $1, $3) }
   | LPAR params RPAR block                    { AnonRoutine ([], $2, $4) }
   | LT typ_vars GT LPAR params RPAR block     { AnonRoutine ($2, $5, $7) }
+;
+
+%inline binop:
+    LOGIC_AND   { "&&" }
+  | LOGIC_OR    { "||" }
+  | EQ          { "="  }
+  | NEQ         { "!=" }
+  | LTEQ        { "<=" }
+  | LT          { "<"  }
+  | GTEQ        { ">=" }
+  | GT          { ">"  }
+  | PLUS        { "+"  }
+  | TIMES       { "*"  }
+  | MINUS       { "-"  }
 ;
 
 arguments:
@@ -216,16 +225,16 @@ stmtOrDecSeq:
 
 stmtOrDec:
     stmt                                                     { Statement ($1, $symbolstartpos.pos_lnum) }
-  | dec                                                      { Declaration ($1, $symbolstartpos.pos_lnum) }
+  | dec SEMI                                                      { Declaration ($1, $symbolstartpos.pos_lnum) }
 ;
 
 dec:
-    NAME COLON typ SEMI                                      { TypeDeclaration (Open, $3, $1) }
-  | NAME COLON varmod typ SEMI                               { TypeDeclaration ($3, $4, $1) }
-  | NAME COLON typ ASSIGNMENT expression SEMI                { AssignDeclaration (Open, Some $3, $1, $5) }
-  | NAME COLON varmod typ ASSIGNMENT expression SEMI         { AssignDeclaration ($3, Some $4, $1, $6) }
-  | NAME COLON ASSIGNMENT expression SEMI                    { AssignDeclaration (Open, None, $1, $4) }
-  | NAME COLON varmod ASSIGNMENT expression SEMI             { AssignDeclaration ($3, None, $1, $5) }
+    NAME COLON typ                                       { TypeDeclaration (Open, $3, $1) }
+  | NAME COLON varmod typ                                { TypeDeclaration ($3, $4, $1) }
+  | NAME COLON typ ASSIGNMENT expression                 { AssignDeclaration (Open, Some $3, $1, $5) }
+  | NAME COLON varmod typ ASSIGNMENT expression          { AssignDeclaration ($3, Some $4, $1, $6) }
+  | NAME COLON ASSIGNMENT expression                     { AssignDeclaration (Open, None, $1, $4) }
+  | NAME COLON varmod ASSIGNMENT expression              { AssignDeclaration ($3, None, $1, $5) }
 ;
 
 stmt:
@@ -238,7 +247,7 @@ stmt2:
   | IF LPAR expression RPAR stmt                   { If ($3, $5, Block []) }
   | WHILE LPAR expression RPAR stmt2               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($4, Block([Statement($8,$symbolstartpos.pos_lnum); Statement($6,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
+  | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
   | REPEAT LPAR value RPAR stmt2 { 
     let var_name = new_var () in
     Block([
@@ -273,7 +282,7 @@ stmt1: /* No unbalanced if-else */
   | IF LPAR expression RPAR stmt1 ELSE stmt1       { If ($3, $5, $7) }
   | WHILE LPAR expression RPAR stmt1               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt1               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($4, Block([Statement($8,$symbolstartpos.pos_lnum); Statement($6,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
+  | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
   | REPEAT LPAR value RPAR stmt1 { 
     let var_name = new_var () in
     Block([
