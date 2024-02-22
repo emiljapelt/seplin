@@ -10,8 +10,10 @@ byte_t* heap_min;
 byte_t* heap_max;
 byte_t* stack_base;
 
-void memory_init(byte_t* sb) {
-    stack_base = sb;
+void memory_init(byte_t** stack) {
+    byte_t* stack_alloc = malloc(STACKSIZE);
+    stack_base = stack_alloc;
+    *stack = stack_alloc;
     heap_max = (byte_t*)0;
     heap_min = (byte_t*)ULONG_MAX;
 }

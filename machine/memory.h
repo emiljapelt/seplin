@@ -1,3 +1,6 @@
+#ifndef MEMORY_H
+#define MEMORY_H
+
 #define true 1
 #define false 0
 
@@ -6,6 +9,7 @@
 #define SHORT 2
 #define BYTE 3
 
+#define STACKSIZE 80000
 
 #if _WIN64 || __x86_64__ || __ppc64__
     #define ENV64
@@ -44,8 +48,10 @@ extern byte_t* stack_base;
 #define ON_HEAP(addr) (heap_min <= ((byte_t*)addr) && ((byte_t*)addr) <= heap_max)
 #define ON_STACK(addr, sp) (stack_base <= ((byte_t*)addr) && ((byte_t*)addr) <= (stack_base + sp))
 
-void memory_init(byte_t* sb);
+void memory_init(byte_t** stack);
 byte_t* allocate_simple(byte_t type);
 byte_t* allocate_struct(unsigned int fields);
 void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace);
 byte_t to_origin(full_t** target, ufull_t sp);
+
+#endif

@@ -1,5 +1,8 @@
 #include "memory.h"
 
+#ifndef TYPES_H
+#define TYPES_H
+
 #define INT 0
 #define BOOL 1
 #define CHAR 2
@@ -8,9 +11,6 @@
 #define GENERIC 5
 #define ROUTINE 6
 
-char* type_name(char index);
-ufull_t parse_int(char* str);
-byte_t parse_bool(char* str);
-byte_t parse_char(char* str);
+char* type_name(byte_t index);
 
-byte_t* load_simple_argument(char type, char* arg);
+#endif
