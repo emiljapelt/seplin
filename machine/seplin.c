@@ -307,9 +307,7 @@ int main(int argc, char** argv) {
                     case INT: // simple
                     case BOOL:
                     case CHAR: {
-                        byte_t* loaded = load_simple_argument(*entry_point.argument_types, cmd_arguments[i+3]);
-                        if (loaded == (byte_t*)-1) return -1;
-                        arguments[i] = loaded;
+                        arguments[i] = load_simple_argument(*entry_point.argument_types, cmd_arguments[i+3]);
                         entry_point.argument_types += 1;
                         break;
                     }
