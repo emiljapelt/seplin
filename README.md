@@ -18,7 +18,7 @@ To work with Seplin two programs are provided. Additonally, a syntax highlighter
 | Program | Explaination |
 | --- | --- | 
 | seplin | The virtual machine for Seplin. Will invoke the compiler, if given a source file. Use --help for further details. |
-| seplinc | The compiler for Seplin. Takes a .sep or .sea file as input, and optionally an output directory or file. |
+| seplinc | The compiler for Seplin. Takes a .sep or .sea file as input, and optionally an output directory or file. By default the output is a .sec file, which can be run by the VM. However, if the '-t' flag is set, the program is transpiled to C. |
 
 ## Special words
 | Word | Explaination |
