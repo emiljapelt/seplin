@@ -26,6 +26,22 @@ if (x < 10) x := 10;
 if (x < 10) x +:= 1; else x -:= 1; 
 ```
 ___
+## When
+**Syntax:** 
+<br> when ( _expression_ ) { is ( _constant_ ) _statement_ ... }
+<br> when ( _expression_ ) { is ( _constant_ ) _statement_ ... } else _statement_
+<br>
+**Explaination:** Match an expression against some constants, executing the statement of the first succesful match.
+<br>
+**Examples:**
+```
+when (i) {
+    is (1) print "one\n";
+    is (2) print "two\n";
+    is (3) print "three\n";
+} else print "something\n";
+```
+___
 ## While
 **Syntax:** while ( _bool_expression_ ) _statement_
 <br>
