@@ -27,6 +27,9 @@ byte_t s[STACK_SIZE];
 byte_t* heap_min = (byte_t*)ULONG_MAX;
 byte_t* heap_max = (byte_t*)0;
 void* next_label;
+
+byte_t argument_count;
+byte_t** arguments;
 "
 
 let functions = "
@@ -54,6 +57,69 @@ void read_input(unsigned int max_size, char** ret) {
     buffer[count-1] = '\\0';
     *ret = buffer;
 }
+
+ufull_t parse_int(char* str) {
+    return atoi(str);
+}
+
+byte_t parse_bool(char* str) {
+    if (strcmp(str, \"true\") == 0) {
+        return 1;
+    }
+    else if (strcmp(str, \"false\") == 0) {
+        return 0;
+    }
+    else return -1;
+}
+
+byte_t parse_char(char* str) {
+    if (str[0] == '\\\\') {
+        if (str[2] != 0) return -1;
+        switch (str[1]) {
+            case 'n': return '\\n';
+            case 't': return '\\t';
+            case '\\\\': return '\\\\';
+            default: return -1;
+        }
+    }
+    else {
+        if (str[1] != 0) return -1;
+        return str[0];
+    }
+}
+
+byte_t* load_simple_argument(char type, char* arg) {
+    switch (type) {
+        case 0: {
+            full_t value = parse_int(arg);
+            if (value == 0 && !(strcmp(arg, \"0\") == 0)) { printf(\"Failure: expected an int, but got: %s\\n\", arg); exit(-1); }
+            byte_t* alloc = allocate(8);
+            *((full_t*)(alloc)) = value;
+            (((uhalf_t*)alloc)[-2] = ((uhalf_t*)alloc)[-2] + 1);
+            return alloc;
+        }
+        case 1: {
+            byte_t value = parse_bool(arg);
+            if (value == -1) { printf(\"Failure: expected a bool, but got: %s\\n\", arg); exit(-1); }
+            byte_t* alloc = allocate(1);
+            *(alloc) = value;
+            (((uhalf_t*)alloc)[-2] = ((uhalf_t*)alloc)[-2] + 1);
+            return alloc;
+        }
+        case 2: {
+            byte_t value = parse_char(arg);
+            if (value == -1) { printf(\"Failure: expected a bool, but got: %s\\n\", arg); exit(-1); }
+            byte_t* alloc = allocate(1);
+            *(alloc) = value;
+            (((uhalf_t*)alloc)[-2] = ((uhalf_t*)alloc)[-2] + 1);
+            return alloc;
+        }
+        default:
+            printf(\"Unknown simple type\\n\");
+            exit(-1);
+    }
+}
+
 
 static inline int on_heap(full_t* target) {
     return ((byte_t*)target >= heap_min && (byte_t*)target < heap_max);
@@ -488,12 +554,12 @@ let main = "
 
 int main(int argc, char *argv[]) {
   if (argc < 2) { printf(\"No entrypoint specified\\n\"); exit(1); }
-  program(argv[1]);
+  program(argv[1], argc-2, argv+2);
   return 1;
 }
 "
 
-let wrap_program str = "void program(char* entry){\n"^str^"}"
+let wrap_program str = "void program(char* entry, int argc, char** argv){\n"^str^"}"
 
 let translate_program_part_to_c pp cnt = match pp with
   | CLabel s -> "label_"^s^":\n"
@@ -553,7 +619,14 @@ let translate_program_part_to_c pp cnt = match pp with
   | StackFetch i -> "stack_fetch("^string_of_int i^");\n"
   | BPFetch i -> "bp_fetch("^string_of_int i^");\n"
   | SizeOf -> "size_of();\n"
-  | Start -> "void* entry_label = start(entry); goto *entry_label;\n"
+  | Start -> "
+  void* entry_label = start(entry, argc, argv); 
+  for(short i = 0; i < argument_count; i++) 
+      *(byte_t**)(s + sp + (i*8)) = arguments[i];
+  bp = sp;
+  sp += argument_count*8;
+  goto *entry_label;
+  "
   | RefFetch -> "ref_fetch();\n"
   | IncrRef -> "incr_ref();\n"
   | PrintChar -> "print_char();\n"
@@ -569,16 +642,37 @@ let translate_program_part_to_c pp cnt = match pp with
   | ByteEq -> "eq_b();\n"
 
 let create_starter gs = 
-  let create_if_case name cnt = "if (strcmp(entry, \""^name^"\") == 0) return **(((void***)s)+"^string_of_int cnt^");\n" in
+  let create_arg_allocation argc alloc_size = 
+    "argument_count = " ^ string_of_int argc ^ ";\n" ^ 
+    "if (argument_count != argc) { printf(\"Failure: Expected %i arguments, but got %i\\n\", argument_count, argc); exit(-1); }\n" ^
+    "arguments = malloc("^string_of_int alloc_size^");\n"
+  in
+  let create_arg_loading arg_info = 
+    let arg_loader idx tidx = 
+        let idx_s = string_of_int idx in
+        let tidx_s = string_of_int tidx in
+        "arguments["^idx_s^"] = load_simple_argument("^tidx_s^",argv["^idx_s^"]);\n" in
+    let rec aux ais cnt acc alloc_size = match ais with
+        | [] -> (alloc_size, acc |> String.concat "")
+        | (_,T_Int)::t -> aux t (cnt+1) (arg_loader cnt 0::acc) (alloc_size+8)
+        | (_,T_Bool)::t -> aux t (cnt+1) (arg_loader cnt 1::acc) (alloc_size+1)
+        | (_,T_Char)::t -> aux t (cnt+1) (arg_loader cnt 2::acc) (alloc_size+1)
+        | _ -> failwith "Bad entry argument type"
+    in
+    let (alloc_size, loader) = aux arg_info 0 [] 0 in
+    let allocator = create_arg_allocation (List.length arg_info) alloc_size in
+    allocator ^ loader
+  in
+  let create_if_case name cnt body = "if (strcmp(entry, \""^name^"\") == 0) { "^body^"return **(((void***)s)+"^string_of_int cnt^");\n}\n" in
   let rec aux gs acc cnt = match gs with
   | [] -> acc
   | h::t -> ( match h with
-    | (Entry,_,T_Routine(_,_),_,name) -> aux t (create_if_case name cnt::acc) (cnt+1)
+    | (Entry,_,T_Routine(_,arg_info),_,name) -> aux t (create_if_case name cnt (create_arg_loading arg_info)::acc) (cnt+1)
     | _ -> aux t acc (cnt+1)
   )
   in
   let inner = aux gs ["{ printf(\"No such entry point: %s\\n\", entry); exit(1); }"] 0 |> String.concat "" in
-  "static inline void* start(char* entry) {\nbp = sp;\n" ^inner ^ "\n}\n\n"
+  "static inline void* start(char* entry, int argc, char** argv) {\nbp = sp;\n" ^inner ^ "\n}\n\n"
 
 let transpile_to_c (Program(_,gs,p)) =
   let program = List.mapi (fun i p -> translate_program_part_to_c p i ) p |> String.concat "" in
