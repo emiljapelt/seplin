@@ -77,7 +77,12 @@
 %type <Absyn.inner_reference> inner_reference
 %%
 main:
-  topdecs EOF     { File $1 }
+  topdecs EOF     { 
+    try (File $1) 
+    with
+    | Failure _ as failure -> raise failure
+    | _ -> (raise (Failure(Some $symbolstartpos.pos_fname, Some $symbolstartpos.pos_lnum, "Parser error")))
+  }
 ;
 
 topdecs:
@@ -184,6 +189,7 @@ const_value:
   CSTBOOL                                                 { Bool $1 }
   | CSTINT                                                { Int $1 }
   | CSTCHAR                                               { Char $1 }
+  | error { raise (Failure(Some $symbolstartpos.pos_fname, Some $symbolstartpos.pos_lnum, "Expected a constant value")) }
 ;
 
 simple_value:
@@ -241,7 +247,7 @@ stmtOrDecSeq:
 
 stmtOrDec:
     stmt                                                     { Statement ($1, $symbolstartpos.pos_lnum) }
-  | dec SEMI                                                      { Declaration ($1, $symbolstartpos.pos_lnum) }
+  | dec SEMI                                                 { Declaration ($1, $symbolstartpos.pos_lnum) }
 ;
 
 dec:
