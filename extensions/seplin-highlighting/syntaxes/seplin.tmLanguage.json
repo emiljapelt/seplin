@@ -160,7 +160,7 @@
 		"control_keywords": {
 			"patterns": [{
 				"name": "keyword.control.seplin",
-				"match": "\\b(if|while|repeat|for|stop|halt|until|repeat|else)\\b"
+				"match": "\\b(if|when|is|while|repeat|for|stop|halt|until|repeat|else)\\b"
 			}]
 		},
 		"strings": {

@@ -25,6 +25,18 @@
         else explode (idx+1) ((Value(Char(str.[i])))::acc)
     in
     explode 1 []
+
+    let transform_when arg else_case cases =
+      let rec aux arg cases = match cases with
+        | [(v,s)] -> If(Value(Binary_op("=", arg, v)), s, else_case)
+        | (v,s)::t -> If(Value(Binary_op("=", arg, v)), s, aux arg t)
+        | _ -> raise_failure "when to if transform failed"
+      in
+      match cases with
+      | [(v,s)] -> If(Value(Binary_op("=", arg, v)), s, else_case)
+      | (v,s)::t -> If(Value(Binary_op("=", arg, v)), s, aux arg t)
+      | _ -> raise_failure "Empty when-expression"
+
 %}
 %token <int> CSTINT
 %token INT
@@ -45,7 +57,7 @@
 %token LOGIC_AND LOGIC_OR PIPE NOT VALUE
 %token COMMA DOT SEMI COLON EOF
 %token QMARK
-%token IF ELSE
+%token IF ELSE WHEN IS
 %token WHILE UNTIL FOR REPEAT
 %token BREAK CONTINUE
 %token CONST STABLE STRUCT NULL NEW
@@ -168,11 +180,15 @@ inner_reference:
   | inner_reference LBRAKE expression RBRAKE                { ArrayAccess ($1, $3) }
 ;
 
-simple_value:
-    LPAR value RPAR                                       { $2 }
-  | CSTBOOL                                               { Bool $1 }
+const_value:
+  CSTBOOL                                                 { Bool $1 }
   | CSTINT                                                { Int $1 }
   | CSTCHAR                                               { Char $1 }
+;
+
+simple_value:
+    LPAR value RPAR                                       { $2 }
+  | const_value                                           { $1 }
   | MINUS expression_not_ternary                          { Binary_op ("-", Value (Int 0), $2) }
   | NOT expression_not_ternary                            { Unary_op ("!", $2) }
   | VALUE expression_not_ternary                          { Unary_op ("$", $2) }
@@ -245,6 +261,8 @@ stmt:
 stmt2:
     IF LPAR expression RPAR stmt1 ELSE stmt2       { If ($3, $5, $7) }
   | IF LPAR expression RPAR stmt                   { If ($3, $5, Block []) }
+  | WHEN LPAR expression RPAR LBRACE when_cases RBRACE ELSE stmt2      { transform_when $3 $9 $6 }
+  | WHEN LPAR expression RPAR LBRACE when_cases RBRACE                 { transform_when $3 (Block[]) $6 }
   | WHILE LPAR expression RPAR stmt2               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
@@ -280,6 +298,7 @@ stmt2:
 stmt1: /* No unbalanced if-else */
     block                                              { $1 }
   | IF LPAR expression RPAR stmt1 ELSE stmt1       { If ($3, $5, $7) }
+  | WHEN LPAR expression RPAR LBRACE when_cases RBRACE ELSE stmt1      { transform_when $3 $9 $6 }
   | WHILE LPAR expression RPAR stmt1               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt1               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
@@ -316,6 +335,15 @@ stmt1: /* No unbalanced if-else */
   | BREAK SEMI                                   { Break }
   | CONTINUE SEMI                                { Continue }
   | non_control_flow_stmt SEMI { $1 }
+;
+
+when_case:
+  IS LPAR const_value RPAR stmt { (Value $3, $5) }
+;
+
+when_cases:
+  when_case { [$1] }
+  | when_case when_cases { $1::$2 }
 ;
 
 non_control_flow_stmt:

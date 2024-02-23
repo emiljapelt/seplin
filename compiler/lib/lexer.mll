@@ -18,6 +18,8 @@
                         "stable", STABLE;
                         "if", IF;
                         "else", ELSE;
+                        "when", WHEN;
+                        "is",  IS;
                         "while", WHILE;
                         "until", UNTIL;
                         "for", FOR;
