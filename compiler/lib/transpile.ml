@@ -619,14 +619,13 @@ let translate_program_part_to_c pp cnt = match pp with
   | StackFetch i -> "stack_fetch("^string_of_int i^");\n"
   | BPFetch i -> "bp_fetch("^string_of_int i^");\n"
   | SizeOf -> "size_of();\n"
-  | Start -> "
-  void* entry_label = start(entry, argc, argv); 
-  for(short i = 0; i < argument_count; i++) 
-      *(byte_t**)(s + sp + (i*8)) = arguments[i];
-  bp = sp;
-  sp += argument_count*8;
-  goto *entry_label;
-  "
+  | Start -> 
+"void* entry_label = start(entry, argc, argv); 
+for(short i = 0; i < argument_count; i++) 
+    *(byte_t**)(s + sp + (i*8)) = arguments[i];
+bp = sp;
+sp += argument_count*8;
+goto *entry_label;"
   | RefFetch -> "ref_fetch();\n"
   | IncrRef -> "incr_ref();\n"
   | PrintChar -> "print_char();\n"
@@ -643,15 +642,15 @@ let translate_program_part_to_c pp cnt = match pp with
 
 let create_starter gs = 
   let create_arg_allocation argc alloc_size = 
-    "argument_count = " ^ string_of_int argc ^ ";\n" ^ 
-    "if (argument_count != argc) { printf(\"Failure: Expected %i arguments, but got %i\\n\", argument_count, argc); exit(-1); }\n" ^
-    "arguments = malloc("^string_of_int alloc_size^");\n"
+    "\targument_count = " ^ string_of_int argc ^ ";\n" ^ 
+    "\tif (argument_count != argc) { printf(\"Failure: Expected %i arguments, but got %i\\n\", argument_count, argc); exit(-1); }\n" ^
+    "\targuments = malloc("^string_of_int alloc_size^");\n"
   in
   let create_arg_loading arg_info = 
     let arg_loader idx tidx = 
         let idx_s = string_of_int idx in
         let tidx_s = string_of_int tidx in
-        "arguments["^idx_s^"] = load_simple_argument("^tidx_s^",argv["^idx_s^"]);\n" in
+        "\targuments["^idx_s^"] = load_simple_argument("^tidx_s^",argv["^idx_s^"]);\n" in
     let rec aux ais cnt acc alloc_size = match ais with
         | [] -> (alloc_size, acc |> String.concat "")
         | (_,T_Int)::t -> aux t (cnt+1) (arg_loader cnt 0::acc) (alloc_size+8)
