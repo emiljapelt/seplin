@@ -310,10 +310,11 @@ stmt1: /* No unbalanced if-else */
       ), $symbolstartpos.pos_lnum);
     ]) 
   }
-  | STOP SEMI                                       { Stop }
-  | HALT SEMI                                        { Halt }
+  | STOP SEMI                                    { Stop }
+  | HALT SEMI                                    { Halt }
+  | HALT arguments1 SEMI                         { Block[Statement(Print $2, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
   | BREAK SEMI                                   { Break }
-  | CONTINUE SEMI                                  { Continue }
+  | CONTINUE SEMI                                { Continue }
   | non_control_flow_stmt SEMI { $1 }
 ;
 

@@ -121,22 +121,31 @@ ___
 <br>
 **Examples:**
 ```
-internal decrement_to_zero(x: int) {
+internal decrement_to_zero ::= (x: int) {
     if (x = 0) stop;
     x -:= 1;
 }
 ```
 ___
 ## Halt
-**Syntax:** halt ;
+**Syntax:** 
 <br>
-**Explaination:** Halt the program.
+halt ;
+<br>
+halt _expressions_ ;
+<br>
+**Explaination:** Prints any given expressions, like the Print statement, then halts the program.
 <br>
 **Examples:**
 ```
-internal access<T>(a: T[], i: int; out: T) {
-    if (i >= |a|) halt;
+internal access ::= <T>(a: T[], i: int; out: T) {
+    if (i >= |a|) halt "Index out of bounds\n";
     out := a[i];
+}
+
+entry main ::= () {
+    print "Hello world!\n";
+    halt;
 }
 ```
 ___
