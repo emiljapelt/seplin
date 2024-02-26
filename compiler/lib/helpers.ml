@@ -34,6 +34,7 @@ let new_label () =
   let () = lg.next <- lg.next+1 in
   Int.to_string number
   
+let empty_env () = { context_name = "" ; var_env = { locals = [] ; globals = [] ; structs = StringMap.empty ; typ_vars = [] } ; file_refs = StringMap.empty }
 
 (* Lookup *)
 let rec lookup f l =

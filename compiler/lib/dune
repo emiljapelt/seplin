@@ -9,6 +9,7 @@
    assemblyLexer
    assemblyParser
    assemblyWriter
+   optimize
    helpers
    lexer
    parser

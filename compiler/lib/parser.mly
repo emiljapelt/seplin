@@ -3,6 +3,8 @@
   open ProgramRep
   open Exceptions
   open Lexing
+  open Helpers
+  open Optimize
 
   type var_name_generator = { mutable next : int }
   let vg = ( {next = 0;} )
@@ -48,13 +50,14 @@
       ]
 
     let transform_when arg else_case cases line_num = 
-      match arg with
+      let opt_arg = optimize_expr arg (empty_env ())in
+      match opt_arg with
       | Value(Bool _)
       | Value(Int _)
       | Value(Char _)
       | Reference(LocalContext(Access _))
-      | Reference(OtherContext(_, Access _)) -> transform_when_no_handle arg else_case cases
-      | _ -> transform_when_handle arg else_case cases line_num
+      | Reference(OtherContext(_, Access _)) -> transform_when_no_handle opt_arg else_case cases
+      | _ -> transform_when_handle opt_arg else_case cases line_num
 
 
 %}
