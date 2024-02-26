@@ -2,19 +2,20 @@ open Exceptions
 open ProgramRep
 open Absyn
 
+module StringMap = Map.Make(String)
+
 (*** Types ***)
 type variable_environment = { 
-  locals: (var_mod * typ * string) list; (* modifier, type, name *)
-  globals: (access_mod * string * string * int * var_mod * typ * declaration) list; (* name, stack_index, modifier, type, expression *)
-  structs: (string * char list * (var_mod * typ * string) list) list; (* name, type_vars, parameters(modifier, type, name) *)
+  locals: (var_mod * typ * string) list; (* modifier, type, name *) (* Make into StringMap *)
+  globals: (access_mod * string * string * int * var_mod * typ * declaration) list; (* Make into StringMap *)
+  structs: (char list * (var_mod * typ * string) list) StringMap.t; (* name, type_vars, parameters(modifier, type, name) *)
   typ_vars: char list;
 }
 
 type environment = { 
   context_name: string;
   var_env: variable_environment;
-  (*routine_env: (access_mod * string * string * char list * (var_mod * typ * string) list * statement) list; (* name, type_vars, parameters(modifier, type, name) *)*)
-  file_refs: (string * string) list;
+  file_refs: string StringMap.t;
 }
 
 type context =
@@ -55,15 +56,15 @@ let lookup_i f l =
   aux l ((List.length l)-1)
 
 let lookup_context (name: string) file_refs contexts =
-  match List.find_opt (fun (n,_) -> n = name) file_refs with
+  match StringMap.find_opt name file_refs with
   | None -> None
-  | Some(_,cn) -> lookup (fun (c) -> match c with Context(n,e) -> if cn = n then Some e else None) contexts
+  | Some(cn) -> lookup (fun (c) -> match c with Context(n,e) -> if cn = n then Some e else None) contexts
 
 let lookup_routine (name: string) routines =
   lookup (fun (accmod,n,cn,tvs,ps,stmt) -> if n = name then Some(accmod,n,cn,tvs,ps,stmt) else None) routines
 
 let lookup_struct (name: string) structs =
-  lookup (fun (n,tvs,ps) -> if n = name then Some(tvs,ps) else None) structs
+  StringMap.find_opt name structs
 
 let lookup_globvar (name: string) globvars =
   lookup (fun (accmod,n,_,cnt,vmod,ty,_) -> if n = name then Some(accmod,cnt,ty,vmod) else None) globvars

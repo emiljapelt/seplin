@@ -4,7 +4,6 @@ open Exceptions
 open Typing
 open Helpers
 
-
 (*** Helper functions ***)
 let addFreeVars amount acc =
   match (amount, acc) with
@@ -51,7 +50,7 @@ let count_decl stmt_dec_list =
   aux stmt_dec_list 0
 
 (*    list of: string * char list * (bool * typ * string) list   *)
-let get_structs file =
+(*let get_structs file =
   let rec aux topdecs acc =
     match topdecs with
     | [] -> acc
@@ -64,7 +63,7 @@ let get_structs file =
       | _ -> aux t acc
     )
   in match file with
-  | File (tds) -> aux tds []
+  | File (tds) -> aux tds []*)
 
 
 (*** Global variable handling ***)
@@ -790,6 +789,8 @@ and compile_stmt stmt env contexts break continue cleanup acc =
   )
 
 let rec compile_globalvars globvars structs contexts acc =
+  (* let globals_map = to_string_map globvars (fun (_,n,_,_,_,_,_) -> n) (fun (acc,_,ctx,cnt,vm,ty,dec) -> (acc,ctx,cnt,vm,ty,dec)) in *)
+  (* let structs_map = to_string_map structs (fun (n,_,_) -> n) (fun (_,tv,ps) -> (tv,ps)) in *)
   match globvars with
   | [] -> acc
   | (_,_,context_name,_,_,_,dec)::t -> (
@@ -826,11 +827,11 @@ let gather_context_infos base_path parse =
     match topdecs with
     | [] -> (complete_path base_path path, globals, structs, file_refs)
     | (FileReference(alias, ref_path))::t -> (
-      if List.exists (fun (a,_) -> a = alias) file_refs then raise_failure ("Duplicate context alias '" ^ alias ^ "'") else
+      if StringMap.mem alias file_refs then raise_failure ("Duplicate context alias '" ^ alias ^ "'") else
       let ref_path = complete_path path ref_path in
-      get_context_environment path t ((alias,ref_path)::file_refs) globals structs
+      get_context_environment path t (StringMap.add alias ref_path file_refs) globals structs
     )
-    | (Struct(name, typ_vars, fields))::t -> get_context_environment path t file_refs globals ((name, typ_vars, fields)::structs)
+    | (Struct(name, typ_vars, fields))::t -> get_context_environment path t file_refs globals (StringMap.add name (typ_vars, fields) structs)
     | (GlobalDeclaration(accmod,declaration))::t -> ( match declaration with
       | TypeDeclaration(vmod, typ, name) -> get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,typ,declaration)::globals) structs
       | AssignDeclaration(vmod, None, name, Value(AnonRoutine(tv,ps,_))) -> (
@@ -845,11 +846,11 @@ let gather_context_infos base_path parse =
   let rec get_contexts path parse acc =
     let path = complete_path base_path path in
     let file = parse path in
-    let context_env = get_context_environment path (match file with File(t) -> t) [][][] in
+    let context_env = get_context_environment path (match file with File(t) -> t) StringMap.empty [] StringMap.empty in
     let (_,_,_,file_refs) = context_env in
-    List.fold_right (fun (_,ref_path) acc -> 
+    StringMap.fold (fun _ ref_path acc -> 
       if List.exists (fun (_,(p,_,_,_)) -> p = ref_path) acc then acc
-      else get_contexts ref_path parse (acc)
+      else get_contexts ref_path parse acc
     ) file_refs ((file,context_env)::acc)
   in
   get_contexts base_path parse []
@@ -862,10 +863,14 @@ let merge_contexts contexts =
       aux t 
         (List.rev_append topdecs tds) 
         (List.rev_append globals c_globals) 
-        (List.rev_append structs c_structs) 
+        (StringMap.merge (fun _ o n -> match o, n with
+          | Some _, _ -> o
+          | _, Some _ -> n
+          | _,_ -> None
+        ) structs c_structs)
     )
   in
-  aux contexts [][][]
+  aux contexts [][] StringMap.empty
 
 let create_contexts globals context_infos : context list =
   let get_globalvar_info var_name context_name = 
@@ -889,11 +894,14 @@ let compile path parse =
     let (topdecs,globals,structs) = merge_contexts context_infos in
     let globals_ordered = (order_dep_globvars (get_globvar_dependencies globals)) in
     let contexts = create_contexts globals_ordered context_infos in
+
     let () = check_topdecs topdecs structs in
     let () = check_structs structs in
+
     let program = compile_globalvars (List.rev globals_ordered) structs contexts [Start] in
     let global_var_info = gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals) in
-    Program(structs, global_var_info, program)
+    let struct_info = StringMap.to_list structs |> List.map (fun (n,(tv,ps)) -> (n,tv,ps)) in
+    Program(struct_info, global_var_info, program)
   )
   with 
   | Failure _ as f -> raise f

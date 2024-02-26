@@ -3,6 +3,16 @@ open Exceptions
 open Absyn
 open Helpers
 
+module StringMap = Map.Make(String)
+module StringSet = Set.Make(String)
+
+let to_string_map lst f_key f_value =
+  let rec aux lst map = match lst with
+    | [] -> map
+    | h::t -> aux t (StringMap.add (f_key h) (f_value h) map)
+  in
+  aux lst StringMap.empty
+
 let rec type_string t =
   match t with
   | T_Bool -> "bool"
@@ -486,12 +496,9 @@ let check_topdecs file structs =
   | File(tds) -> aux tds
 
 let check_structs structs =
-  let rec aux strs seen =
-    match strs with
-    | [] -> ()
-    | (name, _, _)::t -> if List.mem name seen then raise_failure ("Duplicate struct name '" ^ name ^ "'") else aux t (name::seen) 
-  in
-  aux structs []
+  StringMap.fold (fun name _ seen -> 
+    if StringSet.mem name seen then raise_failure ("Duplicate struct name '" ^ name ^ "'") else (StringSet.add name seen)
+  ) structs StringSet.empty |> ignore
 
 let check_struct_literal struct_fields expr (env : environment) contexts =
   let rec aux (pairs : ((var_mod * typ) * expression) list) =
