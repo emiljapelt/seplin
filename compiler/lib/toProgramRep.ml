@@ -379,6 +379,7 @@ and compile_arguments args (env : environment) contexts acc =
   aux (List.rev args) acc
 
 and compile_assignment target assign (env : environment) contexts acc =
+  let assign = optimize_expr assign env in
   let assign_type_res = Typing.assignment_type_check target assign env contexts in
   match assign_type_res with
   | Error m -> raise_failure m
@@ -469,7 +470,8 @@ and compile_assignment target assign (env : environment) contexts acc =
     )
     | (ArrayAccess(refer, index), Value v) -> ( match Typing.type_inner_reference refer env true contexts with
       | (_,Ok T_Array _) -> ( 
-        let (_,index_type_res) =  Typing.type_expr index env true contexts in
+        let index = optimize_expr index env in
+        let (_,index_type_res) = Typing.type_expr index env true contexts in
         match index_type_res with
         | Ok index_ot -> ( match translate_operational_type index_ot with 
           | T_Int -> ( match translate_operational_type assign_type with
@@ -491,6 +493,7 @@ and compile_assignment target assign (env : environment) contexts acc =
     )
     | (ArrayAccess(refer, index), Reference re) -> ( match Typing.type_inner_reference refer env true contexts with
       | (_,Ok T_Array _) -> ( 
+        let index = optimize_expr index env in
         let (_,index_type_res) = Typing.type_expr index env true contexts in
         match index_type_res with
         | Ok index_ot -> ( match translate_operational_type index_ot with
@@ -534,7 +537,7 @@ and compile_declaration dec env contexts =
   | AssignDeclaration (vmod, typ, name, expr) -> (
     if localvar_exists name env.var_env.locals then raise_failure ("Duplicate variable name '" ^ name ^ "'") ;
     let opt_expr = optimize_expr expr env.var_env in
-    let typ_res = declaration_type_check vmod typ expr env contexts in
+    let typ_res = declaration_type_check vmod typ opt_expr env contexts in
     let o_typ = if Result.is_ok typ_res then Result.get_ok typ_res else raise_failure (Result.get_error typ_res) in
     let typ = translate_operational_type o_typ in
     ( update_locals env vmod typ name,
@@ -554,6 +557,7 @@ and compile_declaration dec env contexts =
         | T_Routine _ -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_value v o_typ env contexts (AssignFull :: a))
       )
       | Ternary(cond,expr1,expr2) -> (
+        let cond = optimize_expr cond env in
         match cond with
         | Value(Bool true) -> let (_,f) = compile_declaration (AssignDeclaration(vmod,Some typ,name,expr1)) env contexts in f
         | Value(Bool false) -> let (_,f) = compile_declaration (AssignDeclaration(vmod,Some typ,name,expr2)) env contexts in f
@@ -600,7 +604,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     let label_true = Helpers.new_label () in
     let label_stop = Helpers.new_label () in
     let opt_expr = optimize_expr expr env in
-    let (_, t) = Typing.type_expr expr env true contexts in
+    let (_, t) = Typing.type_expr opt_expr env true contexts in
     match t with
     | Ok ot -> ( match translate_operational_type ot with 
       | T_Bool -> ( match opt_expr with 
@@ -617,7 +621,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     let label_start = Helpers.new_label () in
     let label_stop = Helpers.new_label () in
     let opt_expr = optimize_expr expr env in
-    let (_, t) = Typing.type_expr expr env true contexts in
+    let (_, t) = Typing.type_expr opt_expr env true contexts in
     match t with
     | Ok ot -> ( match translate_operational_type ot with
       | T_Bool -> ( match opt_expr with 
@@ -686,13 +690,13 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       match es with
       | [] -> acc
       | h::t -> (
-        let (_, expr_ty) = Typing.type_expr h env true contexts in
-        let opte = optimize_expr h env.var_env in
+        let opt_h = optimize_expr h env.var_env in
+        let (_, expr_ty) = Typing.type_expr opt_h env true contexts in
         match expr_ty with
         | Ok ot -> (match translate_operational_type ot with
-          | T_Bool -> aux t (compile_expr_as_value opte ot env contexts (PrintBool :: acc))
-          | T_Int -> aux t (compile_expr_as_value opte ot env contexts (PrintInt :: acc))
-          | T_Char -> aux t (compile_expr_as_value opte ot env contexts (PrintChar :: acc))
+          | T_Bool -> aux t (compile_expr_as_value opt_h ot env contexts (PrintBool :: acc))
+          | T_Int -> aux t (compile_expr_as_value opt_h ot env contexts (PrintInt :: acc))
+          | T_Char -> aux t (compile_expr_as_value opt_h ot env contexts (PrintChar :: acc))
           | T_Array (Some T_Char) -> (
             let data_handle = new_label () in
             let index_handle = new_label () in
@@ -713,7 +717,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
             in
             aux t (compile_stmt code env contexts break continue cleanup acc)
           )
-          | _ -> aux t (compile_expr opte (NOp_T T_Null) env contexts (PrintInt :: acc))
+          | _ -> aux t (compile_expr opt_h (NOp_T T_Null) env contexts (PrintInt :: acc))
         )
         | Error m -> raise_failure m
       )
