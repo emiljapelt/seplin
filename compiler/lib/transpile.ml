@@ -662,16 +662,16 @@ let create_starter gs =
     let allocator = create_arg_allocation (List.length arg_info) alloc_size in
     allocator ^ loader
   in
-  let create_if_case name cnt body = "if (strcmp(entry, \""^name^"\") == 0) { "^body^"return **(((void***)s)+"^string_of_int cnt^");\n}\n" in
-  let rec aux gs acc cnt = match gs with
+  let create_if_case name idx body = "if (strcmp(entry, \""^name^"\") == 0) { "^body^"return **(((void***)s)+"^string_of_int idx^");\n}\n" in
+  let rec aux gs acc = match gs with
   | [] -> acc
   | h::t -> ( match h with
-    | (Entry,_,T_Routine(_,arg_info),_,name) -> aux t (create_if_case name cnt (create_arg_loading arg_info)::acc) (cnt+1)
-    | _ -> aux t acc (cnt+1)
+    | (Entry,_,T_Routine(_,arg_info),idx,name) -> aux t (create_if_case name idx (create_arg_loading arg_info)::acc)
+    | _ -> aux t acc
   )
   in
-  let inner = aux gs ["{ printf(\"No such entry point: %s\\n\", entry); exit(1); }"] 0 |> String.concat "" in
-  "static inline void* start(char* entry, int argc, char** argv) {\nbp = sp;\n" ^inner ^ "\n}\n\n"
+  let inner = aux gs ["{ printf(\"No such entry point: %s\\n\", entry); exit(1); }"] |> String.concat "" in
+  "static inline void* start(char* entry, int argc, char** argv) {\nbp = sp;\n" ^ inner ^ "\n}\n\n"
 
 let transpile_to_c (Program(_,gs,p)) =
   let program = List.mapi (fun i p -> translate_program_part_to_c p i ) p |> String.concat "" in
