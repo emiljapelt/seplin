@@ -396,13 +396,13 @@ static inline void bool_not() {
 }
 
 static inline void bool_and() {
-    byte_t res = (*(s + sp + -1)) && (*(s + sp + -1));
+    byte_t res = (*(s + sp + -1)) && (*(s + sp + -2));
     *(byte_t*)(s + sp + -2) = res;
     sp -= 1;
 }
 
 static inline void bool_or() {
-    byte_t res = (*(s + sp + -1)) || (*(s + sp + -1));
+    byte_t res = (*(s + sp + -1)) || (*(s + sp + -2));
     *(byte_t*)(s + sp + -2) = res;
     sp -= 1;
 }

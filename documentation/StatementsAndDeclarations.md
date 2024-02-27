@@ -19,8 +19,8 @@ ___
 **Syntax:** 
 <br> if ( _bool_expression_ ) _statement_ 
 <br> if ( _bool_expression_ ) _statement_ else _statement_
-<br> if ( _expression_ ) { is ( _constant_ ) _statement_ ... }
-<br> if ( _expression_ ) { is ( _constant_ ) _statement_ ... } else _statement_
+<br> if ( _expression_ ) { is ( _constant_list_ ) _statement_ ... }
+<br> if ( _expression_ ) { is ( _constant_list_ ) _statement_ ... } else _statement_
 <br>
 **Explaination:** Conditionally execute some code.
 <br>
@@ -33,6 +33,9 @@ if (i) {
     is (2) print "two\n";
     is (3) print "three\n";
 } else print "something\n";
+if (i) {
+    is (0,1,2,3,4,5,6,7,8,9) print "single digit\n";
+} else print "multi digit\n";
 ```
 ___
 ## While

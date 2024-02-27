@@ -28,10 +28,18 @@
     in
     explode 1 []
 
+    let create_is_condition arg values = 
+      let rec aux vals acc = match vals with
+      | [] -> acc
+      | h::t -> aux t (Value(Binary_op("||", Value(Binary_op("=", arg, h)), acc)))
+      in match values with
+      | [] -> raise_failure "Empty if-is condition"
+      | h::t -> aux t (Value(Binary_op("=", arg, h)))
+
     let transform_when_no_handle arg else_case cases =
       let rec aux arg cases acc = match cases with
         | [] -> acc
-        | (v,s)::t -> aux arg t (If(Value(Binary_op("=", arg, v)), s, acc))
+        | (vs,s)::t -> aux arg t (If(create_is_condition arg vs, s, acc))
       in
       aux arg (List.rev cases) else_case
     
@@ -41,7 +49,7 @@
       let arg_handle_dec = AssignDeclaration(Stable, None, arg_handle, arg) in
       let rec create_if_block cases acc = match cases with
         | [] -> acc
-        | (v,s)::t -> create_if_block t (If(Value(Binary_op("=", arg_handle_access, v)), s, acc))
+        | (vs,s)::t -> create_if_block t (If(create_is_condition arg_handle_access vs, s, acc))
       in
       let if_block = create_if_block (List.rev cases) else_case in
       Block[
@@ -290,8 +298,8 @@ stmt:
 stmt2:
     IF LPAR expression RPAR stmt1 ELSE stmt2       { If ($3, $5, $7) }
   | IF LPAR expression RPAR stmt                   { If ($3, $5, Block []) }
-  | IF LPAR expression RPAR LBRACE when_cases RBRACE ELSE stmt2      { transform_when $3 $9 $6 $symbolstartpos.pos_lnum }
-  | IF LPAR expression RPAR LBRACE when_cases RBRACE                 { transform_when $3 (Block[]) $6 $symbolstartpos.pos_lnum }
+  | IF LPAR expression RPAR LBRACE is_cases RBRACE ELSE stmt2      { transform_when $3 $9 $6 $symbolstartpos.pos_lnum }
+  | IF LPAR expression RPAR LBRACE is_cases RBRACE                 { transform_when $3 (Block[]) $6 $symbolstartpos.pos_lnum }
   | WHILE LPAR expression RPAR stmt2               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
@@ -327,7 +335,7 @@ stmt2:
 stmt1: /* No unbalanced if-else */
     block                                              { $1 }
   | IF LPAR expression RPAR stmt1 ELSE stmt1       { If ($3, $5, $7) }
-  | IF LPAR expression RPAR LBRACE when_cases RBRACE ELSE stmt1      { transform_when $3 $9 $6 $symbolstartpos.pos_lnum }
+  | IF LPAR expression RPAR LBRACE is_cases RBRACE ELSE stmt1      { transform_when $3 $9 $6 $symbolstartpos.pos_lnum }
   | WHILE LPAR expression RPAR stmt1               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt1               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
@@ -366,13 +374,18 @@ stmt1: /* No unbalanced if-else */
   | non_control_flow_stmt SEMI { $1 }
 ;
 
-when_case:
-  IS LPAR const_value RPAR stmt { (Value $3, $5) }
+is_case:
+  IS LPAR const_values RPAR stmt { ($3, $5) }
 ;
 
-when_cases:
-  when_case { [$1] }
-  | when_case when_cases { $1::$2 }
+const_values:
+  const_value { [Value $1] }
+  | const_value COMMA const_values { (Value $1)::$3 }
+;
+
+is_cases:
+  is_case { [$1] }
+  | is_case is_cases { $1::$2 }
 ;
 
 non_control_flow_stmt:
