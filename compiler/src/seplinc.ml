@@ -14,6 +14,25 @@ type compilation_strategy =
 | CompileToSeplinVM
 | TranspileToC
 
+
+let help_msg = "Welcome to the Seplin compiler!
+  Usage: seplinc <SOURCE_FILE> <DESTINATION>?
+
+  SOURCE_FILE is a path to a .sep- or .sea-file.
+  DESTINATION must be either:
+    - Unspecified (the file SOURCE_FILE.sec, will be created)
+    - A file path, with an extension
+    - A file path, without an extension (.sec will be used then)
+    - A directory path (a file with the same name as SOURCE_FILE will be place there, with the .sec extension)
+
+  -t            Transpile program to C
+  --speed       Optimize focusing on fast execution (default)
+  --size        Optimize focusing on instruction count
+  --help        Display this message
+
+  *Flags can be specifed anywhere in the command
+"
+
 let resolve_input input =
   try (
     if not (Sys.file_exists input) then (Printf.printf "%s\n" input; raise_failure "Input file does not exist")
@@ -47,12 +66,12 @@ let resolve_output input output comp_strat =
 let resolve_arguments () : ((string * input_type) * string * compilation_strategy) =
   let arguments = Array.sub Sys.argv 1 ((Array.length Sys.argv) - 1) in
   let (flags,args) = Array.fold_left (fun (flags,acc) arg -> if String.starts_with ~prefix:"-" arg then (arg::flags,acc) else (flags,arg::acc)) ([],[]) arguments in
+  let flag_set name = List.mem name flags in
   let args = List.rev args in
   let comp_strat = if List.mem "-t" flags then TranspileToC else CompileToSeplinVM in
-  let () = 
-    if List.mem "--speed" flags then compile_flags.opti_focus <- Speed
-    else if List.mem "--size" flags then compile_flags.opti_focus <- Size
-  in
+  let () = if flag_set "--help" then ( Printf.printf "%s" help_msg ; exit 0) in
+  let () = if flag_set "--speed" then compile_flags.opti_focus <- Speed in
+  let () = if flag_set "--size" then compile_flags.opti_focus <- Size in
   match args with
   | [input] -> (resolve_input input, ((String.sub input 0 ((String.length input) - 4)) ^ (file_extention comp_strat)), comp_strat)
   | [input;output] -> (resolve_input input, resolve_output input output comp_strat, comp_strat)

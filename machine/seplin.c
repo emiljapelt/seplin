@@ -57,15 +57,16 @@ void print_stack(byte_t* stack, ufull_t bp, ufull_t sp) {
 
 void print_help() {
     printf(
-        "Welcome to Seplin!\n\n"
-        "Here are the available commands:\n"
-        "   help:\n"
+        "Welcome to Seplin!\n"
+        "   Here are the available commands:\n"
+        "\n"
+        "   help\n"
         "       Prints this message.\n"
-        "   i <file_path>:\n"
+        "   i <file_path>\n"
         "       Prints the interface of a compiled Seplin file.\n"
-        "   disass <file_path>:\n"
+        "   disass <file_path>\n"
         "       Prints the instructions of a compiled Seplin file, using their names.\n"
-        "   run <file_path> <entry_point> <args>*:\n"
+        "   run <file_path> <entry_point> <args>*\n"
         "       Executes a Seplin file, starting from the given entry point, using the given arguments.\n"
         "       --time: Measure and print the execution time, in seconds.\n"
         "       --trace: Print information about the execution.\n"
