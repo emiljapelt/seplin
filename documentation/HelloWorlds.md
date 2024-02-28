@@ -1,6 +1,8 @@
 
 # How to write "Hello World!" in Seplin
 
+In this document at handful of ways to implement the Hello World-program, is explored and explained, in an attempt to show of some features, including syntactic sugar, of the Seplin language.
+
 ## Basic
 The most basic way to print "Hello World!", would be to use the 'print' statement. 
 ```
@@ -11,26 +13,35 @@ entry main1 ::= (){
 };
 ```
 
-## Loop
-Writing out each character as a literal, is however very tedious. Instead one could write the message out as a string (syntacic sugar for a character array), and use a loop for printing.
+## Basic - Sugared
+Having to write out character literals like that is horrible, luckily Seplin knows how to print character arrays, and also includes string literals as syntactic sugar for these. So instead the implementation could be:
 ```
 entry main2 ::= (){
 
-    msg ::= "Hello World!";
+    print "Hello World!\n";
+
+};
+```
+
+## Loop
+Much better! But how does that work under the layer of sugar? Well it simply loops over the length of the character array, and prints each one. Like so:
+```
+entry main3 ::= (){
+
+    msg ::= "Hello World!\n";
     for(i ::= 0; i < |msg|; i +:= 1) print msg[i];
-    print '\n';
 
 };
 ```
 ## Routine
-Better, but still a bit tedious having to use multiple lines, and write out a loop each time one wants to print a string. This can be fixed by simply extracting to a routine.
+If the default printing behavior is missing something for a use case, one can simply implement a routine, to gain the extra behavior. For example, if one would like to always print a linefeed after some message:
 ```
 internal out_ln ::= (str: const char[]){
     for(i ::= 0; i < |str|; i +:= 1) print str[i];
     print '\n';
 };
 
-entry main3 ::= (){
+entry main4 ::= (){
 
     out_ln("Hello World!");
 
@@ -42,7 +53,7 @@ Nice! But defining such a routine in each source file is annoying, so extract it
 ```
 reference ./string.sep as string;
 
-entry main4 ::= (){
+entry main5 ::= (){
 
     string#out_ln("Hello World!");
 
@@ -50,7 +61,7 @@ entry main4 ::= (){
 ```
 
 ## Higher-order routine
-Using a library is likely the nicest way to do this, but we can still make it weirder by using higher-order routines (Which could also be from a library). 
+Finally we can utilize the fact that in Seplin, routines are just values which can be given as arguments, reassigned, etc., to write a generalized array iterator which applies a routine to each element:  
 ```
 internal fout ::= (c: char){
     print c;
@@ -60,10 +71,9 @@ internal iter ::= <T>(a: T[], f: (T)){
     for(i ::= 0; i < |a|; i +:= 1) f(a[i]);
 };
 
-entry main5 ::= (){
+entry main6 ::= (){
 
-    iter("Hello World!", fout);
-    print '\n';
+    iter("Hello World!\n", fout);
 
 };
 ```
