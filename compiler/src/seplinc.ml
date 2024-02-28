@@ -26,9 +26,9 @@ let help_msg = "Welcome to the Seplin compiler!
     - A directory path (a file with the same name as SOURCE_FILE will be place there, with the .sec extension)
 
   -t            Transpile program to C
-  --speed       Optimize focusing on fast execution (default)
-  --size        Optimize focusing on instruction count
-  --help        Display this message
+  --speed       Optimize focusing on faster execution (default)
+  --size        Optimize focusing on reducing size
+  --help        Display this message, and terminate
 
   *Flags can be specifed anywhere in the command
 "
