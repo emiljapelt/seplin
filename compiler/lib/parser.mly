@@ -5,6 +5,7 @@
   open Lexing
   open Helpers
   open Optimize
+  open Flags
 
   type var_name_generator = { mutable next : int }
   let vg = ( {next = 0;} )
@@ -28,13 +29,25 @@
     in
     explode 1 []
 
-    let create_is_condition arg values = 
+    let create_is_condition_binop arg values = 
       let rec aux vals acc = match vals with
       | [] -> acc
       | h::t -> aux t (Value(Binary_op("||", Value(Binary_op("=", arg, h)), acc)))
       in match values with
       | [] -> raise_failure "Empty if-is condition"
       | h::t -> aux t (Value(Binary_op("=", arg, h)))
+
+    let create_is_condition_ternary arg values =
+      let rec aux vals acc = match vals with
+      | [] -> acc
+      | h::t -> aux t (Ternary(Value(Binary_op("=", arg, h)), Value(Bool true), acc))
+      in match values with
+      | [] -> raise_failure "Empty if-is condition"
+      | h::t -> aux t (Ternary(Value(Binary_op("=", arg, h)), Value(Bool true), Value(Bool false)))
+
+    let create_is_condition arg values = match compile_flags.opti_focus with
+      | Speed -> create_is_condition_ternary arg values
+      | Size -> create_is_condition_binop arg values
 
     let transform_when_no_handle arg else_case cases =
       let rec aux arg cases acc = match cases with

@@ -2,6 +2,7 @@ open Seplinclib.AssemblyWriter
 open Seplinclib.ToProgramRep
 open Str
 open Seplinclib.Exceptions
+open Seplinclib.Flags
 
 let () = Printexc.record_backtrace true
 
@@ -48,6 +49,10 @@ let resolve_arguments () : ((string * input_type) * string * compilation_strateg
   let (flags,args) = Array.fold_left (fun (flags,acc) arg -> if String.starts_with ~prefix:"-" arg then (arg::flags,acc) else (flags,arg::acc)) ([],[]) arguments in
   let args = List.rev args in
   let comp_strat = if List.mem "-t" flags then TranspileToC else CompileToSeplinVM in
+  let () = 
+    if List.mem "--speed" flags then compile_flags.opti_focus <- Speed
+    else if List.mem "--size" flags then compile_flags.opti_focus <- Size
+  in
   match args with
   | [input] -> (resolve_input input, ((String.sub input 0 ((String.length input) - 4)) ^ (file_extention comp_strat)), comp_strat)
   | [input;output] -> (resolve_input input, resolve_output input output comp_strat, comp_strat)
