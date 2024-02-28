@@ -240,6 +240,7 @@ int main(int argc, char** argv) {
             load_file(cmd_arguments[1], &file, &file_len);
             if (file == NULL) { printf("Failure: No such file: %s\n", cmd_arguments[1]); return -1;}
             struct file_segments segments = find_segments(file);
+            printf("debug\n");
 
             printf("Structs:\n");
             print_structs(segments.struct_segment);

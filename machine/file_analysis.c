@@ -41,18 +41,24 @@ int type_rep_size(byte_t* file) {
             break;
         case ROUTINE:
             size += 2;
+            int params_size = 0;
             byte_t params = *(file+1);
-            while(params > 0) {
-                size += 1 + type_rep_size(file+2); // varmod + type
-                params--;
+            int i = 1;
+            printf("params: %i\n", params);
+            while(i <= params) {
+                params_size += type_rep_size(file+2+i+params_size); // varmod + type
+                i++;
             }
+            size += params_size+params;
             break;
     }
     return size;
 }
 
 void skip_type(byte_t** file) {
-    *file += 1 + type_rep_size((*file)+1); // varmod + type
+    int size = 1 + type_rep_size((*file)+1); // varmod + type
+    printf("rep_size: %i\n", size);
+    *file += size;
 }
 
 void skip_type_vars(byte_t** file) {
@@ -66,6 +72,7 @@ struct file_segments find_segments(byte_t* file) {
     // Find globvar_segment / skip over struct_segment
 
     full_t i = *(full_t*)file;
+    printf("structs: %lli\n", i);
     file += 8;
     while(i > 0) {
         skip_string(&file);
@@ -79,11 +86,14 @@ struct file_segments find_segments(byte_t* file) {
         i--;
     }
     segments.global_var_segment = file;
+    
     // Find entry_point_segment / skip over globvar_segment
 
     i = *(full_t*)file;
+    printf("global_vars: %lli\n", i);
     file += 8;
     while (i > 0) {
+        printf("glob # %s\n", file);
         skip_string(&file);
         skip_type(&file);
         i--;
@@ -93,13 +103,16 @@ struct file_segments find_segments(byte_t* file) {
     // Find instructions_segment / skip over entry_point_segment
 
     i = *(full_t*)file;
+    printf("entry_points: %lli\n", i);
     file += 8;
     while (i > 0) {
+        printf("# %s\n", file);
         skip_string(&file);
         file += 8;
         byte_t ac = *(byte_t*)file;
         file += 1;
         while (ac > 0) {
+            printf("debug1:%lli %i\n",i, ac);
             skip_type(&file);
             ac--;
         }
