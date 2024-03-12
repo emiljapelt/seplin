@@ -72,29 +72,23 @@ let count_decl stmt_dec_list =
 let get_globvar_dependencies gvs =
   let rec dependencies_from_assignable expr acc =
     match expr with
-    | Reference r -> ( match r with
-      | Null -> acc
-      | OtherContext _ -> raise_failure ("Global variables cannot depend on other contexts")
-      | LocalContext(ref) -> ( match ref with
-        | Access (name) -> name::acc
-        | ArrayAccess (refer,_) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
-        | StructAccess (refer,_) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
-      )
-    )
-    | Value v -> ( match v with
-      | Binary_op (_, expr1, expr2) -> dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc)
-      | Unary_op (_, expr1) -> dependencies_from_assignable expr1 acc
-      | ArraySize (refer) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
-      | Bool _ -> acc
-      | Int _ -> acc
-      | Char _ -> acc
-      | GetInput _ -> acc
-      | NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
-      | ArrayLiteral exprs -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
-      | NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
-      | StructLiteral (exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
-      | AnonRoutine _ -> acc
-    )
+    | Reference Null -> acc
+    | Reference OtherContext _ -> raise_failure ("Global variables cannot depend on other contexts")
+    | Reference LocalContext Access name -> name::acc
+    | Reference LocalContext ArrayAccess(refer,_) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
+    | Reference LocalContext StructAccess(refer,_) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
+    | Value Binary_op (_, expr1, expr2) -> dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc)
+    | Value Unary_op (_, expr1) -> dependencies_from_assignable expr1 acc
+    | Value ArraySize (refer) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
+    | Value Bool _ -> acc
+    | Value Int _ -> acc
+    | Value Char _ -> acc
+    | Value GetInput _ -> acc
+    | Value NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
+    | Value ArrayLiteral exprs -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
+    | Value NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
+    | Value StructLiteral (exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
+    | Value AnonRoutine _ -> acc
     | Ternary (cond, expr1, expr2) -> dependencies_from_assignable cond (dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc))
   in
   let dependencies_from_declaration dec =
@@ -213,11 +207,8 @@ and compile_structure_arg arg (op_typ:op_typ) idx env contexts acc =
     | T_Bool -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignByte :: FieldAssign :: acc))
     | _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (IncrRef :: FieldAssign :: acc))
   )
-  | Reference r -> (
-    match r with
-    | Null -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (FieldAssign :: acc))
-    | _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (FetchFull :: IncrRef :: FieldAssign :: acc))
-  )
+  | Reference Null -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (FieldAssign :: acc))
+  | Reference _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (FetchFull :: IncrRef :: FieldAssign :: acc))
   | Ternary(cond,expr1,expr2) -> ( let cond = optimize_expr cond env in 
       match cond with
       | (Value(Bool true)) -> compile_structure_arg expr1 op_typ idx env contexts acc
@@ -269,10 +260,10 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
     | _ -> raise_failure "Not a struct type"
   )
   | Binary_op (op, e1, e2) -> ( match op, e1, e2 with
-    | "=", Reference(r), Reference(Null) -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: acc)
-    | "=", Reference(Null), Reference(r) -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: acc)
-    | "!=", Reference(r), Reference(Null) -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: BoolNot :: acc)
-    | "!=", Reference(Null), Reference(r) -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: BoolNot :: acc)
+    | "=", Reference r, Reference Null -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: acc)
+    | "=", Reference Null, Reference r -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: acc)
+    | "!=", Reference r, Reference Null -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: BoolNot :: acc)
+    | "!=", Reference Null, Reference r -> compile_reference r env contexts (FetchFull :: PlaceFull(C_Int 0) :: FullEq :: BoolNot :: acc)
     | _ -> (
       match op_typ with
       | BinOp_T(op, ot1, ot2) -> ( match op, translate_operational_type ot1, translate_operational_type ot2 with
@@ -330,8 +321,17 @@ and compile_argument arg (env : environment) contexts acc =
         | T_Generic _ -> compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc)
         | T_Routine _ -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc))
       )
-      | Reference r -> (match r with
-        | LocalContext ref -> ( match ref with
+      | Reference LocalContext ref -> ( match ref with
+        | Access name -> ( match name_type name env with
+          | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+          | _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+        )
+        | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+        | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+      )
+      | Reference OtherContext (cn,ref) -> ( match lookup_context cn env.file_refs contexts with
+        | None -> raise_failure ("No such context:"^cn)
+        | Some(env) -> ( match ref with
           | Access name -> ( match name_type name env with
             | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
             | _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
@@ -339,19 +339,8 @@ and compile_argument arg (env : environment) contexts acc =
           | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
           | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
         )
-        | OtherContext (cn,ref) -> ( match lookup_context cn env.file_refs contexts with
-          | None -> raise_failure ("No such context:"^cn)
-          | Some(env) -> ( match ref with
-            | Access name -> ( match name_type name env with
-              | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-              | _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-            )
-            | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-            | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-          )
         )
-        | Null -> compile_reference r env contexts acc
-      )
+      | Reference Null -> compile_reference Null env contexts acc
       | Ternary(cond,expr1,expr2) -> ( let cond = optimize_expr cond env in 
         match cond with
         | (Value(Bool true)) -> compile_argument ((pmod, pty),expr1) env contexts acc
