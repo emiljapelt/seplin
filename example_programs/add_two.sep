@@ -1,0 +1,39 @@
+
+external char_int ::= (c : const char, o : int) {
+    if (c) {
+        is ('0') o := 0;
+        is ('1') o := 1;
+        is ('2') o := 2;
+        is ('3') o := 3;
+        is ('4') o := 4;
+        is ('5') o := 5;
+        is ('6') o := 6;
+        is ('7') o := 7;
+        is ('8') o := 8;
+        is ('9') o := 9;
+    } else halt "Could not find integer value of: ", c, '\n';
+}
+
+entry main ::= () {
+    input ::= read<char[]>;
+
+    a ::= 0;
+    b ::= 0;
+
+    handle ::= a;
+
+    for(i ::= 0; i < |input|; i +:= 1) {
+        if (input[i] = ' ') handle := b;
+        else {
+            v : int;
+            char_int(input[i], v);
+            handle *:= 10;
+            handle +:= v;
+        }
+    }
+
+    print a + b, '\n';
+
+};
+
+struct list<A>(hd: A, tl: list<A>);
