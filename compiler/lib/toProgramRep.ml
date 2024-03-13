@@ -148,10 +148,7 @@ let rec compile_expr expr (op_typ: op_typ) var_env contexts acc =
 
 and compile_inner_reference iref env contexts acc = 
   match iref with
-  | Access name -> ( match name_type name env with
-    | RoutineName -> DeclareFull :: CloneFull :: DeclareFull :: CloneFull :: CPlaceLabel (env.context_name^"#"^name) :: AssignFull :: AssignFull :: acc
-    | _ -> (fetch_var_index name env.var_env.globals env.var_env.locals) :: RefFetch :: acc
-  )
+  | Access name -> (fetch_var_index name env.var_env.globals env.var_env.locals) :: RefFetch :: acc
   | StructAccess (refer, field) -> ( 
     let (_, ref_ty) = Typing.type_inner_reference refer env contexts in
     match ref_ty with
@@ -327,20 +324,14 @@ and compile_argument arg (env : environment) contexts acc =
         | T_Routine _ -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc))
       )
       | Reference LocalContext ref -> ( match ref with
-        | Access name -> ( match name_type name env with
-          | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-          | _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
-        )
+        | Access _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
         | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
         | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
       )
       | Reference OtherContext (cn,ref) -> ( match lookup_context cn env.file_refs contexts with
         | None -> raise_failure ("No such context:"^cn)
         | Some(env) -> ( match ref with
-          | Access name -> ( match name_type name env with
-            | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-            | _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
-          )
+          | Access _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
           | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
           | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
         )

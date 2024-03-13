@@ -121,15 +121,3 @@ let routine_exists (name: string) routines =
 
 let struct_exists (name: string) structs =
   Option.is_some (lookup_struct name structs)
-
-type nameType =
-  | RoutineName
-  | LocalVariableName
-  | GlobalVariableName
-
-let name_type name env =
-  match lookup_localvar name env.var_env.locals with
-  | Some _ -> LocalVariableName
-  | None ->  match lookup_globvar name env.var_env.globals with
-    | Some _ -> GlobalVariableName
-    | None -> raise_failure ("Nothing given the name '" ^ name ^ "'")
