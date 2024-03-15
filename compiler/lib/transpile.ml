@@ -1,6 +1,7 @@
 open ProgramRep
 
 let definitions = "
+#pragma GCC optimize (\"O0\")
 typedef signed long long int full_t;
 typedef unsigned long long int ufull_t;
 typedef signed int half_t;
@@ -554,7 +555,7 @@ let main = "
 
 int main(int argc, char *argv[]) {
   program(\"main\", argc-1, argv+1);
-  return 1;
+  return 0;
 }
 "
 
