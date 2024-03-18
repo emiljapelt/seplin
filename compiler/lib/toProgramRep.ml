@@ -803,6 +803,8 @@ let gather_context_infos base_path parse =
     | (GlobalDeclaration(accmod,declaration))::t -> ( match declaration with
       | TypeDeclaration(vmod, typ, name) -> 
         get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,Some typ,declaration)::globals) structs
+      | AssignDeclaration(vmod, None, name, Value AnonRoutine(tvs,args,_)) -> 
+        get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,Some(T_Routine(tvs, List.map (fun (vm,t,_) -> (vm,t)) args)),declaration)::globals) structs
       | AssignDeclaration(vmod, typ_opt, name, _) -> 
         get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,typ_opt,declaration)::globals) structs
     )

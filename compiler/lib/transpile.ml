@@ -426,7 +426,6 @@ static inline void incr_ref() {
             ((uhalf_t*)target)[-2] = (((uhalf_t*)target)[-2] + 1);
         }
         else if (on_stack(target)) {
-            //to_origin(&target, sp);
             target = *(full_t**)target;
             if (*target) {
                 ((uhalf_t*)target)[-2] = (((uhalf_t*)target)[-2] + 1);

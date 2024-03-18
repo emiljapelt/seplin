@@ -422,9 +422,8 @@ static inline void incr_ref() {
         }
         else if (ON_STACK(target, sp)) {
             target = *(full_t**)target;
-            //to_origin(&target, sp);
             if (*target) {
-                INCR_REF_COUNT(*target);
+                INCR_REF_COUNT(target);
             }
         }
     }
