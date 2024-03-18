@@ -632,7 +632,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       | Some(cenv) -> match lookup_globvar n cenv.var_env.globals with
         | None -> raise_failure ("No such routine '" ^n^ "' in context '" ^cn^ "'" )
         | Some(Internal,_,_,_) -> raise_failure ("Internal access of other context")
-        | Some(_,_,T_Routine(tvs,ps),_) -> (tvs, ps, (fun acc -> compile_expr_as_value (Reference ref) (NOp_T(T_Routine(tvs,ps))) env contexts (Call :: acc)),env)
+        | Some(_,_,Some T_Routine(tvs,ps),_) -> (tvs, ps, (fun acc -> compile_expr_as_value (Reference ref) (NOp_T(T_Routine(tvs,ps))) env contexts (Call :: acc)),env)
         | Some _ -> raise_failure (n ^ " is not a routine in " ^ cn)
     )
     | LocalContext(Access n) -> ( 
@@ -710,16 +710,62 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     aux (List.rev exprs) acc
   )
 
+let set_globalvar_typ name context_name new_typ contexts =
+  List.map (fun (Context(cn,env) as context) -> 
+    if context_name = cn then (
+      let updated = List.map ( fun (accmod,n,cn,idx,vm,old_ty,dec) ->
+        if name = n then (accmod,n,cn,idx,vm,Some new_typ,dec)
+        else (accmod,n,cn,idx,vm,old_ty,dec)
+      ) env.var_env.globals in
+      Context(cn, { env with var_env = { env.var_env with globals = updated}})
+    )
+    else context
+  ) contexts
+
 let rec compile_globalvars globvars structs contexts acc =
-  (* let globals_map = to_string_map globvars (fun (_,n,_,_,_,_,_) -> n) (fun (acc,_,ctx,cnt,vm,ty,dec) -> (acc,ctx,cnt,vm,ty,dec)) in *)
-  (* let structs_map = to_string_map structs (fun (n,_,_) -> n) (fun (_,tv,ps) -> (tv,ps)) in *)
   match globvars with
-  | [] -> acc
-  | (_,_,context_name,_,_,_,dec)::t -> (
+  | [] -> (acc,contexts)
+  | (_,name,context_name,_,vmod,Some ty,(AssignDeclaration(_,typ,_,expr) as dec))::t -> (
     try (
       match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
       | None -> raise_failure "Failed context lookup"
       | Some(Context(_,env)) -> (
+        let contexts = if not(well_defined_type (Some ty) env.var_env) then 
+          let typ_res = declaration_type_check vmod typ expr env contexts in
+          let o_typ = if Result.is_ok typ_res then Result.get_ok typ_res else raise_failure (Result.get_error typ_res) in
+          let typ = translate_operational_type o_typ in
+          set_globalvar_typ name context_name typ contexts
+        else contexts 
+        in
+        let (_,f) = compile_declaration dec ({ context_name = context_name; var_env = ({ locals = []; globals = env.var_env.globals; structs = structs; typ_vars = env.var_env.typ_vars}); file_refs = env.file_refs }) contexts in
+        compile_globalvars t structs contexts (f acc)
+      )
+    )
+    with
+    | Failure(_,line_opt,expl_opt) -> raise (Failure(Some context_name,line_opt,expl_opt))
+  )
+  | (_,name,context_name,_,_,_,(TypeDeclaration(_,typ,_) as dec))::t -> (
+    try (
+      match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
+      | None -> raise_failure "Failed context lookup"
+      | Some(Context(_,env)) -> (
+        let contexts = set_globalvar_typ name context_name typ contexts in
+        let (_,f) = compile_declaration dec ({ context_name = context_name; var_env = ({ locals = []; globals = env.var_env.globals; structs = structs; typ_vars = env.var_env.typ_vars}); file_refs = env.file_refs }) contexts in
+        compile_globalvars t structs contexts (f acc)
+      )
+    )
+    with
+    | Failure(_,line_opt,expl_opt) -> raise (Failure(Some context_name,line_opt,expl_opt))
+  )
+  | (_,name,context_name,_,vmod,None,(AssignDeclaration(_,typ,_,expr) as dec))::t -> (
+    try (
+      match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
+      | None -> raise_failure "Failed context lookup"
+      | Some(Context(_,env)) -> (
+        let typ_res = declaration_type_check vmod typ expr env contexts in
+        let o_typ = if Result.is_ok typ_res then Result.get_ok typ_res else raise_failure (Result.get_error typ_res) in
+        let typ = translate_operational_type o_typ in
+        let contexts = set_globalvar_typ name context_name typ contexts in
         let (_,f) = compile_declaration dec ({ context_name = context_name; var_env = ({ locals = []; globals = env.var_env.globals; structs = structs; typ_vars = env.var_env.typ_vars}); file_refs = env.file_refs }) contexts in
         compile_globalvars t structs contexts (f acc)
       )
@@ -755,14 +801,10 @@ let gather_context_infos base_path parse =
     )
     | (Struct(name, typ_vars, fields))::t -> get_context_environment path t file_refs globals (StringMap.add name (typ_vars, fields) structs)
     | (GlobalDeclaration(accmod,declaration))::t -> ( match declaration with
-      | TypeDeclaration(vmod, typ, name) -> get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,typ,declaration)::globals) structs
-      | AssignDeclaration(vmod, None, name, Value(AnonRoutine(tv,ps,_))) -> (
-        get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,T_Routine(tv,List.map (fun (a,b,_) -> (a,b)) ps),declaration)::globals) structs
-      )
-      | AssignDeclaration(vmod, typ_opt, name, _) -> ( match typ_opt with
-        | Some(typ) -> get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,typ,declaration)::globals) structs
-        | None -> raise_failure "Cannot infere types for global variables"
-      )
+      | TypeDeclaration(vmod, typ, name) -> 
+        get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,Some typ,declaration)::globals) structs
+      | AssignDeclaration(vmod, typ_opt, name, _) -> 
+        get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,typ_opt,declaration)::globals) structs
     )
   in
   let rec get_contexts path parse acc =
@@ -820,7 +862,7 @@ let compile path parse =
     let () = check_topdecs topdecs structs in
     let () = check_structs structs in
 
-    let program = compile_globalvars (List.rev globals_ordered) structs contexts [Start] in
+    let (program, contexts) = compile_globalvars (List.rev globals_ordered) structs contexts [Start] in
     let global_var_info = gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals) in
     let struct_info = StringMap.to_list structs |> List.map (fun (n,(tv,ps)) -> (n,tv,ps)) in
     Program(struct_info, global_var_info, program)

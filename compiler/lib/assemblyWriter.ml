@@ -107,7 +107,7 @@ let write_entry_points file globs structs =
   let rec aux globs =
     match globs with
     | [] -> ()
-    | (Entry,_,T_Routine(_,ps),idx,name)::t -> 
+    | (Entry,_,Some T_Routine(_,ps),idx,name)::t -> 
       write_entry_point_info file name idx ps structs ; aux t
     | _::t -> aux t
   in
@@ -123,7 +123,8 @@ let write_global_vars file gvs structs =
   let rec aux gs = 
     match gs with
     | [] -> ()
-    | (_,varmod,ty,_,name)::t -> write_global_var_info file name varmod ty structs ; aux t
+    | (_,varmod,Some ty,_,name)::t -> write_global_var_info file name varmod ty structs ; aux t
+    | (_,_,None,_,name)::_ -> raise_failure ("unset type: "^name)
   in
   aux gvs
 

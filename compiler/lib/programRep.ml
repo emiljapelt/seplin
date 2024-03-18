@@ -7,7 +7,7 @@ type full_container =
   | C_Int of int
   
 type program =
-  | Program of (string * char list * (var_mod * typ * string) list) list * (access_mod * var_mod * typ * int * string) list * concrete_program_part list
+  | Program of (string * char list * (var_mod * typ * string) list) list * (access_mod * var_mod * typ option * int * string) list * concrete_program_part list
 
 and program_part =
   | Label of string

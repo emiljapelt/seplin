@@ -289,7 +289,7 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
     | Ok rs -> Ok (List.rev rs)
     | e -> e
   
-  and is_fully_defined_type typ_opt var_env =
+  (*and is_fully_defined_type typ_opt var_env =
     match typ_opt with
     | None -> false
     | Some(T_Array sub_t) -> is_fully_defined_type sub_t var_env
@@ -298,7 +298,19 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
       | None -> false
       | Some(tvs,_) -> (List.length tvs = List.length typ_args) && List.fold_left (fun acc ta -> (is_fully_defined_type ta var_env) && acc) true typ_args 
     )
-    | _ -> true
+    | _ -> true*)
+
+and well_defined_type typ_opt var_env =
+  match typ_opt with
+  | None -> false
+  | Some(T_Array sub_t) -> well_defined_type sub_t var_env
+  | Some(T_Generic c) -> List.mem c var_env.typ_vars
+  | Some(T_Struct(name, typ_args)) -> ( match lookup_struct name var_env.structs with
+    | None -> false
+    | Some(tvs,_) -> (List.length tvs = List.length typ_args) && List.fold_left (fun acc ta -> (well_defined_type ta var_env) && acc) true typ_args 
+  )
+  | Some(T_Routine(_,ts)) -> List.fold_left (fun acc (_,t) -> well_defined_type (Some t) var_env && acc) true ts
+  | _ -> true
 
   and dig_into_struct typ typ_vars_args_map param_arg_map var_env acc =
     match typ_vars_args_map with
@@ -380,7 +392,7 @@ and type_value val_expr env contexts : var_mod * (op_typ, string) result =
     let rec aux tvas acc =
       match tvas with
       | [] -> List.rev acc
-      | (c,typ_arg)::t -> ( match is_fully_defined_type typ_arg env.var_env with
+      | (c,typ_arg)::t -> ( match well_defined_type typ_arg env.var_env with
         | true -> aux t (typ_arg::acc)
         | false -> ( match typ_arg with
           | None -> ( match find_possible_type (T_Generic c) (List.combine params args) env contexts with (*match get_first_type (find_related_args (T_Generic c) (List.combine params args) env []) env contexts with*)
@@ -434,18 +446,6 @@ let parameters_check typ_vars structs params =
     | T_Routine(_,types) -> List.fold_left (fun acc (_,typ) -> (check typ) && acc) true types
   in
   List.fold_left (fun acc (_,ty) -> (check ty) && acc) true params
-
-let rec well_defined_type typ_opt var_env =
-  match typ_opt with
-  | None -> false
-  | Some(T_Array sub_t) -> well_defined_type sub_t var_env
-  | Some(T_Generic c) -> List.mem c var_env.typ_vars
-  | Some(T_Struct(name, typ_args)) -> ( match lookup_struct name var_env.structs with
-    | None -> false
-    | Some(tvs,_) -> (List.length tvs = List.length typ_args) && List.fold_left (fun acc ta -> (well_defined_type ta var_env) && acc) true typ_args 
-  )
-  | Some(T_Routine(_,ts)) -> List.fold_left (fun acc (_,t) -> well_defined_type (Some t) var_env && acc) true ts
-  | _ -> true
 
 let check_topdecs file structs =
   let rec aux tds =

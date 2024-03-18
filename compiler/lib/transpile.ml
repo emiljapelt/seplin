@@ -652,7 +652,7 @@ let create_starter gs =
   let rec aux gs acc = match gs with
   | [] -> acc
   | h::t -> ( match h with
-    | (Entry,_,T_Routine(_,arg_info),idx,name) -> aux t (create_if_case name idx (create_arg_loading arg_info)::acc)
+    | (Entry,_,Some T_Routine(_,arg_info),idx,name) -> aux t (create_if_case name idx (create_arg_loading arg_info)::acc)
     | _ -> aux t acc
   )
   in
