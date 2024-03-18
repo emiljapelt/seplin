@@ -61,11 +61,10 @@ byte_t* allocate_struct(unsigned int fields) {
 }
 
 void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace) {
-    //if (addr == 0) return;
-    if(!ON_HEAP((byte_t*)addr) || !ON_STACK((byte_t*)addr,sp)) return;
-    if (*addr == 0) return;
-    to_origin(&addr, sp);
-    if (!ON_HEAP((byte_t*)addr)) addr = (full_t*)*addr;
+    if(addr == 0 || (!ON_HEAP((byte_t*)addr) && !ON_STACK((byte_t*)addr,sp))) return;
+    if (ON_STACK(addr, sp)) addr = *(full_t**)addr;
+    //to_origin(&addr, sp);
+    //if (!ON_HEAP((byte_t*)addr)) addr = (full_t*)*addr;
     if (trace) {
         for(unsigned int i = 0; i < depth; i++) printf("  ");
         printf("Trying to free: 0x%llx\n", (ufull_t)addr);
@@ -90,22 +89,4 @@ void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace) {
     #else
         #error "Error: Could not resolve architecture size (32/64bit)."
     #endif
-}
-
-// * is the variable
-// ** is the stack value
-byte_t to_origin(full_t** target, ufull_t sp) {
-    if (**target == 0) return true;
-    if (!ON_HEAP((byte_t*)**target) && !ON_STACK((byte_t*)**target, sp)) return false;
-    if (ON_HEAP((byte_t*)**target)) return true;
-    if (ON_STACK((byte_t*)**target, sp)) {
-        full_t temp = **target;
-        while(true) {
-            if (*(byte_t**)temp == 0) break;
-            if (ON_HEAP(*(byte_t**)temp)) break;
-            temp = *(full_t*)temp;
-        }
-        *target = (full_t*)temp;
-        return true;
-    }
 }

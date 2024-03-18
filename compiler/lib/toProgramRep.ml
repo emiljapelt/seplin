@@ -612,7 +612,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       | T_Bool -> ( match opt_expr with 
         | Value(Bool true) -> CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_start) 0 (CLabel(label_cond) :: (GoTo(label_start) :: CLabel(label_stop) :: acc)))
         | Value(Bool false) -> acc
-        | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_expr_as_value expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
+        | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_expr_as_value opt_expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
       )
       | _ -> raise_failure "Condition not of type 'bool'"
     )
