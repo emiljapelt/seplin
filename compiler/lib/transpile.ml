@@ -291,10 +291,11 @@ static inline void field_assign() {
 }
 
 static inline void ref_fetch() {
-    full_t** target = *(full_t***)(s + sp + -8);
-    if (on_stack(target)) target = *(full_t***)target;
+    full_t* target = *(full_t**)(s + sp + -8);
+    if (target && on_stack(target) && on_stack(*(full_t**)target))
+        target = *(full_t**)target;
     //if (on_stack(target)) to_origin(&target, sp);
-    *(full_t***)(s + sp + -8) = target;
+    *(full_t**)(s + sp + -8) = target;
 }
 
 static inline void field_fetch() {
