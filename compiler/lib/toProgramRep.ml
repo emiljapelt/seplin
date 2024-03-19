@@ -722,10 +722,10 @@ let set_globalvar_typ name context_name new_typ contexts =
     else context
   ) contexts
 
-let rec compile_globalvars globvars structs contexts acc =
-  match globvars with
-  | [] -> (acc,contexts)
-  | (_,name,context_name,_,vmod,Some ty,(AssignDeclaration(_,typ,_,expr) as dec))::t -> (
+let type_globalvars globals contexts =
+  let rec aux globals contexts = match globals with
+    | [] -> contexts
+    | (_,name,context_name,_,vmod,Some ty,AssignDeclaration(_,typ,_,expr))::t -> (
     try (
       match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
       | None -> raise_failure "Failed context lookup"
@@ -737,27 +737,25 @@ let rec compile_globalvars globvars structs contexts acc =
           set_globalvar_typ name context_name typ contexts
         else contexts 
         in
-        let (_,f) = compile_declaration dec ({ context_name = context_name; var_env = ({ locals = []; globals = env.var_env.globals; structs = structs; typ_vars = env.var_env.typ_vars}); file_refs = env.file_refs }) contexts in
-        compile_globalvars t structs contexts (f acc)
+        aux t contexts 
       )
     )
     with
     | Failure(_,line_opt,expl_opt) -> raise (Failure(Some context_name,line_opt,expl_opt))
   )
-  | (_,name,context_name,_,_,_,(TypeDeclaration(_,typ,_) as dec))::t -> (
+  | (_,name,context_name,_,_,_,TypeDeclaration(_,typ,_))::t -> (
     try (
       match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
       | None -> raise_failure "Failed context lookup"
-      | Some(Context(_,env)) -> (
+      | Some(Context(_,_)) -> (
         let contexts = set_globalvar_typ name context_name typ contexts in
-        let (_,f) = compile_declaration dec ({ context_name = context_name; var_env = ({ locals = []; globals = env.var_env.globals; structs = structs; typ_vars = env.var_env.typ_vars}); file_refs = env.file_refs }) contexts in
-        compile_globalvars t structs contexts (f acc)
+        aux t contexts
       )
     )
     with
     | Failure(_,line_opt,expl_opt) -> raise (Failure(Some context_name,line_opt,expl_opt))
   )
-  | (_,name,context_name,_,vmod,None,(AssignDeclaration(_,typ,_,expr) as dec))::t -> (
+  | (_,name,context_name,_,vmod,None,AssignDeclaration(_,typ,_,expr))::t -> (
     try (
       match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
       | None -> raise_failure "Failed context lookup"
@@ -766,6 +764,24 @@ let rec compile_globalvars globvars structs contexts acc =
         let o_typ = if Result.is_ok typ_res then Result.get_ok typ_res else raise_failure (Result.get_error typ_res) in
         let typ = translate_operational_type o_typ in
         let contexts = set_globalvar_typ name context_name typ contexts in
+        aux t contexts
+      )
+    )
+    with
+    | Failure(_,line_opt,expl_opt) -> raise (Failure(Some context_name,line_opt,expl_opt)) 
+  )
+  in
+  aux globals contexts
+
+
+let rec compile_globalvars globvars structs contexts acc =
+  match globvars with
+  | [] -> (acc,contexts)
+  | (_,_,context_name,_,_,_,dec)::t -> (
+    try (
+      match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
+      | None -> raise_failure "Failed context lookup"
+      | Some(Context(_,env)) -> (
         let (_,f) = compile_declaration dec ({ context_name = context_name; var_env = ({ locals = []; globals = env.var_env.globals; structs = structs; typ_vars = env.var_env.typ_vars}); file_refs = env.file_refs }) contexts in
         compile_globalvars t structs contexts (f acc)
       )
@@ -860,6 +876,7 @@ let compile path parse =
     let (topdecs,globals,structs) = merge_contexts context_infos in
     let globals_ordered = (order_dep_globvars (get_globvar_dependencies globals)) in
     let contexts = create_contexts globals_ordered context_infos in
+    let contexts = type_globalvars globals_ordered contexts in
 
     let () = check_topdecs topdecs structs in
     let () = check_structs structs in
