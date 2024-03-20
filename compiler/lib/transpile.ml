@@ -540,6 +540,7 @@ static inline void* stop() {
 let main = "
 
 int main(int argc, char *argv[]) {
+  if (argc < 2) { printf(\"No entrypoint specified\\n\"); return 1; }
   program(argv[1], argc-2, argv+2);
   return 0;
 }
