@@ -148,12 +148,9 @@ let rec compile_expr expr (op_typ: op_typ) var_env contexts acc =
 
 and compile_inner_reference iref env contexts acc = 
   match iref with
-  | Access name -> ( match name_type name env with
-    | RoutineName -> DeclareFull :: CloneFull :: DeclareFull :: CloneFull :: CPlaceLabel (env.context_name^"#"^name) :: AssignFull :: AssignFull :: acc
-    | _ -> (fetch_var_index name env.var_env.globals env.var_env.locals) :: RefFetch :: acc
-  )
+  | Access name -> (fetch_var_index name env.var_env.globals env.var_env.locals) :: RefFetch :: acc
   | StructAccess (refer, field) -> ( 
-    let (_, ref_ty) = Typing.type_inner_reference refer env true contexts in
+    let (_, ref_ty) = Typing.type_inner_reference refer env contexts in
     match ref_ty with
     | Ok T_Struct (name, _) -> (
       match lookup_struct name env.var_env.structs with
@@ -167,7 +164,12 @@ and compile_inner_reference iref env contexts acc =
     | Error m -> raise_failure m
   )
   | ArrayAccess (refer, index) -> (
-    compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index (NOp_T T_Int) env contexts (FieldFetch :: acc)))
+    match type_expr index env contexts with
+    | _, Ok op_typ -> ( match translate_operational_type op_typ with
+      | T_Int -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index op_typ env contexts (FieldFetch :: acc)))
+      | _ -> raise_failure "Array index with non-int type"
+    )
+    | _, Error msg -> raise_failure msg
   )
 
 and compile_reference ref_expr (env : environment) (contexts : context list) acc =
@@ -213,7 +215,7 @@ and compile_structure_arg arg (op_typ:op_typ) idx env contexts acc =
       match cond with
       | (Value(Bool true)) -> compile_structure_arg expr1 op_typ idx env contexts acc
       | (Value(Bool false)) -> compile_structure_arg expr2 op_typ idx env contexts acc
-      | _ -> ( match type_expr cond env true contexts with
+      | _ -> ( match type_expr cond env contexts with
         | (_, Error msg) -> raise_failure msg
         | (_, Ok ot) -> ( match translate_operational_type ot with
           | T_Bool -> (
@@ -322,20 +324,14 @@ and compile_argument arg (env : environment) contexts acc =
         | T_Routine _ -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc))
       )
       | Reference LocalContext ref -> ( match ref with
-        | Access name -> ( match name_type name env with
-          | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-          | _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-        )
+        | Access _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
         | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
         | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
       )
       | Reference OtherContext (cn,ref) -> ( match lookup_context cn env.file_refs contexts with
         | None -> raise_failure ("No such context:"^cn)
         | Some(env) -> ( match ref with
-          | Access name -> ( match name_type name env with
-            | RoutineName -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-            | _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-          )
+          | Access _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
           | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
           | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
         )
@@ -345,7 +341,7 @@ and compile_argument arg (env : environment) contexts acc =
         match cond with
         | (Value(Bool true)) -> compile_argument ((pmod, pty),expr1) env contexts acc
         | (Value(Bool false)) -> compile_argument ((pmod, pty),expr2) env contexts acc
-        | _ -> ( match type_expr cond env true contexts with
+        | _ -> ( match type_expr cond env contexts with
           | (_, Error msg) -> raise_failure msg
           | (_, Ok ot) -> ( match translate_operational_type ot with
             | T_Bool -> (
@@ -386,7 +382,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       match cond with
       | (Value(Bool true)) -> compile_assignment target expr1 env contexts acc
       | (Value(Bool false)) -> compile_assignment target expr2 env contexts acc
-      | _ -> ( match type_expr cond env true contexts with
+      | _ -> ( match type_expr cond env contexts with
         | (_, Error msg) -> raise_failure msg
         | (_, Ok ot) -> ( match translate_operational_type ot with
           | T_Bool -> (
@@ -419,7 +415,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       | T_Generic _ -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
       | T_Routine _ -> compile_reference target env contexts (FetchFull :: compile_reference re env contexts (FetchFull:: FetchFull :: IncrRef :: RefAssign :: acc))
     )
-    | (StructAccess(refer, field), Value v) -> ( match Typing.type_inner_reference refer env true contexts with
+    | (StructAccess(refer, field), Value v) -> ( match Typing.type_inner_reference refer env contexts with
       | (_,Ok T_Struct (str_name, _)) -> ( match lookup_struct str_name env.var_env.structs with
         | None -> raise_failure ("Could not find struct '" ^ str_name ^ "'")
         | Some (_, fields) -> ( match struct_field field fields with
@@ -438,7 +434,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       | (_, Ok t) -> raise_failure ("Struct field assignment to variable of type '" ^ Typing.type_string t ^ "'") 
       | (_, Error m) -> raise_failure m
     )
-    | (StructAccess(refer, field), Reference re) -> ( match Typing.type_inner_reference refer env true contexts with
+    | (StructAccess(refer, field), Reference re) -> ( match Typing.type_inner_reference refer env contexts with
       | (_,Ok T_Struct (str_name, _)) -> ( match lookup_struct str_name env.var_env.structs with
         | None -> raise_failure ("Could not find struct '" ^ str_name ^ "'")
         | Some (_, fields) -> ( match struct_field field fields with
@@ -457,10 +453,10 @@ and compile_assignment target assign (env : environment) contexts acc =
       | (_,Ok t) -> raise_failure ("Struct field assignment to variable of type '" ^ Typing.type_string t ^ "'") 
       | (_, Error m) -> raise_failure m
     )
-    | (ArrayAccess(refer, index), Value v) -> ( match Typing.type_inner_reference refer env true contexts with
+    | (ArrayAccess(refer, index), Value v) -> ( match Typing.type_inner_reference refer env contexts with
       | (_,Ok T_Array _) -> ( 
         let index = optimize_expr index env in
-        let (_,index_type_res) = Typing.type_expr index env true contexts in
+        let (_,index_type_res) = Typing.type_expr index env contexts in
         match index_type_res with
         | Ok index_ot -> ( match translate_operational_type index_ot with 
           | T_Int -> ( match translate_operational_type assign_type with
@@ -480,10 +476,10 @@ and compile_assignment target assign (env : environment) contexts acc =
       | (_,Ok t) -> raise_failure ("Array assignment to variable of type '" ^ Typing.type_string t ^ "'") 
       | (_,Error m) -> raise_failure m
     )
-    | (ArrayAccess(refer, index), Reference re) -> ( match Typing.type_inner_reference refer env true contexts with
+    | (ArrayAccess(refer, index), Reference re) -> ( match Typing.type_inner_reference refer env contexts with
       | (_,Ok T_Array _) -> ( 
         let index = optimize_expr index env in
-        let (_,index_type_res) = Typing.type_expr index env true contexts in
+        let (_,index_type_res) = Typing.type_expr index env contexts in
         match index_type_res with
         | Ok index_ot -> ( match translate_operational_type index_ot with
           | T_Int -> ( match translate_operational_type assign_type with
@@ -550,7 +546,7 @@ and compile_declaration dec env contexts =
         match cond with
         | Value(Bool true) -> let (_,f) = compile_declaration (AssignDeclaration(vmod,Some typ,name,expr1)) env contexts in f
         | Value(Bool false) -> let (_,f) = compile_declaration (AssignDeclaration(vmod,Some typ,name,expr2)) env contexts in f
-        | _ -> ( match type_expr cond env true contexts with
+        | _ -> ( match type_expr cond env contexts with
             | (_, Error msg) -> raise_failure msg
             | (_, Ok ot) -> ( match translate_operational_type ot with
               | T_Bool -> (
@@ -593,7 +589,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     let label_true = Helpers.new_label () in
     let label_stop = Helpers.new_label () in
     let opt_expr = optimize_expr expr env in
-    let (_, t) = Typing.type_expr opt_expr env true contexts in
+    let (_, t) = Typing.type_expr opt_expr env contexts in
     match t with
     | Ok ot -> ( match translate_operational_type ot with 
       | T_Bool -> ( match opt_expr with 
@@ -610,13 +606,13 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     let label_start = Helpers.new_label () in
     let label_stop = Helpers.new_label () in
     let opt_expr = optimize_expr expr env in
-    let (_, t) = Typing.type_expr opt_expr env true contexts in
+    let (_, t) = Typing.type_expr opt_expr env contexts in
     match t with
     | Ok ot -> ( match translate_operational_type ot with
       | T_Bool -> ( match opt_expr with 
         | Value(Bool true) -> CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_start) 0 (CLabel(label_cond) :: (GoTo(label_start) :: CLabel(label_stop) :: acc)))
         | Value(Bool false) -> acc
-        | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_expr_as_value expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
+        | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_expr_as_value opt_expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
       )
       | _ -> raise_failure "Condition not of type 'bool'"
     )
@@ -636,16 +632,16 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       | Some(cenv) -> match lookup_globvar n cenv.var_env.globals with
         | None -> raise_failure ("No such routine '" ^n^ "' in context '" ^cn^ "'" )
         | Some(Internal,_,_,_) -> raise_failure ("Internal access of other context")
-        | Some(_,_,T_Routine(tvs,ps),_) -> (tvs, ps, (fun acc -> compile_expr_as_value (Reference ref) (NOp_T(T_Routine(tvs,ps))) env contexts (Call :: acc)),env)
+        | Some(_,_,Some T_Routine(tvs,ps),_) -> (tvs, ps, (fun acc -> compile_expr_as_value (Reference ref) (NOp_T(T_Routine(tvs,ps))) env contexts (Call :: acc)),env)
         | Some _ -> raise_failure (n ^ " is not a routine in " ^ cn)
     )
     | LocalContext(Access n) -> ( 
-      if (localvar_exists n env.var_env.locals) || (globvar_exists n env.var_env.globals) then match type_inner_reference (Access n) env true contexts with
+      if (localvar_exists n env.var_env.locals) || (globvar_exists n env.var_env.globals) then match type_inner_reference (Access n) env contexts with
         | (_, Ok T_Routine(tvs, ts)) -> (tvs, ts, (fun acc -> compile_expr_as_value (Reference ref) (NOp_T(T_Routine(tvs,ts))) env contexts (Call :: acc)), env)
         | _ -> raise_failure "Call to non-routine value"
       else raise_failure ("No such routine '" ^n^ "' in context '" ^env.context_name^ "'" )
     )
-    | LocalContext(access) -> ( match type_inner_reference access env true contexts with
+    | LocalContext(access) -> ( match type_inner_reference access env contexts with
       | (_, Ok T_Routine(tvs,ts)) -> (tvs, ts, (fun acc -> compile_inner_reference access env contexts (RefFetch :: FetchFull :: FetchFull :: Call :: acc)), env)
       | _ -> raise_failure "Call to non-routine value"
     )
@@ -680,7 +676,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
       | [] -> acc
       | h::t -> (
         let opt_h = optimize_expr h env.var_env in
-        let (_, expr_ty) = Typing.type_expr opt_h env true contexts in
+        let (_, expr_ty) = Typing.type_expr opt_h env contexts in
         match expr_ty with
         | Ok ot -> (match translate_operational_type ot with
           | T_Bool -> aux t (compile_expr_as_value opt_h ot env contexts (PrintBool :: acc))
@@ -714,11 +710,73 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     aux (List.rev exprs) acc
   )
 
+let set_globalvar_typ name context_name new_typ contexts =
+  List.map (fun (Context(cn,env) as context) -> 
+    if context_name = cn then (
+      let updated = List.map ( fun (accmod,n,cn,idx,vm,old_ty,dec) ->
+        if name = n then (accmod,n,cn,idx,vm,Some new_typ,dec)
+        else (accmod,n,cn,idx,vm,old_ty,dec)
+      ) env.var_env.globals in
+      Context(cn, { env with var_env = { env.var_env with globals = updated}})
+    )
+    else context
+  ) contexts
+
+let type_globalvars globals contexts =
+  let rec aux globals contexts = match globals with
+    | [] -> contexts
+    | (_,name,context_name,_,vmod,Some ty,AssignDeclaration(_,typ,_,expr))::t -> (
+    try (
+      match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
+      | None -> raise_failure "Failed context lookup"
+      | Some(Context(_,env)) -> (
+        let contexts = if not(well_defined_type (Some ty) env.var_env) then 
+          let typ_res = declaration_type_check vmod typ expr env contexts in
+          let o_typ = if Result.is_ok typ_res then Result.get_ok typ_res else raise_failure (Result.get_error typ_res) in
+          let typ = translate_operational_type o_typ in
+          set_globalvar_typ name context_name typ contexts
+        else contexts 
+        in
+        aux t contexts 
+      )
+    )
+    with
+    | Failure(_,line_opt,expl_opt) -> raise (Failure(Some context_name,line_opt,expl_opt))
+  )
+  | (_,name,context_name,_,_,_,TypeDeclaration(_,typ,_))::t -> (
+    try (
+      match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
+      | None -> raise_failure "Failed context lookup"
+      | Some(Context(_,_)) -> (
+        let contexts = set_globalvar_typ name context_name typ contexts in
+        aux t contexts
+      )
+    )
+    with
+    | Failure(_,line_opt,expl_opt) -> raise (Failure(Some context_name,line_opt,expl_opt))
+  )
+  | (_,name,context_name,_,vmod,None,AssignDeclaration(_,typ,_,expr))::t -> (
+    try (
+      match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
+      | None -> raise_failure "Failed context lookup"
+      | Some(Context(_,env)) -> (
+        let typ_res = declaration_type_check vmod typ expr env contexts in
+        let o_typ = if Result.is_ok typ_res then Result.get_ok typ_res else raise_failure (Result.get_error typ_res) in
+        let typ = translate_operational_type o_typ in
+        let contexts = set_globalvar_typ name context_name typ contexts in
+        aux t contexts
+      )
+    )
+    with
+    | Failure(_,line_opt,expl_opt) -> raise (Failure(Some context_name,line_opt,expl_opt)) 
+  )
+  in
+  aux globals contexts
+
+
 let rec compile_globalvars globvars structs contexts acc =
-  (* let globals_map = to_string_map globvars (fun (_,n,_,_,_,_,_) -> n) (fun (acc,_,ctx,cnt,vm,ty,dec) -> (acc,ctx,cnt,vm,ty,dec)) in *)
-  (* let structs_map = to_string_map structs (fun (n,_,_) -> n) (fun (_,tv,ps) -> (tv,ps)) in *)
   match globvars with
-  | [] -> acc
+  | [] -> (acc,contexts)
   | (_,_,context_name,_,_,_,dec)::t -> (
     try (
       match List.find_opt (fun c -> match c with Context(name,_) -> name = context_name) contexts with
@@ -759,14 +817,12 @@ let gather_context_infos base_path parse =
     )
     | (Struct(name, typ_vars, fields))::t -> get_context_environment path t file_refs globals (StringMap.add name (typ_vars, fields) structs)
     | (GlobalDeclaration(accmod,declaration))::t -> ( match declaration with
-      | TypeDeclaration(vmod, typ, name) -> get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,typ,declaration)::globals) structs
-      | AssignDeclaration(vmod, None, name, Value(AnonRoutine(tv,ps,_))) -> (
-        get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,T_Routine(tv,List.map (fun (a,b,_) -> (a,b)) ps),declaration)::globals) structs
-      )
-      | AssignDeclaration(vmod, typ_opt, name, _) -> ( match typ_opt with
-        | Some(typ) -> get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,typ,declaration)::globals) structs
-        | None -> raise_failure "Cannot infere types for global variables"
-      )
+      | TypeDeclaration(vmod, typ, name) -> 
+        get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,Some typ,declaration)::globals) structs
+      | AssignDeclaration(vmod, None, name, Value AnonRoutine(tvs,args,_)) -> 
+        get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,Some(T_Routine(tvs, List.map (fun (vm,t,_) -> (vm,t)) args)),declaration)::globals) structs
+      | AssignDeclaration(vmod, typ_opt, name, _) -> 
+        get_context_environment path t file_refs ((accmod,name,(complete_path base_path path),vmod,typ_opt,declaration)::globals) structs
     )
   in
   let rec get_contexts path parse acc =
@@ -820,11 +876,12 @@ let compile path parse =
     let (topdecs,globals,structs) = merge_contexts context_infos in
     let globals_ordered = (order_dep_globvars (get_globvar_dependencies globals)) in
     let contexts = create_contexts globals_ordered context_infos in
+    let contexts = type_globalvars globals_ordered contexts in
 
     let () = check_topdecs topdecs structs in
     let () = check_structs structs in
 
-    let program = compile_globalvars (List.rev globals_ordered) structs contexts [Start] in
+    let (program, contexts) = compile_globalvars (List.rev globals_ordered) structs contexts [Start] in
     let global_var_info = gather_globvar_info (match (List.find (fun c -> match c with Context(cn,_) -> cn = path) contexts) with Context(_,env) -> env.var_env.globals) in
     let struct_info = StringMap.to_list structs |> List.map (fun (n,(tv,ps)) -> (n,tv,ps)) in
     Program(struct_info, global_var_info, program)

@@ -163,7 +163,8 @@ static inline void field_fetch() {
 
 static inline void ref_fetch() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-    if (ON_STACK((byte_t*)target, sp)) to_origin(&target, sp);
+    if (target && ON_STACK(target, sp) && ON_STACK(*(full_t**)target, sp)) 
+        target = *(full_t**)target;
     *(full_t**)(stack + sp + MOVE(FULL, -1)) = target;
     ip++;
 }
@@ -420,9 +421,9 @@ static inline void incr_ref() {
             INCR_REF_COUNT(target);
         }
         else if (ON_STACK(target, sp)) {
-            to_origin(&target, sp);
+            target = *(full_t**)target;
             if (*target) {
-                INCR_REF_COUNT(*target);
+                INCR_REF_COUNT(target);
             }
         }
     }

@@ -1,6 +1,7 @@
 open ProgramRep
 
 let definitions = "
+#pragma GCC optimize (\"O0\")
 typedef signed long long int full_t;
 typedef unsigned long long int ufull_t;
 typedef signed int half_t;
@@ -35,7 +36,7 @@ byte_t** arguments;
 let functions = "
 static inline byte_t*  allocate(unsigned int size) {
     byte_t* alloc = (byte_t*)malloc(8+size);
-    if (alloc+size+8 > heap_max) heap_max = alloc+8;
+    if (alloc+size+8 > heap_max) heap_max = alloc+size+8;
     if (alloc < heap_min) heap_min = alloc;
 
     memset(alloc+8, 0, size);
@@ -129,27 +130,11 @@ static inline int on_stack(full_t* target) {
     return ((byte_t*)target >= s && (byte_t*)target < (s+STACK_SIZE));
 }
 
-static inline byte_t to_origin(full_t** target, ufull_t sp) {
-    if (**target == 0) return 1;
-    if (!on_heap((full_t*)**target) && !on_stack((full_t*)**target)) return 0;
-    if (on_heap((full_t*)**target)) return 1;
-    if (on_stack((full_t*)**target)) {
-        full_t temp = **target;
-        while(1) {
-            if (*(byte_t**)temp == 0) break;
-            if (on_heap(*(full_t**)temp)) break;
-            temp = *(full_t*)temp;
-        }
-        *target = (full_t*)temp;
-        return 1;
-    }
-}
-
 static inline void try_free(full_t* addr, unsigned int depth) {
-    if(!on_heap((full_t*)addr) || !on_stack((full_t*)addr)) return;
-    if (*addr == 0) return;
-    to_origin(&addr, sp);
-    if (!on_heap((full_t*)addr)) addr = (full_t*)*addr;
+    if(addr == 0 || (!on_heap((full_t*)addr) && !on_stack((full_t*)addr))) return;
+    if (on_stack(addr)) addr = *(full_t**)addr;
+    //to_origin(&addr, sp);
+    //if (!on_heap((full_t*)addr)) addr = (full_t*)*addr;
 
     (((uhalf_t *)addr)[-2] = ((uhalf_t *)addr)[-2] - 1);
     if ((((ufull_t *)addr)[-2])) return;
@@ -307,7 +292,9 @@ static inline void field_assign() {
 
 static inline void ref_fetch() {
     full_t* target = *(full_t**)(s + sp + -8);
-    if (on_stack(target)) to_origin(&target, sp);
+    if (target && on_stack(target) && on_stack(*(full_t**)target))
+        target = *(full_t**)target;
+    //if (on_stack(target)) to_origin(&target, sp);
     *(full_t**)(s + sp + -8) = target;
 }
 
@@ -439,7 +426,7 @@ static inline void incr_ref() {
             ((uhalf_t*)target)[-2] = (((uhalf_t*)target)[-2] + 1);
         }
         else if (on_stack(target)) {
-            to_origin(&target, sp);
+            target = *(full_t**)target;
             if (*target) {
                 ((uhalf_t*)target)[-2] = (((uhalf_t*)target)[-2] + 1);
             }
@@ -553,9 +540,8 @@ static inline void* stop() {
 let main = "
 
 int main(int argc, char *argv[]) {
-  if (argc < 2) { printf(\"No entrypoint specified\\n\"); exit(1); }
-  program(argv[1], argc-2, argv+2);
-  return 1;
+  program(\"main\", argc-1, argv+1);
+  return 0;
 }
 "
 
@@ -666,7 +652,7 @@ let create_starter gs =
   let rec aux gs acc = match gs with
   | [] -> acc
   | h::t -> ( match h with
-    | (Entry,_,T_Routine(_,arg_info),idx,name) -> aux t (create_if_case name idx (create_arg_loading arg_info)::acc)
+    | (Entry,_,Some T_Routine(_,arg_info),idx,name) -> aux t (create_if_case name idx (create_arg_loading arg_info)::acc)
     | _ -> aux t acc
   )
   in

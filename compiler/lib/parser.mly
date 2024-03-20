@@ -212,11 +212,6 @@ expression_not_ternary:
   | LPAR expression RPAR                    { $2 }
 ;
 
-// simple_expression:
-//     reference                               { Reference $1 }
-//   | simple_value                            { Value $1 }
-// ;
-
 reference:
     NAME HASH inner_reference { OtherContext ($1, $3) }
   | inner_reference           { LocalContext $1 }
@@ -311,8 +306,8 @@ stmt:
 stmt2:
     IF LPAR expression RPAR stmt1 ELSE stmt2       { If ($3, $5, $7) }
   | IF LPAR expression RPAR stmt                   { If ($3, $5, Block []) }
-  | IF LPAR expression RPAR LBRACE is_cases RBRACE ELSE stmt2      { transform_when $3 $9 $6 $symbolstartpos.pos_lnum }
-  | IF LPAR expression RPAR LBRACE is_cases RBRACE                 { transform_when $3 (Block[]) $6 $symbolstartpos.pos_lnum }
+  | IF LPAR expression RPAR is_cases ELSE stmt2      { transform_when $3 $7 $5 $symbolstartpos.pos_lnum }
+  | IF LPAR expression RPAR is_cases                 { transform_when $3 (Block[]) $5 $symbolstartpos.pos_lnum }
   | WHILE LPAR expression RPAR stmt2               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
@@ -348,7 +343,7 @@ stmt2:
 stmt1: /* No unbalanced if-else */
     block                                              { $1 }
   | IF LPAR expression RPAR stmt1 ELSE stmt1       { If ($3, $5, $7) }
-  | IF LPAR expression RPAR LBRACE is_cases RBRACE ELSE stmt1      { transform_when $3 $9 $6 $symbolstartpos.pos_lnum }
+  | IF LPAR expression RPAR is_cases ELSE stmt1    { transform_when $3 $7 $5 $symbolstartpos.pos_lnum }
   | WHILE LPAR expression RPAR stmt1               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt1               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
@@ -388,7 +383,7 @@ stmt1: /* No unbalanced if-else */
 ;
 
 is_case:
-  IS LPAR const_values RPAR stmt { ($3, $5) }
+  IS LPAR const_values RPAR stmt1 { ($3, $5) }
 ;
 
 const_values:
@@ -410,6 +405,7 @@ non_control_flow_stmt:
   | reference LPAR arguments RPAR                      { Call ($1, [], $3) }
   | reference LT typ_args GT LPAR arguments RPAR       { Call ($1, $3, $6) }
   | PRINT arguments1                          { Print $2 }
+  | PRINT LPAR arguments1 RPAR                { Print $3 }
 ;
 
 params:

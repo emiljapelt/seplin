@@ -7,7 +7,7 @@ module StringMap = Map.Make(String)
 (*** Types ***)
 type variable_environment = { 
   locals: (var_mod * typ * string) list; (* modifier, type, name *) (* Make into StringMap *)
-  globals: (access_mod * string * string * int * var_mod * typ * declaration) list; (* Make into StringMap *)
+  globals: (access_mod * string * string * int * var_mod * typ option * declaration) list; (* Make into StringMap *)
   structs: (char list * (var_mod * typ * string) list) StringMap.t; (* name, type_vars, parameters(modifier, type, name) *)
   typ_vars: char list;
 }
@@ -61,9 +61,6 @@ let lookup_context (name: string) file_refs contexts =
   | None -> None
   | Some(cn) -> lookup (fun (c) -> match c with Context(n,e) -> if cn = n then Some e else None) contexts
 
-let lookup_routine (name: string) routines =
-  lookup (fun (accmod,n,cn,tvs,ps,stmt) -> if n = name then Some(accmod,n,cn,tvs,ps,stmt) else None) routines
-
 let lookup_struct (name: string) structs =
   StringMap.find_opt name structs
 
@@ -107,7 +104,8 @@ let var_type (name: string) env : (typ, string) result =
   | Some (_,lty,_) -> Ok lty
   | None -> 
     match lookup_globvar name env.var_env.globals with
-    | Some (_,_,gty,_) -> Ok gty
+    | Some (_,_,Some gty,_) -> Ok gty
+    | Some (_,_,None,_) -> raise_failure ("Lookup on untyped global '" ^ name ^ "'")
     | None -> raise_failure ("No such variable '" ^ name ^ "'")
 
 let globvar_exists (name: string) globvars =
@@ -116,20 +114,5 @@ let globvar_exists (name: string) globvars =
 let localvar_exists (name: string) localvars =
   Option.is_some (lookup_localvar name localvars)
 
-let routine_exists (name: string) routines =
-  Option.is_some (lookup_routine name routines)
-
 let struct_exists (name: string) structs =
   Option.is_some (lookup_struct name structs)
-
-type nameType =
-  | RoutineName
-  | LocalVariableName
-  | GlobalVariableName
-
-let name_type name env =
-  match lookup_localvar name env.var_env.locals with
-  | Some _ -> LocalVariableName
-  | None ->  match lookup_globvar name env.var_env.globals with
-    | Some _ -> GlobalVariableName
-    | None -> raise_failure ("Nothing given the name '" ^ name ^ "'")

@@ -28,14 +28,14 @@ ___
 ```
 if (x < 10) x := 10;
 if (x < 10) x +:= 1; else x -:= 1; 
-if (i) {
+if (i)
     is (1) print "one\n";
     is (2) print "two\n";
     is (3) print "three\n";
-} else print "something\n";
-if (i) {
+else print "something\n";
+if (i)
     is (0,1,2,3,4,5,6,7,8,9) print "single digit\n";
-} else print "multi digit\n";
+else print "multi digit\n";
 ```
 ___
 ## While
@@ -200,6 +200,8 @@ ___
 print true;
 print 'H','e','l','l','o',' ','w','o','r','l','d','!','\n';
 print "Hello world!\n";
+print(x);
+print(x,' ',y);
 ```
 ___
 
