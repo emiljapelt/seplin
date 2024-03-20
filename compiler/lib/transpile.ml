@@ -540,7 +540,7 @@ static inline void* stop() {
 let main = "
 
 int main(int argc, char *argv[]) {
-  program(\"main\", argc-1, argv+1);
+  program(argv[1], argc-2, argv+2);
   return 0;
 }
 "
