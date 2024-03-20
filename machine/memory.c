@@ -61,16 +61,19 @@ byte_t* allocate_struct(unsigned int fields) {
 }
 
 void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace) {
-    if(addr == 0 || (!ON_HEAP((byte_t*)addr) && !ON_STACK((byte_t*)addr,sp))) return;
-    if (ON_STACK(addr, sp)) addr = *(full_t**)addr;
-    //to_origin(&addr, sp);
-    //if (!ON_HEAP((byte_t*)addr)) addr = (full_t*)*addr;
+    if (!addr) return;
+    if (!ON_HEAP(addr)) {
+        addr = *(full_t**)addr;
+        if (!addr) return;
+    }
+    
     if (trace) {
         for(unsigned int i = 0; i < depth; i++) printf("  ");
         printf("Trying to free: 0x%llx\n", (ufull_t)addr);
     }
 
     DECR_REF_COUNT(addr);
+    if(trace)printf("refs: %i\n", REF_COUNT(addr));
     if (REF_COUNT(addr)) return;
     if (IS_STRUCT(addr)) {
         unsigned int fields = ALLOC_SIZE(addr);

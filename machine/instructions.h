@@ -163,8 +163,7 @@ static inline void field_fetch() {
 
 static inline void ref_fetch() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-    if (target && ON_STACK(target, sp) && ON_STACK(*(full_t**)target, sp)) 
-        target = *(full_t**)target;
+    if (target && !ON_HEAP(*target)) target = *(full_t**)target;
     *(full_t**)(stack + sp + MOVE(FULL, -1)) = target;
     ip++;
 }
@@ -416,15 +415,14 @@ static inline void size_of() {
 
 static inline void incr_ref() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
+    if(tracing)printf("irefs: %x\n", REF_COUNT(target));
     if (target) {
         if (ON_HEAP(target)) {
             INCR_REF_COUNT(target);
         }
-        else if (ON_STACK(target, sp)) {
+        else /*if (!ON_HEAP(*target))*/ {
             target = *(full_t**)target;
-            if (*target) {
-                INCR_REF_COUNT(target);
-            }
+            if (target) INCR_REF_COUNT(target);
         }
     }
     ip++;
