@@ -51,6 +51,8 @@
 			},{
 				"include": "#assignment"
 			},{
+				"include": "#declaration"
+			},{
 				"begin": "print",
 				"end": ";",
 				"name": "keyword",
@@ -60,6 +62,11 @@
 		},
 		"assignment": {
 			"begin": "[A-Za-z][A-Za-z0-9_]* *:=",
+			"end": ";",
+			"patterns": [{"include": "#expression"}]
+		},
+		"declaration": {
+			"begin": "[A-Za-z][A-Za-z0-9_]* *::=",
 			"end": ";",
 			"patterns": [{"include": "#expression"}]
 		},
@@ -83,11 +90,19 @@
 				"match": "\\b(true|false|null)\\b"
 			},{
 				"name": "constant.character",
-				"match": "\\b('\\?.')\\b"
+				"match": "\\b(\\'\\?.\\')\\b"
 			},{
 				"include": "#struct_literal"
 			},{
 				"include": "#array_literal"
+			},{
+				"begin": "read",
+				"end": ";",
+				"name": "keyword.operator",
+				"match": "\\b(read)\\b",
+				"patterns": [{
+					"include": "#type_args"
+				}]
 			}]
 		},
 		"struct_literal": {
@@ -173,6 +188,10 @@
 					"match": "\\\\."
 				}
 			]
+		},
+		"chars": {
+			"name": "constant.character",
+			"match": "\b('.')\b"
 		},
 		"comments": {
 			"name": "comment.line",
