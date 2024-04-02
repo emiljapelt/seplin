@@ -136,7 +136,7 @@ static inline void try_free(full_t* addr, unsigned int depth) {
     //to_origin(&addr, sp);
     //if (!on_heap((full_t*)addr)) addr = (full_t*)*addr;
 
-    (((uhalf_t *)addr)[-2] = ((uhalf_t *)addr)[-2] - 1);
+    ((uhalf_t *)addr)[-2] = ((uhalf_t *)addr)[-2] - 1;
     if ((((ufull_t *)addr)[-2])) return;
     if ((((uhalf_t *)addr)[-1] & 1)) {
         unsigned int fields = ((((uhalf_t *)addr)[-1]) >> 1);
@@ -423,12 +423,12 @@ static inline void incr_ref() {
     full_t* target = *(full_t**)(s + sp + -8);
     if (target) {
         if (on_heap(target)) {
-            ((uhalf_t*)target)[-2] = (((uhalf_t*)target)[-2] + 1);
+            ((uhalf_t*)target)[-2] = ((uhalf_t*)target)[-2] + 1;
         }
         else if (on_stack(target)) {
             target = *(full_t**)target;
             if (*target) {
-                ((uhalf_t*)target)[-2] = (((uhalf_t*)target)[-2] + 1);
+                ((uhalf_t*)target)[-2] = ((uhalf_t*)target)[-2] + 1;
             }
         }
     }

@@ -69,11 +69,10 @@ void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace) {
     
     if (trace) {
         for(unsigned int i = 0; i < depth; i++) printf("  ");
-        printf("Trying to free: 0x%llx\n", (ufull_t)addr);
+        printf("Trying to free: 0x%llx, refs: %i\n", (ufull_t)addr, REF_COUNT(addr));
     }
 
     DECR_REF_COUNT(addr);
-    if(trace)printf("refs: %i\n", REF_COUNT(addr));
     if (REF_COUNT(addr)) return;
     if (IS_STRUCT(addr)) {
         unsigned int fields = ALLOC_SIZE(addr);

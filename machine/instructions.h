@@ -415,7 +415,7 @@ static inline void size_of() {
 
 static inline void incr_ref() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-    if(tracing)printf("irefs: %x\n", REF_COUNT(target));
+    if(tracing)printf("irefs: %x", REF_COUNT(target));
     if (target) {
         if (ON_HEAP(target)) {
             INCR_REF_COUNT(target);
@@ -425,6 +425,7 @@ static inline void incr_ref() {
             if (target) INCR_REF_COUNT(target);
         }
     }
+    if(tracing)printf(" -> %x\n", REF_COUNT(target));
     ip++;
 }
 

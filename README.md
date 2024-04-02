@@ -10,7 +10,7 @@ Seplin stands for, **s**ide-**e**ffect **p**rogramming **lin**go, and centers ar
 | True global top-level | At the top-level of a context, order does not matter. Every routine can use all global variables, all structs and all routines. The compiler will resolve an ordering of global variables, such that circular dependencies will be detected. |
 | Multi entry point | Routines are marked either 'internal', 'external' or 'entry'. When running the program, any of the entry routines can be used as the entry point. |
 | Generic types | Both structs and routines can be generic. |
-| Flexible type inference | Both generic structures, routines, and the type of non-global variable declarations, can be infered in most cases.  |
+| Flexible type inference | Both generic structures, routines, and the type of variable declarations, can be infered in most cases.  |
 | Higher-order routines | Routines have types and can be used as values, and can therefor be assigned to variables and datastructurs, as well as being passed to routines as arguments. |
 
 ## Infrastructure

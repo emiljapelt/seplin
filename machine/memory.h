@@ -32,7 +32,7 @@
 
     #define IS_STRUCT(addr) (((uhalf_t*)addr)[-1] & 1)
     #define ALLOC_SIZE(addr) ((((uhalf_t*)addr)[-1]) >> 1)
-    #define REF_COUNT(addr) (((ufull_t*)addr)[-2])
+    #define REF_COUNT(addr) (((uhalf_t*)addr)[-2])
     #define INCR_REF_COUNT(addr) (((uhalf_t*)addr)[-2] = ((uhalf_t*)addr)[-2] + 1)
     #define DECR_REF_COUNT(addr) (((uhalf_t*)addr)[-2] = ((uhalf_t*)addr)[-2] - 1)
 #elif defined(ENV32)
