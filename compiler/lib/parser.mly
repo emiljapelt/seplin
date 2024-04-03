@@ -377,6 +377,7 @@ stmt1: /* No unbalanced if-else */
   | STOP SEMI                                    { Stop }
   | HALT SEMI                                    { Halt }
   | HALT arguments1 SEMI                         { Block[Statement(Print $2, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
+  | HALT LPAR arguments1 RPAR SEMI                         { Block[Statement(Print $3, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
   | BREAK SEMI                                   { Break }
   | CONTINUE SEMI                                { Continue }
   | non_control_flow_stmt SEMI { $1 }
