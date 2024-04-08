@@ -9,3 +9,4 @@
 8. Fix variable modifiers, broken for const array index assignments
 9. Reduce instruction set
     - FieldAssign x, could be replaced by: PlaceInt (8*x); IntAdd; RefAssign.
+10. IMPORTANT FOR KATTIS, Redo the transpiler.
