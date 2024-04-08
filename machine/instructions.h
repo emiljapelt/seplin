@@ -33,10 +33,11 @@ static inline void halt() {
 static inline void stop() {
     if (depth == 0) halt();
 
-    ufull_t i = sp - MOVE(FULL, 1);
-    while (i >= bp) {
-        try_free(*((full_t**)(stack+i)), sp, 0, tracing);
-        i -= MOVE(FULL, 1);
+    sp -= MOVE(FULL, 2);
+    while (bp <= sp) {
+        // Only try to free, if it is a direct reference
+        if (ON_HEAP(*(full_t**)(stack+sp))) try_free(find_allocation((full_t*)(stack+sp)), 0, tracing);
+        sp -= MOVE(FULL, 1);
     }
 
     depth--;
@@ -163,7 +164,7 @@ static inline void field_fetch() {
 
 static inline void ref_fetch() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-    if (target && !ON_HEAP(*target)) target = *(full_t**)target;
+    if (target && ON_STACK(target,sp) && ON_STACK(*target, sp)) target = *(full_t**)target;
     *(full_t**)(stack + sp + MOVE(FULL, -1)) = target;
     ip++;
 }
@@ -239,7 +240,8 @@ static inline void ref_assign() {
     full_t** target = *(full_t***)(stack + sp + MOVE(FULL, -2));
     full_t* value = *(full_t**)(stack + sp + MOVE(FULL, -1));
 
-    try_free(*target, sp, 0, tracing);
+    if (ON_HEAP(*target)) try_free(*target, 0, tracing);
+    //INCR_REF_COUNT(*value);
 
     *target = value;
     sp -= MOVE(FULL, 1) + MOVE (FULL, 1);
@@ -251,7 +253,8 @@ static inline void field_assign() {
     full_t offset = *(full_t*)(stack + sp + MOVE(FULL, -2));
     full_t* value = *(full_t**)(stack + sp + MOVE(FULL, -1));
 
-    try_free(*(target + offset), sp, 0, tracing);
+    if (ON_HEAP(*(target + offset))) try_free(*(target + offset), 0, tracing);
+    //INCR_REF_COUNT(value);
 
     *(target + offset) = value;
     sp -= MOVE(FULL, 3);
@@ -353,7 +356,7 @@ static inline void getbp() {
 
 static inline void free_var() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-    try_free(target, sp, 0, tracing);
+    if (ON_HEAP(target)) try_free(find_allocation(target), 0, tracing);
     sp -= MOVE(FULL, 1);
     ip++;
 }
@@ -362,7 +365,7 @@ static inline void free_vars() {
     full_t count = *(full_t*)(program+ip+1);
     while (count > 0) {
         full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-        try_free(target, sp, 0, tracing);
+        if (ON_HEAP(target)) try_free(find_allocation(target), 0, tracing);
         sp -= MOVE(FULL, 1);
         count--;
     }
@@ -415,17 +418,19 @@ static inline void size_of() {
 
 static inline void incr_ref() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-    if(tracing)printf("irefs: %x", REF_COUNT(target));
-    if (target) {
-        if (ON_HEAP(target)) {
-            INCR_REF_COUNT(target);
-        }
-        else /*if (!ON_HEAP(*target))*/ {
-            target = *(full_t**)target;
-            if (target) INCR_REF_COUNT(target);
-        }
-    }
-    if(tracing)printf(" -> %x\n", REF_COUNT(target));
+    
+    if (!target) goto stop;
+    target = find_allocation(target);
+    /*else if (ON_HEAP(target)) { }
+    else if (ON_STACK(target, sp)) {
+        if (ON_STACK(*target, sp))  target = **(full_t***)target;
+        else target = *(full_t**)target;
+        if (!target) goto stop;
+    }*/
+    if (tracing) printf("%p refs: %x", target, REF_COUNT(target));
+    INCR_REF_COUNT(target);
+    if (tracing) printf(" -> %x\n", REF_COUNT(target));
+    stop:
     ip++;
 }
 

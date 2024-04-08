@@ -252,7 +252,7 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
   | StructLiteral (exprs) -> ( match translate_operational_type op_typ with
     | T_Struct(name,typ_args) -> ( match lookup_struct name env.var_env.structs with
       | Some(tvs,ps) -> ( match replace_generics (List.map (fun (a,b,_) -> (a,b)) ps) tvs typ_args with
-        | Ok typs -> compile_structure exprs (List.map (fun (_,t) -> NOp_T t) typs) env contexts acc 
+        | Ok typs -> compile_structure exprs (List.map (fun (_,t) -> NOp_T t) typs) env contexts (IncrRef :: acc)
         | Error m -> raise_failure (m^"what is going on")
       )
        (* let typs = List.map (fun t -> match t with Ok(_,t) -> NOp_T t | _ -> raise_failure ":(") () in
@@ -324,16 +324,16 @@ and compile_argument arg (env : environment) contexts acc =
         | T_Routine _ -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc))
       )
       | Reference LocalContext ref -> ( match ref with
-        | Access _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
-        | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-        | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+        | Access _ -> compile_inner_reference ref env contexts ((*FetchFull :: IncrRef ::*) acc)
+        | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
+        | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
       )
       | Reference OtherContext (cn,ref) -> ( match lookup_context cn env.file_refs contexts with
         | None -> raise_failure ("No such context:"^cn)
         | Some(env) -> ( match ref with
-          | Access _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
-          | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-          | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+          | Access _ -> compile_inner_reference ref env contexts ((*FetchFull :: IncrRef ::*) acc)
+          | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
+          | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
         )
         )
       | Reference Null -> compile_reference Null env contexts acc
@@ -402,7 +402,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       | T_Struct _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
       | T_Null -> compile_reference target env contexts (compile_value v assign_type  env contexts (RefAssign :: acc))
       | T_Generic _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
-      | T_Routine _ -> compile_reference target env contexts (FetchFull::(compile_value v assign_type env contexts (AssignFull :: acc))
+      | T_Routine _ -> compile_reference target env contexts (FetchFull :: (compile_value v assign_type env contexts (AssignFull :: acc))
       )
     )
     | (Access _, Reference re) -> ( match translate_operational_type assign_type with 
@@ -413,7 +413,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       | T_Struct _ -> compile_reference target env contexts (compile_reference re env contexts ((*FetchFull ::*) IncrRef :: RefAssign :: acc))
       | T_Null -> compile_reference target env contexts (compile_reference re env contexts (RefAssign :: acc))
       | T_Generic _ -> compile_reference target env contexts (compile_reference re env contexts ((*FetchFull ::*) IncrRef :: RefAssign :: acc))
-      | T_Routine _ -> compile_reference target env contexts (FetchFull :: compile_reference re env contexts (FetchFull:: FetchFull :: IncrRef :: RefAssign :: acc))
+      | T_Routine _ -> compile_reference target env contexts (FetchFull :: compile_reference re env contexts (FetchFull :: FetchFull :: IncrRef :: RefAssign :: acc))
     )
     | (StructAccess(refer, field), Value v) -> ( match Typing.type_inner_reference refer env contexts with
       | (_,Ok T_Struct (str_name, _)) -> ( match lookup_struct str_name env.var_env.structs with

@@ -2,6 +2,7 @@
 
 entry test ::= () {
     
+    //print |tests|, " tests:\n";
     for(i ::= 0; i < |tests|; i +:= 1)
         tests[i]();
 
@@ -11,8 +12,8 @@ struct container(content: int);
 
 internal check_count ::= 0;
 internal check ::= (i: int) {
-    if (i = 0) print check_count, " failed\n";
-    else print check_count, " succeded\n";
+    if (i = 0) print check_count, "!\n";//, " failed\n";
+    else print check_count, '\n';//, " succeded\n";
     check_count +:= 1;
 }
 
