@@ -21,8 +21,12 @@ internal check ::= (i: int) {
     check_count +:= 1;
 }
 
-internal set_zero ::= (i: int) { i := 0; }
-internal set_one ::= (i: int) { i := 1; }
+internal set_zero ::= (i: int) { 
+    i := 0; 
+}
+internal set_one ::= (i: int) { 
+    i := 1; 
+}
 
 internal set_zero_ref ::= (i: int) { tmp ::= 0; i := tmp; }
 internal set_one_ref ::= (i: int) { tmp ::= 1; i := tmp; }
@@ -33,6 +37,14 @@ internal set ::= (i: int, v: int) {
 internal set_val ::= (i: int, v: int) {
     i := $v;
 }
+
+internal set_set ::= (i: int, v: int) {
+    set(i,v);
+}
+internal set_set_val ::= (i: int, v: int) {
+    set_val(i,v);
+}
+
 
 
 internal tests ::= [
@@ -138,5 +150,29 @@ internal tests ::= [
         o ::= 1;
         i[0] := o;
         check(i[0]);
+    },
+
+    () {
+        i ::= 0;
+        set_set(i, 1);
+        check(i);
+    },
+
+    () {
+        i ::= 1;
+        set_set($i, 0);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        set_set_val(i, 1);
+        check(i);
+    },
+
+    () {
+        i ::= 1;
+        set_set_val($i, 0);
+        check(i);
     }
 ]
