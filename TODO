@@ -4,9 +4,8 @@
 4. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
 5. Implement routine signature compatability check
 6. Implement routine name overloading
-7. Fix machine/compiler interaction 
-    - currently failes if the source file is not in 'cwd'
-8. Fix variable modifiers, broken for const array index assignments
-9. Reduce instruction set
+7. Fix variable modifiers, broken for const array index assignments
+8. Reduce instruction set
     - FieldAssign x, could be replaced by: PlaceInt (8*x); IntAdd; RefAssign.
-10. IMPORTANT FOR KATTIS, Redo the transpiler.
+9. Stop relying on stack knowledge, e.g. ON_STACK
+    - If this is done, direct transpilation to C should become possible
