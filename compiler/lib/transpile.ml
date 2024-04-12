@@ -141,10 +141,6 @@ static inline int on_heap(full_t* target) {
     return ((byte_t*)target >= heap_min && (byte_t*)target < heap_max);
 }
 
-static inline int on_stack(full_t* target) {
-    return ((byte_t*)target >= s && (byte_t*)target < (s+STACK_SIZE));
-}
-
 static inline full_t* find_allocation(full_t* addr) {
     if (!addr) return addr;
     while (!on_heap(addr)) addr = *(full_t**)addr;
@@ -295,7 +291,7 @@ static inline void field_assign() {
 
 static inline void ref_fetch() {
     full_t* target = *(full_t**)(s + sp + -8);
-    if (target && !on_heap(*(full_t**)target)) target = *(full_t**)target;
+    if (target && !on_heap(target) && !on_heap(*(full_t**)target)) target = *(full_t**)target;
     *(full_t**)(s + sp + -8) = target;
 }
 

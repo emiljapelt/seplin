@@ -164,7 +164,7 @@ static inline void field_fetch() {
 
 static inline void ref_fetch() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-    if (target && ON_STACK(target,sp) && ON_STACK(*target, sp)) target = *(full_t**)target;
+    if (target && !ON_HEAP(target) && !ON_HEAP(*target)) target = *(full_t**)target;
     *(full_t**)(stack + sp + MOVE(FULL, -1)) = target;
     ip++;
 }
@@ -421,12 +421,7 @@ static inline void incr_ref() {
     
     if (!target) goto stop;
     target = find_allocation(target);
-    /*else if (ON_HEAP(target)) { }
-    else if (ON_STACK(target, sp)) {
-        if (ON_STACK(*target, sp))  target = **(full_t***)target;
-        else target = *(full_t**)target;
-        if (!target) goto stop;
-    }*/
+
     if (tracing) printf("%p refs: %x", target, REF_COUNT(target));
     INCR_REF_COUNT(target);
     if (tracing) printf(" -> %x\n", REF_COUNT(target));

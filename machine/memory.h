@@ -46,7 +46,7 @@ extern byte_t* heap_max;
 extern byte_t* stack_base;
 
 #define ON_HEAP(addr) (heap_min <= ((byte_t*)addr) && ((byte_t*)addr) <= heap_max)
-#define ON_STACK(addr, sp) (stack_base <= ((byte_t*)addr) && ((byte_t*)addr) <= (stack_base + sp))
+//#define ON_STACK(addr, sp) (stack_base <= ((byte_t*)addr) && ((byte_t*)addr) <= (stack_base + sp))
 
 void memory_init(byte_t** stack);
 byte_t* allocate_simple(byte_t type);
