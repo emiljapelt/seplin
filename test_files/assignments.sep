@@ -45,6 +45,10 @@ internal set_set_val ::= (i: int, v: int) {
     set_val(i,v);
 }
 
+internal gen_set ::= <T>(i: T, v: T) {
+    i := v;
+}
+
 
 
 internal tests ::= [
@@ -173,6 +177,18 @@ internal tests ::= [
     () {
         i ::= 1;
         set_set_val($i, 0);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        gen_set(i,1);
+        check(i);
+    },
+
+    () {
+        i ::= 1;
+        gen_set($i,0);
         check(i);
     }
 ]
