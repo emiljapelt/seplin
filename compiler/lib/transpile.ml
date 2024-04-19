@@ -10,7 +10,7 @@ typedef signed short int short_t;
 typedef unsigned short int ushort_t;
 typedef signed char byte_t;
 typedef unsigned char ubyte_t;
-#define STACK_SIZE 10000
+#define STACK_SIZE 1000000
 "
 
 let includes = "
