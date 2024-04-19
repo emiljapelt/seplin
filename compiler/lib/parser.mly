@@ -376,7 +376,7 @@ stmt1: /* No unbalanced if-else */
   }
   | STOP SEMI                                    { Stop }
   | HALT SEMI                                    { Halt }
-  | HALT arguments1 SEMI                         { Block[Statement(Print $2, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
+  //| HALT arguments1 SEMI                         { Block[Statement(Print $2, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
   | HALT LPAR arguments1 RPAR SEMI               { Block[Statement(Print $3, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
   | BREAK SEMI                                   { Break }
   | CONTINUE SEMI                                { Continue }
@@ -405,8 +405,8 @@ non_control_flow_stmt:
   | reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
   | reference LPAR arguments RPAR                      { Call ($1, [], $3) }
   | reference LT typ_args GT LPAR arguments RPAR       { Call ($1, $3, $6) }
-  | PRINT arguments1                          { Print $2 }
   | PRINT LPAR arguments1 RPAR                { Print $3 }
+  //| PRINT arguments1                          { Print $2 }
 ;
 
 params:
