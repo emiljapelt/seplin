@@ -409,6 +409,12 @@ static inline void int_sub() {
     sp -= 8;
 }
 
+static inline void int_div() {
+    full_t value = (*(full_t*)(s + sp + -8)) / (*(full_t*)(s + sp + -16));
+    *(full_t*)(s + sp + -16) = value;
+    sp -= 8;
+}
+
 static inline void int_lt() {
     byte_t lt = (*(full_t*)(s + sp + -8)) < (*(full_t*)(s + sp + -16));
     sp -= 16;
@@ -585,6 +591,7 @@ let translate_program_part_to_c pp cnt = match pp with
   | IntAdd -> "int_add();\n"
   | IntMul -> "int_mul();\n"
   | IntSub -> "int_sub();\n"
+  | IntDiv -> "int_div();\n"
   | FullEq -> "eq_f();\n"
   | IntLt -> "int_lt();\n"
   | BoolEq -> "bool_eq();\n"

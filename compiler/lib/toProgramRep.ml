@@ -282,6 +282,7 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
         | ">=", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntLt :: BoolNot :: acc))
         | ">", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntLt :: acc))
         | "+", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntAdd :: acc))
+        | "/", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntDiv :: acc))
         | "-", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntSub :: acc))
         | "*", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntMul :: acc))
         | _ -> raise_failure "Unknown binary operation"

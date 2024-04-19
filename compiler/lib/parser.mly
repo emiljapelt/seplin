@@ -98,7 +98,7 @@
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
 %token STOP HALT
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
-%token LOGIC_AND LOGIC_OR PIPE NOT VALUE
+%token LOGIC_AND LOGIC_OR PIPE NOT VALUE FSLASH
 %token COMMA DOT SEMI COLON EOF
 %token QMARK
 %token IF ELSE IS
@@ -112,7 +112,7 @@
 %left EQ NEQ
 %left GT LT GTEQ LTEQ
 %left PLUS MINUS
-%left TIMES 
+%left TIMES FSLASH
 %nonassoc NOT VALUE
 /*High precedence*/
 
@@ -266,6 +266,7 @@ value:
   | PLUS        { "+"  }
   | TIMES       { "*"  }
   | MINUS       { "-"  }
+  | FSLASH      { "/"  }
 ;
 
 arguments:

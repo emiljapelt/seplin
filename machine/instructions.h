@@ -282,6 +282,13 @@ static inline void int_sub() {
     ip++;
 }
 
+static inline void int_div() {
+    full_t value = (*(full_t*)(stack + sp + MOVE(FULL, -1))) / (*(full_t*)(stack + sp + MOVE(FULL, -2)));
+    *(full_t*)(stack + sp + MOVE(FULL, -2)) = value;
+    sp -= MOVE(FULL, 1);
+    ip++;
+}
+
 static inline void full_eq() {
     byte_t eq = (*(full_t*)(stack + sp + MOVE(FULL, -1))) == (*(full_t*)(stack + sp + MOVE(FULL, -2)));
     sp -= MOVE(FULL, 2);
