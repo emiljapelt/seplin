@@ -313,7 +313,7 @@ stmt2:
   | WHILE LPAR expression RPAR stmt2               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
-  | REPEAT LPAR value RPAR stmt2 { 
+  | REPEAT LPAR const_value RPAR stmt2 { 
     let var_name = new_var () in
     Block([
       Declaration(TypeDeclaration(Open, T_Int, var_name), $symbolstartpos.pos_lnum); 
@@ -326,11 +326,11 @@ stmt2:
     ]) 
   }
   | REPEAT stmt2 { While(Value(Bool(true)), $2) }
-  | REPEAT LPAR inner_reference RPAR stmt2 { 
+  | REPEAT LPAR expression_not_ternary RPAR stmt2 { 
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$",Reference(LocalContext $3)))), $symbolstartpos.pos_lnum); 
+      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$", $3))), $symbolstartpos.pos_lnum); 
       Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
       Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
         Block([
@@ -349,7 +349,7 @@ stmt1: /* No unbalanced if-else */
   | WHILE LPAR expression RPAR stmt1               { While ($3, $5) }
   | UNTIL LPAR expression RPAR stmt1               { While (Value (Unary_op("!", $3)), $5) }
   | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
-  | REPEAT LPAR value RPAR stmt1 { 
+  | REPEAT LPAR const_value RPAR stmt1 { 
     let var_name = new_var () in
     Block([
       Declaration(TypeDeclaration(Open, T_Int, var_name), $symbolstartpos.pos_lnum); 
@@ -362,11 +362,11 @@ stmt1: /* No unbalanced if-else */
     ]) 
   }
   | REPEAT stmt1 { While(Value(Bool(true)), $2) }
-  | REPEAT LPAR inner_reference RPAR stmt1 { 
+  | REPEAT LPAR expression_not_ternary RPAR stmt1 { 
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$",Reference(LocalContext $3)))), $symbolstartpos.pos_lnum); 
+      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$",$3))), $symbolstartpos.pos_lnum); 
       Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
       Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
         Block([
