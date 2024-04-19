@@ -72,6 +72,7 @@ rule lex = parse
     |   '*'           { TIMES }
     |   '-'           { MINUS }
     |   '/'           { FSLASH }
+    |   '%'           { PCT }
     |   '='           { EQ }
     |   "!="          { NEQ }
     |   "<="          { LTEQ }

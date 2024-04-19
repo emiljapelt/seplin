@@ -289,6 +289,14 @@ static inline void int_div() {
     ip++;
 }
 
+static inline void int_mod() {
+    full_t value_lhs = (*(full_t*)(stack + sp + MOVE(FULL, -1)));
+    full_t value_rhs = (*(full_t*)(stack + sp + MOVE(FULL, -2)));
+    *(full_t*)(stack + sp + MOVE(FULL, -2)) = (value_lhs % value_rhs + value_rhs) % value_rhs;
+    sp -= MOVE(FULL, 1);
+    ip++;
+}
+
 static inline void full_eq() {
     byte_t eq = (*(full_t*)(stack + sp + MOVE(FULL, -1))) == (*(full_t*)(stack + sp + MOVE(FULL, -2)));
     sp -= MOVE(FULL, 2);

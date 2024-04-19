@@ -74,73 +74,74 @@ int string_to_instruction(char* str);
 // [s,x,y,_ => s,(x-y),_]
 
 #define INT_DIV 0x1e
+#define INT_MOD 0x1f
 
-#define FULL_EQ 0x1f
+#define FULL_EQ 0x20
 // Checks if the integer values 'x' and 'y' are equal, removing them from the stack, and placing the resulting boolean on the stack.
 // [s,x,y,_ => s,(x=y),_]
 
-#define INT_LT 0x20
+#define INT_LT 0x21
 // Checks if the integer values 'x' is smaller than 'y', removing them from the stack, and placing the resulting boolean on the stack.
 // [s,x,y,_ => s,(x'<'y),_]
 
-#define BOOL_EQ 0x21
+#define BOOL_EQ 0x22
 // Checks if the boolean values 'x' and 'y' are equal, removing them from the stack, and placing the resulting boolean on the stack.
 // [s,x,y,_ => s,(x=y),_]
 
-#define BOOL_NOT 0x22
+#define BOOL_NOT 0x23
 // Negates the boolean value 'x', removing it from the stack, and placing the resulting boolean on the stack.
 // [s,b,_ => s,(!b),_]
 
-#define BOOL_AND 0x23
+#define BOOL_AND 0x24
 // Remove the boolean values 'x' and 'y' from the stack, placing 'true' on the stack, if 'x' and 'y' are both 'true', otherwise placing 'false' on the stack.
 // [s,x,y,_ => s,(x&y),_]
 
-#define BOOL_OR 0x24
+#define BOOL_OR 0x25
 // Remove the boolean values 'x' and 'y' from the stack, placing 'true' on the stack, if 'x' and/or 'y' are 'true', otherwise placing 'false' on the stack.
 // [s,x,y,_ => s,(x|y),_]
 
-#define GETSP 0x25
+#define GETSP 0x26
 // Place the stack pointer on the stack
 // [s,_ => s,sp,_]
 
-#define GETBP 0x26
+#define GETBP 0x27
 // Place the stack base pointer on the stack
 // [s,_ => s,bp,_]
 
-#define MODSP 0x27
+#define MODSP 0x28
 // Modify the stack pointer by 'x'
 // [s,_ => s,_]
 
-#define FREE_VAR 0x28
+#define FREE_VAR 0x29
 // Free the allocation referenced at the stack address 's_addr'
 // [s,s_addr,_ => s,_]
 
-#define FREE_VARS 0x29
+#define FREE_VARS 0x2a
 
-#define PRINT_INT 0x2a
+#define PRINT_INT 0x2b
 // Print an int of the stack
 // [s,i,_ => s,_]
 
-#define PRINT_BOOL 0x2b
+#define PRINT_BOOL 0x2c
 // Print an int of the stack
 // [s,b,_ => s,_]
 
-#define STACK_FETCH 0x2c
+#define STACK_FETCH 0x2d
 
-#define BP_FETCH 0x2d
+#define BP_FETCH 0x2e
 
-#define SIZE_OF 0x2e
+#define SIZE_OF 0x2f
 
-#define START 0x2f
+#define START 0x30
 
-#define REF_FETCH 0x30
+#define REF_FETCH 0x31
 
-#define INCR_REF 0x31
+#define INCR_REF 0x32
 
-#define PRINT_CHAR 0x32
+#define PRINT_CHAR 0x33
 
-#define GET_INPUT 0x33
+#define GET_INPUT 0x34
 
-#define HALF_EQ 0x34
-#define SHORT_EQ 0x35
-#define BYTE_EQ 0x36
+#define HALF_EQ 0x35
+#define SHORT_EQ 0x36
+#define BYTE_EQ 0x37

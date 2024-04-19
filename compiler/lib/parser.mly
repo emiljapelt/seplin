@@ -98,7 +98,7 @@
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
 %token STOP HALT
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
-%token LOGIC_AND LOGIC_OR PIPE NOT VALUE FSLASH
+%token LOGIC_AND LOGIC_OR PIPE NOT VALUE FSLASH PCT
 %token COMMA DOT SEMI COLON EOF
 %token QMARK
 %token IF ELSE IS
@@ -112,7 +112,7 @@
 %left EQ NEQ
 %left GT LT GTEQ LTEQ
 %left PLUS MINUS
-%left TIMES FSLASH
+%left TIMES FSLASH PCT
 %nonassoc NOT VALUE
 /*High precedence*/
 
@@ -234,7 +234,7 @@ const_value:
 simple_value:
     LPAR value RPAR                                       { $2 }
   | const_value                                           { $1 }
-  | MINUS expression_not_ternary                          { Binary_op ("-", Value (Int 0), $2) }
+  | MINUS expression_not_ternary                          { Binary_op ("-", Value (Int 0), $2) } 
   | NOT expression_not_ternary                            { Unary_op ("!", $2) }
   | VALUE expression_not_ternary                          { Unary_op ("$", $2) }
   | PIPE inner_reference PIPE                             { ArraySize $2 }
@@ -267,6 +267,7 @@ value:
   | TIMES       { "*"  }
   | MINUS       { "-"  }
   | FSLASH      { "/"  }
+  | PCT         { "%"  }
 ;
 
 arguments:
