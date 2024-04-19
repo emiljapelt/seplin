@@ -49,7 +49,7 @@ and optimize_value expr var_env =
     | "%", Value(Int _), Value(Int 0) -> raise_failure "Division by zero"
     | "%", Value(Int i1), Value(Int 1) -> Value(Int (i1))
     | "%", Value(Int i1), Value(Int i2) -> 
-      if i2 <= 0 then raise_failure "AAAAAA"
+      if i2 <= 0 then raise_failure "Right hand side of modolo operator, must be positive"
       else Value(Int (((i1 mod i2) + i2) mod i2))
     | "=", Value(Int i1), Value(Int i2) -> Value(Bool (i1=i2))
     | "=", Value(Char c1), Value(Char c2) -> Value(Bool (c1=c2))

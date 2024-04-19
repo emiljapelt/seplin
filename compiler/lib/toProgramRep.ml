@@ -531,7 +531,7 @@ and compile_declaration dec env contexts =
       match opt_expr with
       | Reference(LocalContext(Access _)) -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
       | Reference(OtherContext(_, Access _)) -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
-      | Reference _ -> fun a -> compile_expr opt_expr o_typ env contexts (IncrRef :: a)
+      | Reference _ -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
       | Value v -> (
         match typ with
         | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (AssignFull :: a))
