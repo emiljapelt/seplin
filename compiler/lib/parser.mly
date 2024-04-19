@@ -234,7 +234,7 @@ const_value:
 simple_value:
     LPAR value RPAR                                       { $2 }
   | const_value                                           { $1 }
-  | MINUS expression_not_ternary                          { Binary_op ("-", Value (Int 0), $2) } 
+  | MINUS expression_not_ternary                          { Binary_op ("-", Value (Int 0), $2) } %prec NOT
   | NOT expression_not_ternary                            { Unary_op ("!", $2) }
   | VALUE expression_not_ternary                          { Unary_op ("$", $2) }
   | PIPE inner_reference PIPE                             { ArraySize $2 }
