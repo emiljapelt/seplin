@@ -603,7 +603,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     )
     | Error m -> raise_failure m
   )
-  | While (expr, s) -> (
+  | While (expr, s, None) -> (
     let label_cond = Helpers.new_label () in
     let label_start = Helpers.new_label () in
     let label_stop = Helpers.new_label () in
@@ -615,6 +615,24 @@ and compile_stmt stmt env contexts break continue cleanup acc =
         | Value(Bool true) -> CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_start) 0 (CLabel(label_cond) :: (GoTo(label_start) :: CLabel(label_stop) :: acc)))
         | Value(Bool false) -> acc
         | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_expr_as_value opt_expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
+      )
+      | _ -> raise_failure "Condition not of type 'bool'"
+    )
+    | Error m -> raise_failure m
+  )
+  | While (expr, s, Some incr) -> (
+    let label_cond = Helpers.new_label () in
+    let label_incr = Helpers.new_label () in
+    let label_start = Helpers.new_label () in
+    let label_stop = Helpers.new_label () in
+    let opt_expr = optimize_expr expr env in
+    let (_, t) = Typing.type_expr opt_expr env contexts in
+    match t with
+    | Ok ot -> ( match translate_operational_type ot with
+      | T_Bool -> ( match opt_expr with 
+        | Value(Bool true) -> CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_incr) 0 (CLabel(label_incr) :: compile_stmt incr env contexts (Some label_stop) (Some label_incr) 0 (GoTo(label_start) :: CLabel(label_stop) :: acc)))
+        | Value(Bool false) -> acc
+        | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_incr) 0 (CLabel(label_incr) :: (compile_stmt incr env contexts (Some label_stop) (Some label_incr) 0 (CLabel(label_cond) :: (compile_expr_as_value opt_expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))))
       )
       | _ -> raise_failure "Condition not of type 'bool'"
     )
@@ -696,11 +714,10 @@ and compile_stmt stmt env contexts break continue cleanup acc =
                 Declaration(AssignDeclaration(Stable,Some(T_Array(Some T_Char)),data_handle,h),0);
                 Declaration(AssignDeclaration(Open,Some T_Int,index_handle,Value(Int 0)),0);
                 Statement(
-                  While(Value(Binary_op("<",Reference(LocalContext(Access index_handle)), Value(ArraySize(Access data_handle)))),
-                    Block[
-                      Statement(Print [Reference(LocalContext(ArrayAccess(Access data_handle, Reference(LocalContext(Access index_handle)))))],0);
-                      Statement(Assign(LocalContext(Access index_handle),Value(Binary_op("+",Reference(LocalContext(Access index_handle)),Value(Int 1)))), 0)
-                    ]
+                  While(
+                    Value(Binary_op("<",Reference(LocalContext(Access index_handle)), Value(ArraySize(Access data_handle)))),
+                    Print[Reference(LocalContext(ArrayAccess(Access data_handle, Reference(LocalContext(Access index_handle)))))],
+                    Some(Assign(LocalContext(Access index_handle),Value(Binary_op("+",Reference(LocalContext(Access index_handle)),Value(Int 1)))))
                   ),
                   0
                 );

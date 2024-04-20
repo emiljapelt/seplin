@@ -16,8 +16,8 @@ struct container(content: int);
 
 internal check_count ::= 0;
 internal check ::= (i: int) {
-    if (i = 1) print check_count, '\n';//, " succeded\n";
-    else print check_count, "!\n";//, " failed\n";
+    if (i = 1) print(check_count, '\n');//, " succeded\n";
+    else print(check_count, "!\n");//, " failed\n";
     check_count +:= 1;
 }
 
