@@ -322,6 +322,8 @@ ___
 | + | int | int | int | Addition |
 | - | int | int | int | Subtraction |
 | * | int | int | int | Multiplication |
+| / | int | int | int | Division |
+| % | int | int | int | Modolo |
 | = | * | * | bool | Equivalence, can also be used for null checking |
 | != | * | * | bool | Non Equivalence, can also be used for null checking |
 | < | int | int | bool | Less than |

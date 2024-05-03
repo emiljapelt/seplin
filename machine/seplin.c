@@ -133,6 +133,8 @@ void run(full_t entry_point, byte_t* arguments[], int argument_count) {
             case INT_ADD: int_add(); break;
             case INT_MUL: int_mul(); break; 
             case INT_SUB: int_sub(); break;
+            case INT_DIV: int_div(); break;
+            case INT_MOD: int_mod(); break;
             case FULL_EQ: full_eq(); break;
             case HALF_EQ: half_eq(); break;
             case SHORT_EQ: short_eq(); break;

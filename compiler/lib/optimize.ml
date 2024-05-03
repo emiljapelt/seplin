@@ -1,4 +1,5 @@
 open Absyn
+open Exceptions
 
 let rec optimize_expr expr var_env =
   match expr with
@@ -42,6 +43,14 @@ and optimize_value expr var_env =
     | "+", Reference r1, Value(Binary_op("*", Reference r2, Value(Int i))) when r2 = r1 -> Value(Binary_op("*", Value(Int (i+1)), Reference r1))
     | "+", Value(Binary_op("*", Value(Int i), Reference r2)), Reference r1 when r2 = r1 -> Value(Binary_op("*", Value(Int (i+1)), Reference r1))
     | "+", Value(Binary_op("*", Reference r2, Value(Int i))), Reference r1 when r2 = r1 -> Value(Binary_op("*", Value(Int (i+1)), Reference r1))
+    | "/", Value(Int _), Value(Int 0) -> raise_failure "Division by zero"
+    | "/", Value(Int i1), Value(Int 1) -> Value(Int (i1))
+    | "/", Value(Int i1), Value(Int i2) -> Value(Int (i1/i2))
+    | "%", Value(Int _), Value(Int 0) -> raise_failure "Division by zero"
+    | "%", Value(Int i1), Value(Int 1) -> Value(Int (i1))
+    | "%", Value(Int i1), Value(Int i2) -> 
+      if i2 <= 0 then raise_failure "Right hand side of modolo operator, must be positive"
+      else Value(Int (((i1 mod i2) + i2) mod i2))
     | "=", Value(Int i1), Value(Int i2) -> Value(Bool (i1=i2))
     | "=", Value(Char c1), Value(Char c2) -> Value(Bool (c1=c2))
     | "=", Value(Bool b1), Value(Bool b2) -> Value(Bool (b1=b2))

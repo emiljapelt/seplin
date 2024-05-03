@@ -1,0 +1,194 @@
+
+
+entry test ::= () {
+    
+    //print |tests|, " tests:\n";
+    for(i ::= 0; i < |tests|; i +:= 1)
+        tests[i]();
+
+}
+
+entry test_n ::= (n: int) {
+    tests[n]();
+}
+
+struct container(content: int);
+
+internal check_count ::= 0;
+internal check ::= (i: int) {
+    if (i = 1) print(check_count, '\n');//, " succeded\n";
+    else print(check_count, "!\n");//, " failed\n";
+    check_count +:= 1;
+}
+
+internal set_zero ::= (i: int) { 
+    i := 0; 
+}
+internal set_one ::= (i: int) { 
+    i := 1; 
+}
+
+internal set_zero_ref ::= (i: int) { tmp ::= 0; i := tmp; }
+internal set_one_ref ::= (i: int) { tmp ::= 1; i := tmp; }
+
+internal set ::= (i: int, v: int) {
+    i := v;
+}
+internal set_val ::= (i: int, v: int) {
+    i := $v;
+}
+
+internal set_set ::= (i: int, v: int) {
+    set(i,v);
+}
+internal set_set_val ::= (i: int, v: int) {
+    set_val(i,v);
+}
+
+internal gen_set ::= <T>(i: T, v: T) {
+    i := v;
+}
+
+
+
+internal tests ::= [
+
+    () {
+        i ::= 0;
+        i := 1;
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        o ::= 1;
+        i := o;
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        o ::= 1;
+        i := $o;
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        set_one(i);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        set_one_ref(i);
+        check(i);
+    },
+
+    () {
+        i ::= 1;
+        set_zero($i);
+        check(i);
+    },
+
+    () {
+        i ::= 1;
+        set_zero_ref($i);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        set(i, 1);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        o ::= 1;
+        set(i, o);
+        check(i);
+    },
+
+    () {
+        i ::= 1;
+        set($i, 0);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        o ::= 1;
+        set(i, o);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        set_val(i, 1);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        o ::= 1;
+        set_val(i, o);
+        check(i);
+    },
+
+    () {
+        i ::= [0];
+        i[0] := 1;
+        check(i[0]);
+    },
+
+    () {
+        i ::= [0];
+        o ::= 1;
+        i[0] := o;
+        check(i[0]);
+    },
+
+    () {
+        i ::= new int[1];
+        o ::= 1;
+        i[0] := o;
+        check(i[0]);
+    },
+
+    () {
+        i ::= 0;
+        set_set(i, 1);
+        check(i);
+    },
+
+    () {
+        i ::= 1;
+        set_set($i, 0);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        set_set_val(i, 1);
+        check(i);
+    },
+
+    () {
+        i ::= 1;
+        set_set_val($i, 0);
+        check(i);
+    },
+
+    () {
+        i ::= 0;
+        gen_set(i,1);
+        check(i);
+    },
+
+    () {
+        i ::= 1;
+        gen_set($i,0);
+        check(i);
+    }
+]

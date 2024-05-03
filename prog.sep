@@ -1,64 +1,52 @@
 
-internal add(a: int, b: int) {
-    a := a + b;
-    b := a;
+external char_int ::= (c : const char, o : int) {
+    val : int;
+    if (c) 
+        is ('0') val := 0;
+        is ('1') val := 1;
+        is ('2') val := 2;
+        is ('3') val := 3;
+        is ('4') val := 4;
+        is ('5') val := 5;
+        is ('6') val := 6;
+        is ('7') val := 7;
+        is ('8') val := 8;
+        is ('9') val := 9;
+    else halt "Could not find integer value of: ", c, '\n';
+    o := val;
 }
 
-internal swap<T>(a: T, b: T) {
-    temp ::= a;
-    a := b;
-    b := temp;
+internal set_zero ::= (i: int) {
+    i := 0;
 }
 
-struct list<T>(head: T, tail: list<T>);
-struct tuple<T,U>(fst: T, snd: U);
+entry main ::= () {
 
-entry main() {
-
-    s :tuple:= {1,2};
-
-    ints ::= [add,swap,null];
-    
-    memes ::= [[], [], ['c']];
-
-    lol :list:= {null, {null, {memes, null}}};
-
-    kk ::= [null, lol, null];
-
-    k :tuple[]:= [{1,null},{3,4}];
-
-    t :tuple<int,int>:= k[0];
-
-    intss ::= [1,2,3];
-  
-    h :tuple:= {1,2};
-
-}
-
-entry test(b : bool) {
-    i ::= b ? [1,1] : [2,2];
-    t :tuple:= b ? {[1],[1]} : {[2],[2]};
-    c :char:= t;
-}
-
-
-entry main2() {
-
-    l :list:= {420, null}; 
-
-    l.tail := l;
-
-    until (l = null) {
-        print l.head, '\n';
-        l := l.tail;
+    {
+        z: int;
     }
 
-}
+    input ::= read<char[]>;
 
-struct flip_list<T,U>(head: T, tail: flip_list<U,T>);
+    a ::= 2;
+    set_zero(a);
+    for(i ::= 0; i < |input|; i +:= 1) {
+        v : int;
+        print ' ', v, '\n';
+        char_int(input[i], v);
+        print ' ', v, '\n';
+        a *:= 10;
+        a +:= v;
+        print a, '\n';
+    }
 
-entry main3() {
+    print(a - 1, '\n');
 
-    fi :flip_list:= {1, {'a', {2, null}}};
+    f ::= new()[2];
 
-}
+    lol ::= () { print 7; };
+
+    f[0] := lol;
+
+    f[0]();
+};

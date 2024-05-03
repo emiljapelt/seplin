@@ -1,17 +1,20 @@
 1. Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
-4. Setup some automated testing
-7. Fix assembly compiler
-8. Implement escape characters in string literals
-9. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
-10. Implement routine signature compatability check
-11. Implement routine name overloading
-12. Fix machine/compiler interaction 
-    - currently failes if the source file is not in 'cwd'
-13. Replace routine declaration with variable declarations of anonymous routines
-    - likely required changing how the binaries are handled by machine
-        - Specifically the TO_START instruction
-    - 'internal', 'external' and 'entry' will need to apply to variables
-    - the environment structure needs to change, i.e. no longer contain routines seperatly
-    - variables from other contexts need to become available to the local context
-        - 'internal's should still be inaccesible
-14. Fix variable modifiers, broken for const array index assignments
+2. Setup some testing
+3. Fix assembly compiler
+4. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
+5. Implement routine signature compatability check
+6. Implement routine name overloading
+7. Fix variable modifiers, broken for const array index assignments
+8. Reduce instruction set
+    - FieldAssign x, could be replaced by: PlaceInt (8*x); IntAdd; RefAssign.
+9. Attempt true seplin-to-C transpilation
+    - Manually at first
+10. Make compiler monadic
+11. More type inference
+    - Requires a monadic compiler (i.e. need the var_env to be available and returnable everywhere)
+    - Allow not specifying a type in simple declarations
+        - 'x: int;' becomes 'x;'
+    - Allow not specifying a type for routine arguments 
+        - '(x : int) { x +:= 2; }' becomes '(x) { x +:= 2; }'
+    - Introduce a new polymorphic type, 'T_Poly of string', which will represent these missing types
+    - Carry a StringMap in 'var_env', in which specification of the polymorphics happen

@@ -24,17 +24,10 @@ byte_t* allocate_simple(byte_t type) {
     if (alloc+total_size > heap_max) heap_max = alloc+total_size;
     if (alloc < heap_min) heap_min = alloc;
 
-    memset(alloc+8, 0, SIZE(type));
+    memset(alloc, 0, total_size);
 
-    #if defined(ENV64)
-        *((uhalf_t*)alloc) = 0; // referecne count
-        *(((uhalf_t*)alloc)+1) = ((uhalf_t)SIZE(type) << 1); // byte size and non-struct mark
-    #elif defined(ENV32)
-        // ufull_t instead of uhalf_t
-        #error "Error: The Seplin virtual machine does not yet support 32bit architectures."
-    #else
-        #error "Error: Could not resolve architecture size (32/64bit)."
-    #endif
+    *((uhalf_t*)alloc) = 0; // referecne count
+    *(((uhalf_t*)alloc)+1) = ((uhalf_t)SIZE(type) << 1); // byte size and non-struct mark
 
     return alloc+8;
 }
@@ -45,29 +38,23 @@ byte_t* allocate_struct(unsigned int fields) {
     if (alloc+total_size > heap_max) heap_max = alloc+total_size;
     if (alloc < heap_min) heap_min = alloc;
 
-    memset(((ufull_t*)alloc)+1, 0, (fields*SIZE(FULL)));
+    memset(alloc, 0, total_size);
 
-    #if defined(ENV64)
-        *((uhalf_t*)alloc) = 0; // reference count
-        *(((uhalf_t*)alloc)+1) = ((((uhalf_t)fields) << 1) | 1); // field count and struct mark
-    #elif defined(ENV32)
-        // ufull_t instead of uhalf_t
-        #error "Error: The Seplin virtual machine does not yet support 32bit architectures."
-    #else
-        #error "Error: Could not resolve architecture size (32/64bit)."
-    #endif
+    *((uhalf_t*)alloc) = 0; // reference count
+    *(((uhalf_t*)alloc)+1) = ((((uhalf_t)fields) << 1) | 1); // field count and struct mark
 
     return alloc+8;
 }
 
-void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace) {
-    if(addr == 0 || (!ON_HEAP((byte_t*)addr) && !ON_STACK((byte_t*)addr,sp))) return;
-    if (ON_STACK(addr, sp)) addr = *(full_t**)addr;
-    //to_origin(&addr, sp);
-    //if (!ON_HEAP((byte_t*)addr)) addr = (full_t*)*addr;
+/*
+    Given a heap address, recursivly attempt to free all associated allocations
+*/
+void try_free(full_t* addr, unsigned int depth, byte_t trace) {
+    if (!addr) return;
+    
     if (trace) {
         for(unsigned int i = 0; i < depth; i++) printf("  ");
-        printf("Trying to free: 0x%llx\n", (ufull_t)addr);
+        printf("Trying to free: 0x%llx, refs: %i\n", (ufull_t)addr, REF_COUNT(addr));
     }
 
     DECR_REF_COUNT(addr);
@@ -75,18 +62,24 @@ void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace) {
     if (IS_STRUCT(addr)) {
         unsigned int fields = ALLOC_SIZE(addr);
         full_t** point = (full_t**)addr;
-        for(int i = 0; i < fields; i++) try_free(*(point + i), sp, depth+1, trace);
+        for(int i = 0; i < fields; i++) 
+            try_free(*(point + i), depth+1, trace);
     }
     if (trace) {
         for(unsigned int i = 0; i < depth; i++) printf("  ");
         printf("Freeing: 0x%llx\n", (ufull_t)addr);
     }
-    #if defined(ENV64)
-        free(addr-1);
-    #elif defined(ENV32)
-        // -2 instead of -1
-        #error "Error: The Seplin virtual machine does not yet support 32bit architectures."
-    #else
-        #error "Error: Could not resolve architecture size (32/64bit)."
-    #endif
+
+    free(addr-1);
+}
+
+
+/*
+    Given a heap/stack address, return the heap address.
+    If null is given, return null;
+*/
+full_t* find_allocation(full_t* addr) {
+    if (!addr) return addr;
+    while (!ON_HEAP(addr)) addr = *(full_t**)addr;
+    return addr;
 }

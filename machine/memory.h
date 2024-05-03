@@ -32,7 +32,7 @@
 
     #define IS_STRUCT(addr) (((uhalf_t*)addr)[-1] & 1)
     #define ALLOC_SIZE(addr) ((((uhalf_t*)addr)[-1]) >> 1)
-    #define REF_COUNT(addr) (((ufull_t*)addr)[-2])
+    #define REF_COUNT(addr) (((uhalf_t*)addr)[-2])
     #define INCR_REF_COUNT(addr) (((uhalf_t*)addr)[-2] = ((uhalf_t*)addr)[-2] + 1)
     #define DECR_REF_COUNT(addr) (((uhalf_t*)addr)[-2] = ((uhalf_t*)addr)[-2] - 1)
 #elif defined(ENV32)
@@ -46,12 +46,13 @@ extern byte_t* heap_max;
 extern byte_t* stack_base;
 
 #define ON_HEAP(addr) (heap_min <= ((byte_t*)addr) && ((byte_t*)addr) <= heap_max)
-#define ON_STACK(addr, sp) (stack_base <= ((byte_t*)addr) && ((byte_t*)addr) <= (stack_base + sp))
+//#define ON_STACK(addr, sp) (stack_base <= ((byte_t*)addr) && ((byte_t*)addr) <= (stack_base + sp))
 
 void memory_init(byte_t** stack);
 byte_t* allocate_simple(byte_t type);
 byte_t* allocate_struct(unsigned int fields);
-void try_free(full_t* addr, ufull_t sp, unsigned int depth, byte_t trace);
+void try_free(full_t* addr, unsigned int depth, byte_t trace);
+full_t* find_allocation(full_t* addr);
 byte_t to_origin(full_t** target, ufull_t sp);
 
 #endif

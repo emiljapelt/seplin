@@ -10,7 +10,7 @@ typedef signed short int short_t;
 typedef unsigned short int ushort_t;
 typedef signed char byte_t;
 typedef unsigned char ubyte_t;
-#define STACK_SIZE 10000
+#define STACK_SIZE 1000000
 "
 
 let includes = "
@@ -34,15 +34,30 @@ byte_t** arguments;
 "
 
 let functions = "
-static inline byte_t*  allocate(unsigned int size) {
+static inline byte_t* allocate(unsigned int size) {
     byte_t* alloc = (byte_t*)malloc(8+size);
     if (alloc+size+8 > heap_max) heap_max = alloc+size+8;
     if (alloc < heap_min) heap_min = alloc;
 
-    memset(alloc+8, 0, size);
+    memset(alloc, 0, size+8);
 
     *((uhalf_t*)alloc) = 0;
     *(((uhalf_t*)alloc)+1) = ((uhalf_t)size << 1);
+
+    return alloc+8;
+}
+
+byte_t* allocate_struct(unsigned int fields) {
+    unsigned int total_size = 8+(fields*8);
+    byte_t* alloc = (byte_t*)malloc(total_size);
+    if (alloc+total_size > heap_max) heap_max = alloc+total_size;
+    if (alloc < heap_min) heap_min = alloc;
+
+    memset(alloc, 0, total_size);
+
+    
+    *((uhalf_t*)alloc) = 0; 
+    *(((uhalf_t*)alloc)+1) = ((((uhalf_t)fields) << 1) | 1); 
 
     return alloc+8;
 }
@@ -126,17 +141,16 @@ static inline int on_heap(full_t* target) {
     return ((byte_t*)target >= heap_min && (byte_t*)target < heap_max);
 }
 
-static inline int on_stack(full_t* target) {
-    return ((byte_t*)target >= s && (byte_t*)target < (s+STACK_SIZE));
+static inline full_t* find_allocation(full_t* addr) {
+    if (!addr) return addr;
+    while (!on_heap(addr)) addr = *(full_t**)addr;
+    return addr;
 }
 
 static inline void try_free(full_t* addr, unsigned int depth) {
-    if(addr == 0 || (!on_heap((full_t*)addr) && !on_stack((full_t*)addr))) return;
-    if (on_stack(addr)) addr = *(full_t**)addr;
-    //to_origin(&addr, sp);
-    //if (!on_heap((full_t*)addr)) addr = (full_t*)*addr;
+    if (!addr) return;
 
-    (((uhalf_t *)addr)[-2] = ((uhalf_t *)addr)[-2] - 1);
+    ((uhalf_t *)addr)[-2] = ((uhalf_t *)addr)[-2] - 1;
     if ((((ufull_t *)addr)[-2])) return;
     if ((((uhalf_t *)addr)[-1] & 1)) {
         unsigned int fields = ((((uhalf_t *)addr)[-1]) >> 1);
@@ -145,21 +159,6 @@ static inline void try_free(full_t* addr, unsigned int depth) {
     }
 
     free(addr-1);
-}
-
-byte_t* allocate_struct(unsigned int fields) {
-    unsigned int total_size = 8+(fields*8);
-    byte_t* alloc = (byte_t*)malloc(total_size);
-    if (alloc+total_size > heap_max) heap_max = alloc+total_size;
-    if (alloc < heap_min) heap_min = alloc;
-
-    memset(((ufull_t*)alloc)+1, 0, (fields*8));
-
-    
-    *((uhalf_t*)alloc) = 0; 
-    *(((uhalf_t*)alloc)+1) = ((((uhalf_t)fields) << 1) | 1); 
-
-    return alloc+8;
 }
 
 static inline void declare_f() {
@@ -292,9 +291,7 @@ static inline void field_assign() {
 
 static inline void ref_fetch() {
     full_t* target = *(full_t**)(s + sp + -8);
-    if (target && on_stack(target) && on_stack(*(full_t**)target))
-        target = *(full_t**)target;
-    //if (on_stack(target)) to_origin(&target, sp);
+    if (target && !on_heap(target) && !on_heap(*(full_t**)target)) target = *(full_t**)target;
     *(full_t**)(s + sp + -8) = target;
 }
 
@@ -412,6 +409,19 @@ static inline void int_sub() {
     sp -= 8;
 }
 
+static inline void int_div() {
+    full_t value = (*(full_t*)(s + sp + -8)) / (*(full_t*)(s + sp + -16));
+    *(full_t*)(s + sp + -16) = value;
+    sp -= 8;
+}
+
+static inline void int_mod() {
+    full_t value_lhs = (*(full_t*)(s + sp + -8));
+    full_t value_rhs = (*(full_t*)(s + sp + -16));
+    *(full_t*)(s + sp + -16) = (value_lhs % value_rhs + value_rhs) % value_rhs;
+    sp -= 8;
+}
+
 static inline void int_lt() {
     byte_t lt = (*(full_t*)(s + sp + -8)) < (*(full_t*)(s + sp + -16));
     sp -= 16;
@@ -421,21 +431,18 @@ static inline void int_lt() {
 
 static inline void incr_ref() {
     full_t* target = *(full_t**)(s + sp + -8);
-    if (target) {
-        if (on_heap(target)) {
-            ((uhalf_t*)target)[-2] = (((uhalf_t*)target)[-2] + 1);
-        }
-        else if (on_stack(target)) {
-            target = *(full_t**)target;
-            if (*target) {
-                ((uhalf_t*)target)[-2] = (((uhalf_t*)target)[-2] + 1);
-            }
-        }
-    }
+
+    if (!target) goto stop;
+    target = find_allocation(target);
+
+    (((uhalf_t *)target)[-2] = ((uhalf_t *)target)[-2] + 1);
+    stop:;
 }
 
 static inline void free_var() {
     full_t* target = *(full_t**)(s + sp + -8);
+    if (on_heap(target))
+        try_free(find_allocation(target), 0);
     try_free(target, 0);
     sp -= 8;
 }
@@ -519,10 +526,11 @@ static inline void* stop() {
         exit(0);
     }
 
-    ufull_t i = sp - 8;
-    while (i >= bp) {
-        try_free(*((full_t**)(s+i)), 0);
-        i -= 8;
+    sp -= 16;
+    while (bp <= sp) {
+        if (on_heap(*(full_t**)(s+sp))) 
+           try_free(find_allocation((full_t*)(s+sp)),0);
+        sp -= 8;
     }
 
     depth--;
@@ -536,6 +544,14 @@ static inline void* stop() {
 
 "
 
+
+let _main = "
+
+int main(int argc, char *argv[]) {
+  program(\"main\", argc-1, argv+1);
+  return 0;
+}
+"
 
 let main = "
 
@@ -590,6 +606,8 @@ let translate_program_part_to_c pp cnt = match pp with
   | IntAdd -> "int_add();\n"
   | IntMul -> "int_mul();\n"
   | IntSub -> "int_sub();\n"
+  | IntDiv -> "int_div();\n"
+  | IntMod -> "int_mod();\n"
   | FullEq -> "eq_f();\n"
   | IntLt -> "int_lt();\n"
   | BoolEq -> "bool_eq();\n"

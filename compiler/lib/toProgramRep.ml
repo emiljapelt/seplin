@@ -244,7 +244,7 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
   | ArrayLiteral exprs -> ( match translate_operational_type op_typ with
     | T_Array st -> (
       let typs = List.map (fun _ -> NOp_T (Option.get st)) exprs in
-      compile_structure exprs typs env contexts acc 
+      compile_structure exprs typs env contexts (IncrRef :: acc)
     )
     | _ -> raise_failure "Not an array type"
   )
@@ -252,7 +252,7 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
   | StructLiteral (exprs) -> ( match translate_operational_type op_typ with
     | T_Struct(name,typ_args) -> ( match lookup_struct name env.var_env.structs with
       | Some(tvs,ps) -> ( match replace_generics (List.map (fun (a,b,_) -> (a,b)) ps) tvs typ_args with
-        | Ok typs -> compile_structure exprs (List.map (fun (_,t) -> NOp_T t) typs) env contexts acc 
+        | Ok typs -> compile_structure exprs (List.map (fun (_,t) -> NOp_T t) typs) env contexts (IncrRef :: acc)
         | Error m -> raise_failure (m^"what is going on")
       )
        (* let typs = List.map (fun t -> match t with Ok(_,t) -> NOp_T t | _ -> raise_failure ":(") () in
@@ -282,6 +282,8 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
         | ">=", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntLt :: BoolNot :: acc))
         | ">", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntLt :: acc))
         | "+", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntAdd :: acc))
+        | "/", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntDiv :: acc))
+        | "%", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntMod :: acc))
         | "-", T_Int, T_Int -> compile_expr_as_value e2 ot2 env contexts (compile_expr_as_value e1 ot1 env contexts (IntSub :: acc))
         | "*", T_Int, T_Int -> compile_expr_as_value e1 ot1 env contexts (compile_expr_as_value e2 ot2 env contexts (IntMul :: acc))
         | _ -> raise_failure "Unknown binary operation"
@@ -324,16 +326,16 @@ and compile_argument arg (env : environment) contexts acc =
         | T_Routine _ -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc))
       )
       | Reference LocalContext ref -> ( match ref with
-        | Access _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
-        | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-        | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+        | Access _ -> compile_inner_reference ref env contexts ((*FetchFull :: IncrRef ::*) acc)
+        | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
+        | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
       )
       | Reference OtherContext (cn,ref) -> ( match lookup_context cn env.file_refs contexts with
         | None -> raise_failure ("No such context:"^cn)
         | Some(env) -> ( match ref with
-          | Access _ -> compile_inner_reference ref env contexts ((*FetchFull ::*) IncrRef :: acc)
-          | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
-          | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: IncrRef :: acc)
+          | Access _ -> compile_inner_reference ref env contexts ((*FetchFull :: IncrRef ::*) acc)
+          | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
+          | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
         )
         )
       | Reference Null -> compile_reference Null env contexts acc
@@ -402,7 +404,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       | T_Struct _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
       | T_Null -> compile_reference target env contexts (compile_value v assign_type  env contexts (RefAssign :: acc))
       | T_Generic _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
-      | T_Routine _ -> compile_reference target env contexts (FetchFull::(compile_value v assign_type env contexts (AssignFull :: acc))
+      | T_Routine _ -> compile_reference target env contexts (FetchFull :: (compile_value v assign_type env contexts (AssignFull :: acc))
       )
     )
     | (Access _, Reference re) -> ( match translate_operational_type assign_type with 
@@ -413,7 +415,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       | T_Struct _ -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
       | T_Null -> compile_reference target env contexts (compile_reference re env contexts (RefAssign :: acc))
       | T_Generic _ -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
-      | T_Routine _ -> compile_reference target env contexts (FetchFull :: compile_reference re env contexts (FetchFull:: FetchFull :: IncrRef :: RefAssign :: acc))
+      | T_Routine _ -> compile_reference target env contexts (FetchFull :: compile_reference re env contexts (FetchFull :: FetchFull :: IncrRef :: RefAssign :: acc))
     )
     | (StructAccess(refer, field), Value v) -> ( match Typing.type_inner_reference refer env contexts with
       | (_,Ok T_Struct (str_name, _)) -> ( match lookup_struct str_name env.var_env.structs with
@@ -529,7 +531,7 @@ and compile_declaration dec env contexts =
       match opt_expr with
       | Reference(LocalContext(Access _)) -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
       | Reference(OtherContext(_, Access _)) -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
-      | Reference _ -> fun a -> compile_expr opt_expr o_typ env contexts (IncrRef :: a)
+      | Reference _ -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
       | Value v -> (
         match typ with
         | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (AssignFull :: a))
@@ -601,7 +603,7 @@ and compile_stmt stmt env contexts break continue cleanup acc =
     )
     | Error m -> raise_failure m
   )
-  | While (expr, s) -> (
+  | While (expr, s, None) -> (
     let label_cond = Helpers.new_label () in
     let label_start = Helpers.new_label () in
     let label_stop = Helpers.new_label () in
@@ -613,6 +615,24 @@ and compile_stmt stmt env contexts break continue cleanup acc =
         | Value(Bool true) -> CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_start) 0 (CLabel(label_cond) :: (GoTo(label_start) :: CLabel(label_stop) :: acc)))
         | Value(Bool false) -> acc
         | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_cond) 0 (CLabel(label_cond) :: (compile_expr_as_value opt_expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))
+      )
+      | _ -> raise_failure "Condition not of type 'bool'"
+    )
+    | Error m -> raise_failure m
+  )
+  | While (expr, s, Some incr) -> (
+    let label_cond = Helpers.new_label () in
+    let label_incr = Helpers.new_label () in
+    let label_start = Helpers.new_label () in
+    let label_stop = Helpers.new_label () in
+    let opt_expr = optimize_expr expr env in
+    let (_, t) = Typing.type_expr opt_expr env contexts in
+    match t with
+    | Ok ot -> ( match translate_operational_type ot with
+      | T_Bool -> ( match opt_expr with 
+        | Value(Bool true) -> CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_incr) 0 (CLabel(label_incr) :: compile_stmt incr env contexts (Some label_stop) (Some label_incr) 0 (GoTo(label_start) :: CLabel(label_stop) :: acc)))
+        | Value(Bool false) -> acc
+        | _ -> GoTo(label_cond) :: CLabel(label_start) :: (compile_stmt s env contexts (Some label_stop) (Some label_incr) 0 (CLabel(label_incr) :: (compile_stmt incr env contexts (Some label_stop) (Some label_incr) 0 (CLabel(label_cond) :: (compile_expr_as_value opt_expr ot env contexts (IfTrue(label_start) :: CLabel(label_stop) :: acc))))))
       )
       | _ -> raise_failure "Condition not of type 'bool'"
     )
@@ -682,25 +702,28 @@ and compile_stmt stmt env contexts break continue cleanup acc =
           | T_Bool -> aux t (compile_expr_as_value opt_h ot env contexts (PrintBool :: acc))
           | T_Int -> aux t (compile_expr_as_value opt_h ot env contexts (PrintInt :: acc))
           | T_Char -> aux t (compile_expr_as_value opt_h ot env contexts (PrintChar :: acc))
-          | T_Array (Some T_Char) -> (
-            let data_handle = new_label () in
-            let index_handle = new_label () in
-            let code =
-            Block[
-              Declaration(AssignDeclaration(Stable,Some(T_Array(Some T_Char)),data_handle,h),0);
-              Declaration(AssignDeclaration(Open,Some T_Int,index_handle,Value(Int 0)),0);
-              Statement(
-                While(Value(Binary_op("<",Reference(LocalContext(Access index_handle)), Value(ArraySize(Access data_handle)))),
-                  Block[
-                    Statement(Print [Reference(LocalContext(ArrayAccess(Access data_handle, Reference(LocalContext(Access index_handle)))))],0);
-                    Statement(Assign(LocalContext(Access index_handle),Value(Binary_op("+",Reference(LocalContext(Access index_handle)),Value(Int 1)))), 0)
-                  ]
-                ),
-                0
-              );
-            ]
-            in
-            aux t (compile_stmt code env contexts break continue cleanup acc)
+          | T_Array (Some T_Char) -> ( match h with
+            | Value(ArrayLiteral(elems)) -> (
+              aux t (List.fold_right (fun e acc -> compile_expr_as_value e (NOp_T T_Char) env contexts (PrintChar :: acc)) elems acc)
+            )
+            | _ -> 
+              let data_handle = new_label () in
+              let index_handle = new_label () in
+              let code =
+              Block[
+                Declaration(AssignDeclaration(Stable,Some(T_Array(Some T_Char)),data_handle,h),0);
+                Declaration(AssignDeclaration(Open,Some T_Int,index_handle,Value(Int 0)),0);
+                Statement(
+                  While(
+                    Value(Binary_op("<",Reference(LocalContext(Access index_handle)), Value(ArraySize(Access data_handle)))),
+                    Print[Reference(LocalContext(ArrayAccess(Access data_handle, Reference(LocalContext(Access index_handle)))))],
+                    Some(Assign(LocalContext(Access index_handle),Value(Binary_op("+",Reference(LocalContext(Access index_handle)),Value(Int 1)))))
+                  ),
+                  0
+                );
+              ]
+              in
+              aux t (compile_stmt code env contexts break continue cleanup acc)
           )
           | _ -> aux t (compile_expr opt_h (NOp_T T_Null) env contexts (PrintInt :: acc))
         )

@@ -2,7 +2,7 @@ open ProgramRep
 
 type statement =
     | If of expression * statement * statement
-    | While of expression * statement
+    | While of expression * statement * statement option (* condition, body, incrementer *)
     | Block of statement_or_declaration list
     | Assign of reference * expression
     | Call of reference * typ option list * expression list (* context_alias * routine_name * type_arguments * arguments *)

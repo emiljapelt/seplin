@@ -34,6 +34,8 @@ char* instruction_to_string(int inst) {
         case INT_ADD: return "INT_ADD";
         case INT_MUL: return "INT_MUL";
         case INT_SUB: return "INT_SUB";
+        case INT_DIV: return "INT_DIV";
+        case INT_MOD: return "INT_MOD";
         case FULL_EQ: return "FULL_EQ";
         case INT_LT: return "INT_LT";
         case BOOL_EQ: return "BOOL_EQ";
@@ -92,6 +94,8 @@ int string_to_instruction(char* str) {
     if (strcmp(str, "INT_ADD") == 0) return INT_ADD;
     if (strcmp(str, "INT_MUL") == 0) return INT_MUL;
     if (strcmp(str, "INT_SUB") == 0) return INT_SUB;
+    if (strcmp(str, "INT_DIV") == 0) return INT_DIV;
+    if (strcmp(str, "INT_MOD") == 0) return INT_MOD;
     if (strcmp(str, "FULL_EQ") == 0) return FULL_EQ;
     if (strcmp(str, "INT_LT") == 0) return INT_LT;
     if (strcmp(str, "BOOL_EQ") == 0) return BOOL_EQ;

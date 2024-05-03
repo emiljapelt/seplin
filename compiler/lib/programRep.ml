@@ -76,6 +76,8 @@ and concrete_program_part =
   | IntAdd
   | IntMul
   | IntSub
+  | IntDiv
+  | IntMod
   | FullEq
   | IntLt
   | BoolEq
@@ -151,30 +153,32 @@ let translate_single c = match c with
     | IntAdd -> Instruction(27)
     | IntMul -> Instruction(28)
     | IntSub -> Instruction(29)
-    | FullEq -> Instruction(30)
-    | IntLt -> Instruction(31)
-    | BoolEq -> Instruction(32)
-    | BoolNot -> Instruction(33)
-    | BoolAnd -> Instruction(34)
-    | BoolOr -> Instruction(35)
-    | GetSP -> Instruction(36)
-    | GetBP -> Instruction(37)
-    | ModSP (i) -> FullInstruction(38, C_Int i)
-    | FreeVar -> Instruction(39)
-    | FreeVars (i) -> FullInstruction(40, C_Int i)
-    | PrintInt -> Instruction(41)
-    | PrintBool -> Instruction(42)
-    | StackFetch (i) -> FullInstruction(43, C_Int i)
-    | BPFetch (i) -> FullInstruction(44, C_Int i)
-    | SizeOf -> Instruction(45)
-    | Start -> Instruction(46)
-    | RefFetch -> Instruction(47)
-    | IncrRef -> Instruction(48)
-    | PrintChar -> Instruction(49)
-    | GetInput (i) -> FullInstruction(50, C_Int i)
-    | HalfEq -> Instruction(51)
-    | ShortEq -> Instruction(52)
-    | ByteEq -> Instruction(53)
+    | IntDiv -> Instruction(30)
+    | IntMod -> Instruction(31)
+    | FullEq -> Instruction(32)
+    | IntLt -> Instruction(33)
+    | BoolEq -> Instruction(34)
+    | BoolNot -> Instruction(35)
+    | BoolAnd -> Instruction(36)
+    | BoolOr -> Instruction(37)
+    | GetSP -> Instruction(38)
+    | GetBP -> Instruction(39)
+    | ModSP (i) -> FullInstruction(40, C_Int i)
+    | FreeVar -> Instruction(41)
+    | FreeVars (i) -> FullInstruction(42, C_Int i)
+    | PrintInt -> Instruction(43)
+    | PrintBool -> Instruction(44)
+    | StackFetch (i) -> FullInstruction(45, C_Int i)
+    | BPFetch (i) -> FullInstruction(46, C_Int i)
+    | SizeOf -> Instruction(47)
+    | Start -> Instruction(48)
+    | RefFetch -> Instruction(49)
+    | IncrRef -> Instruction(50)
+    | PrintChar -> Instruction(51)
+    | GetInput (i) -> FullInstruction(52, C_Int i)
+    | HalfEq -> Instruction(53)
+    | ShortEq -> Instruction(54)
+    | ByteEq -> Instruction(55)
 
 let translate concrete_list =
   let rec aux cl acc =

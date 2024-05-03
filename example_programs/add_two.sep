@@ -1,6 +1,6 @@
 
 external char_int ::= (c : const char, o : int) {
-    if (c) {
+    if (c) 
         is ('0') o := 0;
         is ('1') o := 1;
         is ('2') o := 2;
@@ -11,7 +11,7 @@ external char_int ::= (c : const char, o : int) {
         is ('7') o := 7;
         is ('8') o := 8;
         is ('9') o := 9;
-    } else halt "Could not find integer value of: ", c, '\n';
+    else halt "Could not find integer value of: ", c, '\n';
 }
 
 entry main ::= () {
@@ -35,5 +35,3 @@ entry main ::= () {
     print a + b, '\n';
 
 };
-
-struct list<A>(hd: A, tl: list<A>);

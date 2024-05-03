@@ -98,7 +98,7 @@
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
 %token STOP HALT
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
-%token LOGIC_AND LOGIC_OR PIPE NOT VALUE
+%token LOGIC_AND LOGIC_OR PIPE NOT VALUE FSLASH PCT
 %token COMMA DOT SEMI COLON EOF
 %token QMARK
 %token IF ELSE IS
@@ -112,7 +112,7 @@
 %left EQ NEQ
 %left GT LT GTEQ LTEQ
 %left PLUS MINUS
-%left TIMES 
+%left TIMES FSLASH PCT
 %nonassoc NOT VALUE
 /*High precedence*/
 
@@ -234,7 +234,7 @@ const_value:
 simple_value:
     LPAR value RPAR                                       { $2 }
   | const_value                                           { $1 }
-  | MINUS expression_not_ternary                          { Binary_op ("-", Value (Int 0), $2) }
+  | MINUS expression_not_ternary                          { Binary_op ("-", Value (Int 0), $2) } %prec NOT
   | NOT expression_not_ternary                            { Unary_op ("!", $2) }
   | VALUE expression_not_ternary                          { Unary_op ("$", $2) }
   | PIPE inner_reference PIPE                             { ArraySize $2 }
@@ -266,6 +266,8 @@ value:
   | PLUS        { "+"  }
   | TIMES       { "*"  }
   | MINUS       { "-"  }
+  | FSLASH      { "/"  }
+  | PCT         { "%"  }
 ;
 
 arguments:
@@ -308,33 +310,31 @@ stmt2:
   | IF LPAR expression RPAR stmt                   { If ($3, $5, Block []) }
   | IF LPAR expression RPAR is_cases ELSE stmt2      { transform_when $3 $7 $5 $symbolstartpos.pos_lnum }
   | IF LPAR expression RPAR is_cases                 { transform_when $3 (Block[]) $5 $symbolstartpos.pos_lnum }
-  | WHILE LPAR expression RPAR stmt2               { While ($3, $5) }
-  | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
-  | REPEAT LPAR value RPAR stmt2 { 
+  | WHILE LPAR expression RPAR stmt2               { While ($3, $5, None) }
+  | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5, None) }
+  | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, $9, Some($7)), $symbolstartpos.pos_lnum);]) }
+  | REPEAT LPAR const_value RPAR stmt2 { 
     let var_name = new_var () in
     Block([
       Declaration(TypeDeclaration(Open, T_Int, var_name), $symbolstartpos.pos_lnum); 
-      Statement(While(Value(Binary_op("<", Reference(LocalContext(Access var_name)), Value $3)), 
-        Block([
-          Statement($5,$symbolstartpos.pos_lnum); 
-          Statement(Assign(LocalContext(Access var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))), $symbolstartpos.pos_lnum);
-        ])
+      Statement(While(
+        Value(Binary_op("<", Reference(LocalContext(Access var_name)), Value $3)), 
+        $5,
+        Some(Assign(LocalContext(Access var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))));
       ),$symbolstartpos.pos_lnum);
     ]) 
   }
-  | REPEAT stmt2 { While(Value(Bool(true)), $2) }
-  | REPEAT LPAR inner_reference RPAR stmt2 { 
+  | REPEAT stmt2 { While(Value(Bool(true)), $2, None) }
+  | REPEAT LPAR expression_not_ternary RPAR stmt2 { 
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$",Reference(LocalContext $3)))), $symbolstartpos.pos_lnum); 
+      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$", $3))), $symbolstartpos.pos_lnum); 
       Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
-      Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
-        Block([
-          Statement($5, $symbolstartpos.pos_lnum); 
-          Statement(Assign(LocalContext(Access count_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))), $symbolstartpos.pos_lnum);
-        ])
+      Statement(While(
+        Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
+        $5,
+        Some(Assign(LocalContext(Access count_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))));
       ), $symbolstartpos.pos_lnum);
     ]) 
   }
@@ -344,39 +344,38 @@ stmt1: /* No unbalanced if-else */
     block                                              { $1 }
   | IF LPAR expression RPAR stmt1 ELSE stmt1       { If ($3, $5, $7) }
   | IF LPAR expression RPAR is_cases ELSE stmt1    { transform_when $3 $7 $5 $symbolstartpos.pos_lnum }
-  | WHILE LPAR expression RPAR stmt1               { While ($3, $5) }
-  | UNTIL LPAR expression RPAR stmt1               { While (Value (Unary_op("!", $3)), $5) }
-  | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, Block([Statement($9,$symbolstartpos.pos_lnum); Statement($7,$symbolstartpos.pos_lnum);])), $symbolstartpos.pos_lnum);]) }
-  | REPEAT LPAR value RPAR stmt1 { 
+  | WHILE LPAR expression RPAR stmt1               { While ($3, $5, None) }
+  | UNTIL LPAR expression RPAR stmt1               { While (Value (Unary_op("!", $3)), $5, None) }
+  | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, $9, Some($7)), $symbolstartpos.pos_lnum);]) }
+  | REPEAT LPAR const_value RPAR stmt1 { 
     let var_name = new_var () in
     Block([
       Declaration(TypeDeclaration(Open, T_Int, var_name), $symbolstartpos.pos_lnum); 
-      Statement(While(Value(Binary_op("<", Reference(LocalContext(Access var_name)), Value $3)), 
-        Block([
-          Statement($5,$symbolstartpos.pos_lnum); 
-          Statement(Assign(LocalContext(Access var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))), $symbolstartpos.pos_lnum);
-        ])
+      Statement(While(
+        Value(Binary_op("<", Reference(LocalContext(Access var_name)), Value $3)), 
+        $5,
+        Some(Assign(LocalContext(Access var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))));
       ),$symbolstartpos.pos_lnum);
     ]) 
   }
-  | REPEAT stmt1 { While(Value(Bool(true)), $2) }
-  | REPEAT LPAR inner_reference RPAR stmt1 { 
+  | REPEAT stmt1 { While(Value(Bool(true)), $2, None) }
+  | REPEAT LPAR expression_not_ternary RPAR stmt1 { 
     let count_name = new_var () in
     let limit_name = new_var () in
     Block([
-      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$",Reference(LocalContext $3)))), $symbolstartpos.pos_lnum); 
+      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$",$3))), $symbolstartpos.pos_lnum); 
       Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
-      Statement(While(Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
-        Block([
-          Statement($5, $symbolstartpos.pos_lnum); 
-          Statement(Assign(LocalContext(Access count_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))), $symbolstartpos.pos_lnum);
-        ])
+      Statement(While(
+        Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
+        $5,
+        Some(Assign(LocalContext(Access count_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))));
       ), $symbolstartpos.pos_lnum);
     ]) 
   }
   | STOP SEMI                                    { Stop }
   | HALT SEMI                                    { Halt }
-  | HALT arguments1 SEMI                         { Block[Statement(Print $2, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
+  //| HALT arguments1 SEMI                         { Block[Statement(Print $2, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
+  | HALT LPAR arguments1 RPAR SEMI               { Block[Statement(Print $3, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
   | BREAK SEMI                                   { Break }
   | CONTINUE SEMI                                { Continue }
   | non_control_flow_stmt SEMI { $1 }
@@ -404,8 +403,8 @@ non_control_flow_stmt:
   | reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
   | reference LPAR arguments RPAR                      { Call ($1, [], $3) }
   | reference LT typ_args GT LPAR arguments RPAR       { Call ($1, $3, $6) }
-  | PRINT arguments1                          { Print $2 }
   | PRINT LPAR arguments1 RPAR                { Print $3 }
+  //| PRINT arguments1                          { Print $2 }
 ;
 
 params:

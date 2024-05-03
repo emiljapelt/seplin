@@ -91,6 +91,8 @@ let rec translate_operational_type op_typ =
     | ">", T_Int, T_Int -> T_Bool
     | "+", T_Int, T_Int -> T_Int
     | "-", T_Int, T_Int -> T_Int
+    | "/", T_Int, T_Int -> T_Int
+    | "%", T_Int, T_Int -> T_Int
     | "*", T_Int, T_Int -> T_Int
     | _,t1,t2 -> raise_failure ("Unknown binary operation: '"^type_string t1^" "^op^" "^type_string t2^"'")
   )
