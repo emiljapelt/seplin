@@ -96,7 +96,7 @@ ___
 ## Assign
 **Syntax:** _variable_name_ := [_expression_](Expressions.md) ;
 <br>
-**Explaination:** Assign a new value to a variable. If the assignment operator is prefixed with an operator, it behaves differently.
+**Explaination:** Assign a new value to a variable. If the assignment operator is prefixed with an operator, it behaves differently. The '&'-operator will assign the expression to another value, and then do assignment with this variable, essentially lifting the expression to the heap.
 <br>
 **Examples:**
 ```
