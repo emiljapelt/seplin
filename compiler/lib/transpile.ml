@@ -545,11 +545,19 @@ static inline void* stop() {
 "
 
 
+let _main = "
+
+int main(int argc, char *argv[]) {
+  program(\"main\", argc-1, argv+1);
+  return 0;
+}
+"
+
 let main = "
 
 int main(int argc, char *argv[]) {
-  //if (argc < 2) { printf(\"No entrypoint specified\\n\"); return 1; }
-  program(\"main\", argc-1, argv+1);
+  if (argc < 2) { printf(\"No entrypoint specified\\n\"); return 1; }
+  program(argv[1], argc-2, argv+2);
   return 0;
 }
 "
