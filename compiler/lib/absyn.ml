@@ -29,6 +29,7 @@ and reference =
     | OtherContext of string * inner_reference
     | LocalContext of inner_reference
     | Null
+    (*| Lift of value*)
 
 and inner_reference =
     | Access of string

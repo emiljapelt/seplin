@@ -98,7 +98,7 @@
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
 %token STOP HALT
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
-%token LOGIC_AND LOGIC_OR PIPE NOT VALUE FSLASH PCT
+%token LOGIC_AND LOGIC_OR PIPE NOT VALUE AND FSLASH PCT
 %token COMMA DOT SEMI COLON EOF
 %token QMARK
 %token IF ELSE IS
@@ -401,6 +401,13 @@ non_control_flow_stmt:
   | reference MINUS ASSIGNMENT expression  { Assign ($1, Value(Binary_op("-", Reference $1, $4))) }
   | reference TIMES ASSIGNMENT expression  { Assign ($1, Value(Binary_op("*", Reference $1, $4))) }
   | reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
+  | reference AND ASSIGNMENT expression   {
+    let var = new_var () in
+    Block[
+      Declaration(AssignDeclaration(Open, None, var, $4), $symbolstartpos.pos_lnum);
+      Statement(Assign($1, Reference(LocalContext(Access var))), $symbolstartpos.pos_lnum)
+    ]
+  }
   | reference LPAR arguments RPAR                      { Call ($1, [], $3) }
   | reference LT typ_args GT LPAR arguments RPAR       { Call ($1, $3, $6) }
   | PRINT LPAR arguments1 RPAR                { Print $3 }
