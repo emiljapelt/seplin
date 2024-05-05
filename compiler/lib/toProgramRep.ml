@@ -326,16 +326,16 @@ and compile_argument arg (env : environment) contexts acc =
         | T_Routine _ -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (WriteFull :: acc))
       )
       | Reference LocalContext ref -> ( match ref with
-        | Access _ -> compile_inner_reference ref env contexts ((*FetchFull :: IncrRef ::*) acc)
-        | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
-        | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
+        | Access _ -> compile_inner_reference ref env contexts (acc)
+        | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: acc)
+        | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: acc)
       )
       | Reference OtherContext (cn,ref) -> ( match lookup_context cn env.file_refs contexts with
         | None -> raise_failure ("No such context:"^cn)
         | Some(env) -> ( match ref with
-          | Access _ -> compile_inner_reference ref env contexts ((*FetchFull :: IncrRef ::*) acc)
-          | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
-          | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull (*:: IncrRef*) :: acc)
+          | Access _ -> compile_inner_reference ref env contexts (acc)
+          | StructAccess _ -> compile_inner_reference ref env contexts (FetchFull :: acc)
+          | ArrayAccess _ -> compile_inner_reference ref env contexts (FetchFull :: acc)
         )
         )
       | Reference Null -> compile_reference Null env contexts acc
@@ -397,7 +397,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       )
     )
     | (Access _, Value v) -> ( match translate_operational_type assign_type with 
-      | T_Int ->  compile_reference target env contexts (compile_value v assign_type env contexts (AssignFull :: acc)) (* here *)
+      | T_Int ->  compile_reference target env contexts (compile_value v assign_type env contexts (AssignFull :: acc))
       | T_Bool -> compile_reference target env contexts (compile_value v assign_type  env contexts (AssignByte :: acc))
       | T_Char -> compile_reference target env contexts (compile_value v assign_type  env contexts (AssignByte :: acc))
       | T_Array _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
