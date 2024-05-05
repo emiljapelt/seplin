@@ -415,7 +415,7 @@ and compile_assignment target assign (env : environment) contexts acc =
       | T_Struct _ -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
       | T_Null -> compile_reference target env contexts (compile_reference re env contexts (RefAssign :: acc))
       | T_Generic _ -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
-      | T_Routine _ -> compile_reference target env contexts (FetchFull :: compile_reference re env contexts (FetchFull :: FetchFull :: IncrRef :: RefAssign :: acc))
+      | T_Routine _ -> compile_reference target env contexts (compile_reference re env contexts (FetchFull :: IncrRef :: RefAssign :: acc))
     )
     | (StructAccess(refer, field), Value v) -> ( match Typing.type_inner_reference refer env contexts with
       | (_,Ok T_Struct (str_name, _)) -> ( match lookup_struct str_name env.var_env.structs with
