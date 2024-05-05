@@ -164,7 +164,7 @@ static inline void field_fetch() {
 
 static inline void ref_fetch() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1));
-    if (target && !ON_HEAP(target) && !ON_HEAP(*target)) target = *(full_t**)target;
+    if (target && !ON_HEAP(target) && *target && !ON_HEAP(*target)) target = *(full_t**)target;
     *(full_t**)(stack + sp + MOVE(FULL, -1)) = target;
     ip++;
 }
@@ -204,7 +204,7 @@ static inline void declare_struct() {
     ip++;
 }
 
-static inline void assign_full() {
+static inline void write_full() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1) + MOVE(FULL, -1));
     full_t value = *(full_t*)(stack + sp + MOVE(FULL, -1));
     *target = value;
@@ -212,7 +212,7 @@ static inline void assign_full() {
     ip++;
 }
 
-static inline void assign_half() {
+static inline void write_half() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1) + MOVE(HALF, -1));
     half_t value = *(half_t*)(stack + sp + MOVE(HALF, -1));
     *target = value;
@@ -220,7 +220,7 @@ static inline void assign_half() {
     ip++;
 }
 
-static inline void assign_short() {
+static inline void write_short() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1) + MOVE(SHORT, -1));
     short_t value = *(short_t*)(stack + sp + MOVE(SHORT, -1));
     *target = value;
@@ -228,10 +228,66 @@ static inline void assign_short() {
     ip++;
 }
 
-static inline void assign_byte() {
+static inline void write_byte() {
     full_t* target = *(full_t**)(stack + sp + MOVE(FULL, -1) + MOVE(BYTE, -1));
     byte_t value = *(byte_t*)(stack + sp + MOVE(BYTE, -1));
     *target = value;
+    sp -= MOVE(FULL, 1) + MOVE (BYTE, 1);
+    ip++;
+}
+
+static inline void assign_full() {
+    full_t** target = *(full_t***)(stack + sp + MOVE(FULL, -1) + MOVE(FULL, -1));
+    full_t value = *(full_t*)(stack + sp + MOVE(FULL, -1));
+
+    if (*target == 0) {
+        full_t* alloc = (full_t*)allocate_simple(FULL);
+        *alloc = value;
+        *target = alloc;
+    } else **target = value;
+
+    sp -= MOVE(FULL, 1) + MOVE (FULL, 1);
+    ip++;
+}
+
+static inline void assign_half() {
+    half_t** target = *(half_t***)(stack + sp + MOVE(FULL, -1) + MOVE(HALF, -1));
+    half_t value = *(half_t*)(stack + sp + MOVE(HALF, -1));
+    
+    if (*target == 0) {
+        half_t* alloc = (half_t*)allocate_simple(HALF);
+        *alloc = value;
+        *target = alloc;
+    } else **target = value;
+
+    sp -= MOVE(FULL, 1) + MOVE (HALF, 1);
+    ip++;
+}
+
+static inline void assign_short() {
+    short_t** target = *(short_t***)(stack + sp + MOVE(FULL, -1) + MOVE(SHORT, -1));
+    short_t value = *(short_t*)(stack + sp + MOVE(SHORT, -1));
+    
+    if (*target == 0) {
+        short_t* alloc = (short_t*)allocate_simple(SHORT);
+        *alloc = value;
+        *target = alloc;
+    } else **target = value;
+
+    sp -= MOVE(FULL, 1) + MOVE (SHORT, 1);
+    ip++;
+}
+
+static inline void assign_byte() {
+    byte_t** target = *(byte_t***)(stack + sp + MOVE(FULL, -1) + MOVE(BYTE, -1));
+    byte_t value = *(byte_t*)(stack + sp + MOVE(BYTE, -1));
+    
+    if (*target == 0) {
+        byte_t* alloc = (byte_t*)allocate_simple(BYTE);
+        *alloc = value;
+        *target = alloc;
+    } else **target = value;
+
     sp -= MOVE(FULL, 1) + MOVE (BYTE, 1);
     ip++;
 }

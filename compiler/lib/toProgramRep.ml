@@ -196,17 +196,17 @@ and compile_expr_as_value expr (op_typ: op_typ) (env : environment) contexts acc
   )
   | _ -> compile_expr expr op_typ env contexts acc
 
-and compile_structure_arg arg (op_typ:op_typ) idx env contexts acc =
+and compile_structure_arg arg op_typ idx env contexts acc =
   let optha = optimize_expr arg env in
   match optha with
   | Value(AnonRoutine _) -> (
-    CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignFull :: FieldAssign :: acc)
+    CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (WriteFull :: FieldAssign :: acc)
   )
   | Value _ -> (
     match translate_operational_type op_typ with
-    | T_Int -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignFull :: FieldAssign :: acc))
-    | T_Char -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignByte :: FieldAssign :: acc))
-    | T_Bool -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (AssignByte :: FieldAssign :: acc))
+    | T_Int -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (WriteFull :: FieldAssign :: acc))
+    | T_Char -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (WriteByte :: FieldAssign :: acc))
+    | T_Bool -> (CloneFull :: PlaceFull(C_Int idx) :: DeclareFull :: IncrRef :: CloneFull :: compile_expr optha op_typ env contexts (WriteByte :: FieldAssign :: acc))
     | _ -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (IncrRef :: FieldAssign :: acc))
   )
   | Reference Null -> (CloneFull :: PlaceFull(C_Int idx) :: compile_expr optha op_typ env contexts (FieldAssign :: acc))
@@ -316,14 +316,14 @@ and compile_argument arg (env : environment) contexts acc =
       let typ = translate_operational_type op_typ in
       match opteh with
       | Value _ -> ( match typ with
-        | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc))
-        | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignByte :: acc))
-        | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignByte :: acc))
+        | T_Int -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (WriteFull :: acc))
+        | T_Bool -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (WriteByte :: acc))
+        | T_Char -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (WriteByte :: acc))
         | T_Array _ -> compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc)
         | T_Struct _ -> compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc)
         | T_Null -> compile_expr_as_value opteh op_typ env contexts (acc)
         | T_Generic _ -> compile_expr_as_value opteh op_typ env contexts (IncrRef :: acc)
-        | T_Routine _ -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (AssignFull :: acc))
+        | T_Routine _ -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr_as_value opteh op_typ env contexts (WriteFull :: acc))
       )
       | Reference LocalContext ref -> ( match ref with
         | Access _ -> compile_inner_reference ref env contexts ((*FetchFull :: IncrRef ::*) acc)
@@ -397,14 +397,14 @@ and compile_assignment target assign (env : environment) contexts acc =
       )
     )
     | (Access _, Value v) -> ( match translate_operational_type assign_type with 
-      | T_Int ->  compile_reference target env contexts (FetchFull :: (compile_value v assign_type env contexts (AssignFull :: acc)))
-      | T_Bool -> compile_reference target env contexts (FetchFull :: (compile_value v assign_type  env contexts (AssignByte :: acc)))
-      | T_Char -> compile_reference target env contexts (FetchFull :: (compile_value v assign_type  env contexts (AssignByte :: acc)))
+      | T_Int ->  compile_reference target env contexts (compile_value v assign_type env contexts (AssignFull :: acc)) (* here *)
+      | T_Bool -> compile_reference target env contexts (compile_value v assign_type  env contexts (AssignByte :: acc))
+      | T_Char -> compile_reference target env contexts (compile_value v assign_type  env contexts (AssignByte :: acc))
       | T_Array _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
       | T_Struct _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
       | T_Null -> compile_reference target env contexts (compile_value v assign_type  env contexts (RefAssign :: acc))
       | T_Generic _ -> compile_reference target env contexts (compile_value v assign_type  env contexts (IncrRef :: RefAssign :: acc))
-      | T_Routine _ -> compile_reference target env contexts (FetchFull :: (compile_value v assign_type env contexts (AssignFull :: acc))
+      | T_Routine _ -> compile_reference target env contexts (compile_value v assign_type env contexts (AssignFull :: acc)
       )
     )
     | (Access _, Reference re) -> ( match translate_operational_type assign_type with 
@@ -422,14 +422,14 @@ and compile_assignment target assign (env : environment) contexts acc =
         | None -> raise_failure ("Could not find struct '" ^ str_name ^ "'")
         | Some (_, fields) -> ( match struct_field field fields with
           | (_,_,index) -> ( match translate_operational_type assign_type with
-            | T_Int -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: FieldFetch :: FetchFull :: (compile_value v assign_type  env contexts (AssignFull :: acc)))
-            | T_Bool -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: FieldFetch :: FetchFull :: (compile_value v assign_type  env contexts (AssignByte :: acc)))
-            | T_Char -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: FieldFetch :: FetchFull :: (compile_value v assign_type  env contexts (AssignByte :: acc)))
+            | T_Int -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: PlaceFull(C_Int 8) :: IntMul :: IntAdd :: (compile_value v assign_type  env contexts (AssignFull :: acc)))
+            | T_Bool -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: PlaceFull(C_Int 8) :: IntMul :: IntAdd :: (compile_value v assign_type  env contexts (AssignByte :: acc)))
+            | T_Char -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: PlaceFull(C_Int 8) :: IntMul :: IntAdd :: (compile_value v assign_type  env contexts (AssignByte :: acc)))
             | T_Array _ -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc)))
             | T_Struct _ -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc)))
             | T_Null  -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: (compile_value v assign_type  env contexts (FieldAssign :: acc)))
             | T_Generic _ -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc)))
-            | T_Routine _ -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: FieldFetch :: FetchFull :: (compile_value v assign_type  env contexts (AssignFull :: acc)))
+            | T_Routine _ -> compile_inner_reference refer env contexts (FetchFull :: PlaceFull(C_Int index) :: PlaceFull(C_Int 8) :: IntMul :: IntAdd :: (compile_value v assign_type  env contexts (AssignFull :: acc)))
           )
         )
       )
@@ -462,14 +462,14 @@ and compile_assignment target assign (env : environment) contexts acc =
         match index_type_res with
         | Ok index_ot -> ( match translate_operational_type index_ot with 
           | T_Int -> ( match translate_operational_type assign_type with
-            | T_Int -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (FieldFetch :: FetchFull :: (compile_value v assign_type env contexts (AssignFull :: acc)))))
-            | T_Bool -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (FieldFetch :: FetchFull :: (compile_value v assign_type  env contexts (AssignByte :: acc)))))
-            | T_Char -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (FieldFetch :: FetchFull :: (compile_value v assign_type  env contexts (AssignByte :: acc)))))
+            | T_Int -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (PlaceFull(C_Int 8) :: IntMul :: IntAdd :: (compile_value v assign_type env contexts (AssignFull :: acc)))))
+            | T_Bool -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (PlaceFull(C_Int 8) :: IntMul :: IntAdd :: (compile_value v assign_type  env contexts (AssignByte :: acc)))))
+            | T_Char -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (PlaceFull(C_Int 8) :: IntMul :: IntAdd :: (compile_value v assign_type  env contexts (AssignByte :: acc)))))
             | T_Array _ -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc))))
             | T_Struct _ -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc))))
             | T_Null -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (compile_value v assign_type  env contexts (FieldAssign :: acc))))
             | T_Generic _ -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (compile_value v assign_type  env contexts (IncrRef :: FieldAssign :: acc))))
-            | T_Routine _ -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (FieldFetch :: FetchFull :: (compile_value v assign_type env contexts (AssignFull :: acc)))))
+            | T_Routine _ -> compile_inner_reference refer env contexts (FetchFull :: (compile_expr_as_value index index_ot env contexts (PlaceFull(C_Int 8) :: IntMul :: IntAdd ::(compile_value v assign_type env contexts (AssignFull :: acc)))))
           )
           | _ -> raise_failure "Array index must be of type 'int'"
         )
@@ -511,9 +511,9 @@ and compile_declaration dec env contexts =
     else 
     ( Helpers.update_locals env vmod typ name,
       match typ with
-      | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: PlaceFull(C_Int 0) :: AssignFull :: a
-      | T_Bool -> fun a -> DeclareByte :: IncrRef :: CloneFull :: PlaceByte(C_Bool false) :: AssignByte :: a
-      | T_Char -> fun a -> DeclareByte :: IncrRef :: CloneFull :: PlaceByte(C_Char '0') :: AssignByte :: a
+      | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: PlaceFull(C_Int 0) :: WriteFull :: a
+      | T_Bool -> fun a -> DeclareByte :: IncrRef :: CloneFull :: PlaceByte(C_Bool false) :: WriteByte :: a
+      | T_Char -> fun a -> DeclareByte :: IncrRef :: CloneFull :: PlaceByte(C_Char '0') :: WriteByte :: a
       | T_Array _
       | T_Struct _
       | T_Routine _ 
@@ -531,17 +531,18 @@ and compile_declaration dec env contexts =
       match opt_expr with
       | Reference(LocalContext(Access _)) -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
       | Reference(OtherContext(_, Access _)) -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
+      | Reference Null -> fun a -> PlaceFull(C_Int 0) :: a
       | Reference _ -> fun a -> compile_expr opt_expr o_typ env contexts (FetchFull :: IncrRef :: a)
       | Value v -> (
         match typ with
-        | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (AssignFull :: a))
-        | T_Bool -> fun a -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (AssignByte :: a))
-        | T_Char -> fun a -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (AssignByte :: a))
+        | T_Int -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (WriteFull :: a))
+        | T_Bool -> fun a -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (WriteByte :: a))
+        | T_Char -> fun a -> DeclareByte :: IncrRef :: CloneFull :: (compile_expr opt_expr o_typ env contexts (WriteByte :: a))
         | T_Array _ -> fun a -> compile_expr opt_expr o_typ env contexts (IncrRef :: a)
         | T_Struct _ -> fun a -> compile_expr opt_expr o_typ env contexts (IncrRef :: a)
         | T_Generic _ -> fun a -> compile_expr opt_expr o_typ env contexts (IncrRef :: a)
         | T_Null -> fun a -> compile_expr opt_expr o_typ env contexts a
-        | T_Routine _ -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_value v o_typ env contexts (AssignFull :: a))
+        | T_Routine _ -> fun a -> DeclareFull :: IncrRef :: CloneFull :: (compile_value v o_typ env contexts (WriteFull :: a))
       )
       | Ternary(cond,expr1,expr2) -> (
         let cond = optimize_expr cond env in

@@ -80,7 +80,6 @@ rule lex = parse
     |   ">="          { GTEQ }
     |   ">"           { GT }
     |   "&&"          { LOGIC_AND }
-    |   '&'           { AND }
     |   "||"          { LOGIC_OR }
     |   '$'           { VALUE }
     |   '|'           { PIPE }

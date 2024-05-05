@@ -25,6 +25,10 @@ char* instruction_to_string(int inst) {
         case DECLARE_SHORT: return "DECLARE_SHORT";
         case DECLARE_BYTE: return "DECLARE_BYTE";
         case DECLARE_STRUCT: return "DECLARE_STRUCT";
+        case WRITE_FULL: return "WRITE_FULL";
+        case WRITE_HALF: return "WRITE_HALF";
+        case WRITE_SHORT: return "WRITE_SHORT";
+        case WRITE_BYTE: return "WRITE_BYTE";
         case ASSIGN_FULL: return "ASSIGN_FULL";
         case ASSIGN_HALF: return "ASSIGN_HALF";
         case ASSIGN_SHORT: return "ASSIGN_SHORT";

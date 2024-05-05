@@ -401,13 +401,6 @@ non_control_flow_stmt:
   | reference MINUS ASSIGNMENT expression  { Assign ($1, Value(Binary_op("-", Reference $1, $4))) }
   | reference TIMES ASSIGNMENT expression  { Assign ($1, Value(Binary_op("*", Reference $1, $4))) }
   | reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
-  | reference AND ASSIGNMENT expression   {
-    let var = new_var () in
-    Block[
-      Declaration(AssignDeclaration(Open, None, var, $4), $symbolstartpos.pos_lnum);
-      Statement(Assign($1, Reference(LocalContext(Access var))), $symbolstartpos.pos_lnum)
-    ]
-  }
   | reference LPAR arguments RPAR                      { Call ($1, [], $3) }
   | reference LT typ_args GT LPAR arguments RPAR       { Call ($1, $3, $6) }
   | PRINT LPAR arguments1 RPAR                { Print $3 }
