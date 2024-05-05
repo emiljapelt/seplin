@@ -124,6 +124,10 @@ void run(full_t entry_point, byte_t* arguments[], int argument_count) {
             case DECLARE_SHORT: declare_short(); break;
             case DECLARE_BYTE: declare_byte(); break;
             case DECLARE_STRUCT: declare_struct(); break;
+            case WRITE_FULL: write_full(); break;
+            case WRITE_HALF: write_half(); break;
+            case WRITE_SHORT: write_short(); break;
+            case WRITE_BYTE: write_byte(); break;
             case ASSIGN_FULL: assign_full(); break;
             case ASSIGN_HALF: assign_half(); break;
             case ASSIGN_SHORT: assign_short(); break;
