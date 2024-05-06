@@ -91,7 +91,14 @@ let () = try (
   let ((input, in_type), output, comp_strat) = resolve_arguments () in
   let program = match in_type with
     | SEA -> Seplinclib.AssemblyParser.main (Seplinclib.AssemblyLexer.start input) (Lexing.from_string (read_file input)) 
-    | SEP -> compile input (fun file -> Seplinclib.Parser.main (Seplinclib.Lexer.start file) (Lexing.from_string (read_file file)))
+    | SEP -> (
+      compile input (fun file -> 
+        let lexbuf = Lexing.from_string (read_file file) in
+        try
+          Seplinclib.Parser.main (Seplinclib.Lexer.start file) lexbuf
+        with | _ -> raise (Failure(Some file, Some(lexbuf.lex_curr_p.pos_lnum), "Syntax error"))
+      )
+    )
   in match comp_strat with
     | CompileToSeplinVM -> write program output
     | TranspileToC -> Printf.fprintf (open_out output) "%s" (Seplinclib.Transpile.transpile_to_c program)
