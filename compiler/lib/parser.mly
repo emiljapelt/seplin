@@ -98,7 +98,7 @@
 %token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
 %token STOP HALT
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
-%token LOGIC_AND LOGIC_OR PIPE NOT VALUE AND FSLASH PCT
+%token LOGIC_AND LOGIC_OR PIPE NOT VALUE FSLASH PCT
 %token COMMA DOT SEMI COLON EOF
 %token QMARK
 %token IF ELSE IS
@@ -121,12 +121,7 @@
 %type <Absyn.inner_reference> inner_reference
 %%
 main:
-  topdecs EOF     { 
-    try (File $1) 
-    with
-    | Failure _ as failure -> raise failure
-    | _ -> (raise (Failure(Some $symbolstartpos.pos_fname, Some $symbolstartpos.pos_lnum, "Parser error")))
-  }
+  topdecs EOF     { File $1 }
 ;
 
 topdecs:

@@ -6,8 +6,8 @@
                       [ "int", INT;
                         "bool", BOOL;
                         "char", CHAR;
-                        "internal", INTERNAL;
-                        "external", EXTERNAL;
+                        "intern", INTERNAL;
+                        "extern", EXTERNAL;
                         "entry", ENTRY;
                         "struct", STRUCT;
                         "reference", REFERENCE;
