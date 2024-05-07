@@ -15,7 +15,7 @@ void read_input(unsigned int max_size, char** ret) {
         ch = getchar();
         buffer[count++] = ch;
     } 
-    buffer[count-1] = '\0';
+    buffer[count-1] = 0;
     *ret = buffer;
 }
 
