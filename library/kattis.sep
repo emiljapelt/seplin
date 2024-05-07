@@ -14,6 +14,39 @@ extern char_to_int ::= (c: const char, o: int) {
     else halt("Could not find integer value of: ", c, '\n');
 }
 
+extern split_on ::= (split: const char, str: char[], o: char[][]) {
+
+    splits ::= 0;
+    for(i ::= 0; i < |str|; i +:= 1) if (str[i] = split) splits +:= 1;
+
+    segs ::= new char[][splits + 1];
+
+    seg_idx ::= 0;
+    flw ::= 0;
+    for(idx ::= 0; idx < |str|; idx +:= 1) {
+        if (str[idx] = split) {
+            seg_len ::= idx - flw;
+            seg ::= new char[seg_len];
+            for (i ::= 0; i < seg_len; i +:= 1) {
+                seg[i] := $str[flw+i];
+            }
+            segs[seg_idx] := seg;
+            seg_idx +:= 1;
+            flw := $idx + 1;
+        }
+    }
+
+    last_seg_len ::= |str| - flw;
+    last_seg ::= new char[last_seg_len];
+    for (i ::= 0; i < last_seg_len; i +:= 1) {
+        last_seg[i] := str[flw];
+        flw +:= 1;
+    }
+    segs[seg_idx] := last_seg;
+
+    o := segs;
+}
+
 extern string_to_int ::= (cs: const char[], o: int) {
     if (cs = null) stop;
     value ::= 0;
