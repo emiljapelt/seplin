@@ -239,7 +239,12 @@ and compile_value val_expr (op_typ: op_typ) env contexts acc =
   | ArraySize refer -> compile_inner_reference refer env contexts (FetchFull :: SizeOf :: acc)
   | GetInput ty -> GetInput(type_input_index ty) :: acc
   | NewArray (_, size_expr) -> (
-    compile_expr_as_value (optimize_expr size_expr env) (NOp_T T_Int) env contexts (DeclareStruct :: IncrRef :: acc)
+    match type_expr size_expr env contexts with
+    | _,Ok ot -> ( match translate_operational_type ot with 
+      | T_Int -> compile_expr_as_value (optimize_expr size_expr env) (ot) env contexts (DeclareStruct :: IncrRef :: acc)
+      | _ -> raise_failure "Array size not of type 'int'"
+    )
+    | _,Error msg -> raise_failure msg
   )
   | ArrayLiteral exprs -> ( match translate_operational_type op_typ with
     | T_Array st -> (

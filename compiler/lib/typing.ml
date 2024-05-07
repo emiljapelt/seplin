@@ -693,7 +693,7 @@ let argument_type_check = type_check argument_checks
 let declaration_type_check = type_check declaration_checks
 
 let assignment_checks expr target_vmod target_typ expr_vmod expr_typ =
-  if not(type_equal target_typ (translate_operational_type expr_typ)) then raise_failure "Type mismatch in assignment"
+  if not(type_equal target_typ (translate_operational_type expr_typ)) then raise_failure ("Type mismatch in assignment: "^type_string target_typ^" := "^ type_string (translate_operational_type expr_typ))
   else match target_vmod with
   | Open -> (
     if expr_vmod != Open then raise_failure "Assignment of protected variable, to non-protected variable"

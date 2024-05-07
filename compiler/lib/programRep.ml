@@ -107,6 +107,18 @@ and concrete_program_part =
   | ShortEq
   | ByteEq
 
+let rec type_string ty = match ty with
+  | T_Int -> "int"
+  | T_Bool -> "bool"
+  | T_Char -> "char"
+  | T_Array None -> "?[]"
+  | T_Array Some ty -> type_string ty ^"[]"
+  | T_Struct(n,_) -> n
+  | T_Null -> "null"
+  | T_Generic c -> String.make 1 c
+  | T_Routine([],args) -> "("^ (List.map (fun (_,ty) -> type_string ty) args |> String.concat ",") ^")"
+  | T_Routine(tvs,args) -> "<"^ (List.map (String.make 1) tvs |> String.concat ",") ^">("^ (List.map (fun (_,ty) -> type_string ty) args |> String.concat ",") ^")"
+
 let type_index ty = match ty with
   | T_Int -> 0
   | T_Bool -> 1
