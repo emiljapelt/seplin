@@ -240,31 +240,84 @@ static inline void print_bool() {
   sp -= 1;
 }
 
-static inline void assign_f() {
+static inline void write_f() {
     full_t* target = *(full_t**)(s + sp + -16);
     full_t value = *(full_t*)(s + sp + -8);
     *target = value;
     sp -= 16;
 }
 
-static inline void assign_h() {
+static inline void write_h() {
     full_t* target = *(full_t**)(s + sp + -12);
     full_t value = *(full_t*)(s + sp + -4);
     *target = value;
     sp -= 12;
 }
 
-static inline void assign_s() {
+static inline void write_s() {
     full_t* target = *(full_t**)(s + sp + -10);
     full_t value = *(full_t*)(s + sp + -2);
     *target = value;
     sp -= 10;
 }
 
-static inline void assign_b() {
+static inline void write_b() {
     full_t* target = *(full_t**)(s + sp + -9);
     full_t value = *(full_t*)(s + sp + -1);
     *target = value;
+    sp -= 9;
+}
+
+static inline void assign_f() {
+    full_t** target = *(full_t***)(s + sp + -16);
+    full_t value = *(full_t*)(s + sp + -8);
+    
+    if (*target == 0) {
+        full_t* alloc = (full_t*)allocate(8);
+        *alloc = value;
+        *target = alloc;
+    } else **target = value;
+
+    sp -= 16;
+}
+
+static inline void assign_h() {
+    half_t** target = *(half_t***)(s + sp + -12);
+    half_t value = *(half_t*)(s + sp + -4);
+    
+    if (*target == 0) {
+        half_t* alloc = (half_t*)allocate(4);
+        *alloc = value;
+        *target = alloc;
+    } else **target = value;
+
+    sp -= 12;
+}
+
+static inline void assign_s() {
+    short_t** target = *(short_t***)(s + sp + -10);
+    short_t value = *(short_t*)(s + sp + -2);
+    
+    if (*target == 0) {
+        short_t* alloc = (short_t*)allocate(2);
+        *alloc = value;
+        *target = alloc;
+    } else **target = value;
+
+    sp -= 10;
+}
+
+static inline void assign_b() {
+    byte_t** target = *(byte_t***)(s + sp + -9);
+    byte_t value = *(byte_t*)(s + sp + -1);
+    
+    if (*target == 0) {
+        byte_t* alloc = (byte_t*)allocate(1);
+        *alloc = value;
+        *target = alloc;
+    } else **target = value;
+
+
     sp -= 9;
 }
 
@@ -272,7 +325,7 @@ static inline void ref_assign() {
     full_t** target = *(full_t***)(s + sp + -16);
     full_t* value = *(full_t**)(s + sp + -8);
 
-    try_free(*target, 0);
+    if (on_heap(*target)) try_free(*target, 0);
 
     *target = value;
     sp -= 16;
@@ -283,7 +336,7 @@ static inline void field_assign() {
     ufull_t offset = *(ufull_t*)(s + sp + -16);
     full_t* value = *(ufull_t**)(s + sp + -8);
 
-    try_free(*(target + offset), 0);
+    if (on_heap(*(target + offset))) try_free(*(target + offset), 0);
 
     *(target + offset) = value;
     sp -= 24;
@@ -291,7 +344,7 @@ static inline void field_assign() {
 
 static inline void ref_fetch() {
     full_t* target = *(full_t**)(s + sp + -8);
-    if (target && !on_heap(target) && !on_heap(*(full_t**)target)) target = *(full_t**)target;
+    if (target && !on_heap(target) && *target && !on_heap(*(full_t**)target)) target = *(full_t**)target;
     *(full_t**)(s + sp + -8) = target;
 }
 
@@ -545,7 +598,7 @@ static inline void* stop() {
 "
 
 
-let main = "
+let _main = "
 
 int main(int argc, char *argv[]) {
   program(\"main\", argc-1, argv+1);
@@ -553,7 +606,7 @@ int main(int argc, char *argv[]) {
 }
 "
 
-let _main = "
+let main = "
 
 int main(int argc, char *argv[]) {
   if (argc < 2) { printf(\"No entrypoint specified\\n\"); return 1; }
