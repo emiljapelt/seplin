@@ -5,6 +5,87 @@ open Typing
 open Optimize
 open Helpers
 
+module StringPair = struct
+  type t = string * string
+  let compare (n0,c0) (n1,c1) =
+    compare (n0^c0) (n1^c1)
+end
+
+module StringPairSet = Set.Make(StringPair)
+
+type context_info =  (file * (string * (access_mod * string * string * var_mod * typ option * declaration) list * (char list * (var_mod * typ * string) list) StringMap.t * string StringMap.t))
+let context_info_globs (_,(_,gs,_,_)) = gs 
+let context_info_name (_,(n,_,_,_)) = n
+
+
+(*** global variable filtering ***)
+let refed_globals_from_global (glob_dec : declaration) (context : context_info) (contexts : context_info list) (acc : StringPairSet.t) =
+  let switch_context (context : context_info) (name : string) =
+    let (_,(_,_,_,map)) = context in
+    match StringMap.find_opt name map with
+    | Some switch_name -> List.find (fun (_,(n,_,_,_)) -> n = switch_name) contexts
+    | None -> raise_failure ("No such context alias: "^name)
+  in
+  let rec refed_globals_from_expr expr context acc = match expr with
+    | Reference r -> refed_globals_from_ref r context acc
+    | Value v -> refed_globals_from_val v context acc
+    | Ternary(c,a,b) -> refed_globals_from_expr c context (refed_globals_from_expr a context (refed_globals_from_expr b context acc)) 
+  and refed_globals_from_ref ref context acc = match ref with
+    | OtherContext(cn,ir) -> refed_globals_from_iref ir (switch_context context cn) acc
+    | LocalContext ir -> refed_globals_from_iref ir context acc
+    | Null -> acc
+  and refed_globals_from_iref iref context acc = match iref with
+    | Access n -> (match List.exists (fun (_,gn,_,_,_,_) -> n = gn) (context_info_globs context) with
+      | false -> acc
+      | true -> StringPairSet.add (n,context_info_name context) acc
+    )
+    | StructAccess(ir,_) -> refed_globals_from_iref ir context acc
+    | ArrayAccess(ir,e) -> refed_globals_from_iref ir context (refed_globals_from_expr e context acc)
+  and refed_globals_from_val v context acc = match v with
+    | Binary_op(_,a,b) -> refed_globals_from_expr a context (refed_globals_from_expr b context acc)
+    | Unary_op(_,e) -> refed_globals_from_expr e context acc
+    | ArraySize ir -> refed_globals_from_iref ir context acc
+    | GetInput _ 
+    | Bool _
+    | Int _
+    | Char _ -> acc
+    | NewArray(_,e) -> refed_globals_from_expr e context acc
+    | ArrayLiteral es 
+    | NewStruct(_,_,es) 
+    | StructLiteral es -> List.fold_left (fun acc e -> refed_globals_from_expr e context acc ) acc es
+    | AnonRoutine(_,_,body) -> refed_globals_from_stmt body context acc
+  and refed_globals_from_stmt stmt context acc = match stmt with
+    | If(c,a,b) -> refed_globals_from_expr c context (refed_globals_from_stmt a context (refed_globals_from_stmt b context acc))
+    | While(c,b,None) -> refed_globals_from_expr c context (refed_globals_from_stmt b context acc)
+    | While(c,b,Some i) -> refed_globals_from_expr c context (refed_globals_from_stmt b context (refed_globals_from_stmt i context acc))
+    | Block sds -> List.fold_left (fun acc sd -> refed_globals_from_stmt_or_dec sd context acc ) acc sds
+    | Assign(r,e) -> refed_globals_from_ref r context (refed_globals_from_expr e context acc)
+    | Call(r,_,es) -> List.fold_left (fun acc e -> refed_globals_from_expr e context acc ) (refed_globals_from_ref r context acc) es
+    | Stop
+    | Halt
+    | Break
+    | Continue -> acc
+    | Print(es) -> List.fold_left (fun acc e -> refed_globals_from_expr e context acc ) acc es
+  and refed_globals_from_stmt_or_dec sd context acc = match sd with
+    | Statement(s,ln) -> ( 
+      try refed_globals_from_stmt s context acc
+      with 
+      | Failure(_,line_opt,expl) when Option.is_none line_opt -> raise (Failure(Some(context_info_name context), Some(ln), expl))
+      | e -> raise e 
+    )
+    | Declaration(dec,ln) -> ( 
+      try refed_globals_from_dec dec context acc with
+      | Failure(_,line_opt,expl) when Option.is_none line_opt -> raise (Failure(Some(context_info_name context), Some(ln), expl))
+      | e -> raise e 
+    )
+  and refed_globals_from_dec dec context acc = match dec with
+    | TypeDeclaration _ -> acc
+    | AssignDeclaration(_,_,_,e) -> refed_globals_from_expr e context acc
+  in
+  match glob_dec with
+  | TypeDeclaration _ -> acc
+  | AssignDeclaration(_,_,_,expr) -> refed_globals_from_expr expr context acc
+
 (*** Helper functions ***)
 let addFreeVars amount acc =
   match (amount, acc) with
@@ -70,31 +151,31 @@ let count_decl stmt_dec_list =
 (*** Global variable handling ***)
 (*    Compute the list of variable dependencies for each global variable    *)
 let get_globvar_dependencies gvs =
-  let rec dependencies_from_assignable expr acc =
+  let rec dependencies_from_expr expr acc =
     match expr with
     | Reference Null -> acc
     | Reference OtherContext _ -> raise_failure ("Global variables cannot depend on other contexts")
     | Reference LocalContext Access name -> name::acc
-    | Reference LocalContext ArrayAccess(refer,_) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
-    | Reference LocalContext StructAccess(refer,_) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
-    | Value Binary_op (_, expr1, expr2) -> dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc)
-    | Value Unary_op (_, expr1) -> dependencies_from_assignable expr1 acc
-    | Value ArraySize (refer) -> dependencies_from_assignable (Reference(LocalContext refer)) acc
+    | Reference LocalContext ArrayAccess(refer,_) -> dependencies_from_expr (Reference(LocalContext refer)) acc
+    | Reference LocalContext StructAccess(refer,_) -> dependencies_from_expr (Reference(LocalContext refer)) acc
+    | Value Binary_op (_, expr1, expr2) -> dependencies_from_expr expr1 (dependencies_from_expr expr2 acc)
+    | Value Unary_op (_, expr1) -> dependencies_from_expr expr1 acc
+    | Value ArraySize (refer) -> dependencies_from_expr (Reference(LocalContext refer)) acc
     | Value Bool _ -> acc
     | Value Int _ -> acc
     | Value Char _ -> acc
     | Value GetInput _ -> acc
-    | Value NewArray (_,expr1) -> dependencies_from_assignable expr1 acc
-    | Value ArrayLiteral exprs -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
-    | Value NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
-    | Value StructLiteral (exprs) -> List.fold_right (fun e a -> dependencies_from_assignable e a) exprs []
+    | Value NewArray (_,expr1) -> dependencies_from_expr expr1 acc
+    | Value ArrayLiteral exprs -> List.fold_right (fun e a -> dependencies_from_expr e a) exprs []
+    | Value NewStruct (_,_,exprs) -> List.fold_right (fun e a -> dependencies_from_expr e a) exprs []
+    | Value StructLiteral (exprs) -> List.fold_right (fun e a -> dependencies_from_expr e a) exprs []
     | Value AnonRoutine _ -> acc
-    | Ternary (cond, expr1, expr2) -> dependencies_from_assignable cond (dependencies_from_assignable expr1 (dependencies_from_assignable expr2 acc))
+    | Ternary (cond, expr1, expr2) -> dependencies_from_expr cond (dependencies_from_expr expr1 (dependencies_from_expr expr2 acc))
   in
   let dependencies_from_declaration dec =
     match dec with
     | TypeDeclaration _ -> []
-    | AssignDeclaration (_,_,_,expr) -> dependencies_from_assignable expr []
+    | AssignDeclaration (_,_,_,expr) -> dependencies_from_expr expr []
   in
   List.map (fun (accmod,name,context_name,varmod,ty,dec) -> ((accmod,name,context_name,varmod,ty,dec), dependencies_from_declaration dec)) gvs
 
@@ -148,7 +229,8 @@ let rec compile_expr expr (op_typ: op_typ) var_env contexts acc =
 
 and compile_inner_reference iref env contexts acc = 
   match iref with
-  | Access name -> (fetch_var_index name env.var_env.globals env.var_env.locals) :: RefFetch :: acc
+  | Access name -> 
+    (fetch_var_index name env.var_env.globals env.var_env.locals) :: RefFetch :: acc
   | StructAccess (refer, field) -> ( 
     let (_, ref_ty) = Typing.type_inner_reference refer env contexts in
     match ref_ty with
@@ -886,7 +968,7 @@ let merge_contexts contexts =
 let create_contexts globals context_infos : context list =
   let get_globalvar_info var_name context_name = 
     match List.find_opt (fun (_,n,cn,_,_,_,_) -> n = var_name && cn = context_name) globals with
-    | None -> raise_failure "Failed global variable lookup"
+    | None -> raise_failure ("Failed global variable lookup: " ^var_name^ " from " ^ context_name)
     | Some((accmod,n,cn,idx,vmod,typ,dec)) -> (accmod,n,cn,idx,vmod,typ,dec)
   in
   let rec aux c_infos acc =
@@ -902,6 +984,24 @@ let compile path parse =
   let path = (compress_path (total_path path)) in
   try (
     let context_infos = gather_context_infos path parse in
+
+    let main_context = List.find (fun (_,(p,_,_,_)) -> p = path) context_infos in
+    let entries = List.filter_map (fun (a,n,cn,_,_,d) -> if a = Entry then Some(d,(n,cn)) else None) (context_info_globs main_context) in
+    let (entry_decs,entry_refs) = List.split entries in
+    let refs = List.fold_left (fun acc d -> refed_globals_from_global d main_context context_infos acc) StringPairSet.empty entry_decs in
+
+    let rec all_refs missing resolved =
+      match StringPairSet.choose_opt missing with
+      | None -> resolved
+      | Some ((pick_n,pick_cn) as pick) ->
+        let picked_context = List.find (fun (_,(n,_,_,_)) -> n = pick_cn) context_infos in
+        let (_,_,_,_,_,d) = List.find (fun (_,n,_,_,_,_) -> n = pick_n) (context_info_globs picked_context) in
+        let picked_refs = refed_globals_from_global d picked_context context_infos StringPairSet.empty in
+        all_refs (StringPairSet.remove pick (StringPairSet.diff missing picked_refs)) (StringPairSet.add pick (StringPairSet.union resolved picked_refs))
+    in
+    let refed_globals = all_refs refs (StringPairSet.of_list entry_refs) in
+
+    let context_infos = List.map (fun (a,(b,gs,c,d)) -> (a,(b,List.filter (fun (_,n,cn,_,_,_) -> StringPairSet.mem (n,cn) refed_globals) gs,c,d))) context_infos in
     let (topdecs,globals,structs) = merge_contexts context_infos in
     let globals_ordered = (order_dep_globvars (get_globvar_dependencies globals)) in
     let contexts = create_contexts globals_ordered context_infos in
@@ -917,4 +1017,4 @@ let compile path parse =
   )
   with 
   | Failure _ as f -> raise f
-  | _ -> raise (Failure(Some path, None, "Parser error"))
+  | _ -> raise (Failure(Some path, None, "Uncaught error"))
