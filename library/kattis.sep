@@ -1,6 +1,6 @@
 
-external char_to_int ::= (c: const char, o: int) {
-    if (c) {
+extern char_to_int ::= (c: const char, o: int) {
+    if (c) 
         is ('0') o := 0;
         is ('1') o := 1;
         is ('2') o := 2;
@@ -11,10 +11,10 @@ external char_to_int ::= (c: const char, o: int) {
         is ('7') o := 7;
         is ('8') o := 8;
         is ('9') o := 9;
-    } else halt "Could not find integer value of: ", c, '\n';
+    else halt("Could not find integer value of: ", c, '\n');
 }
 
-external string_to_int ::= (cs: const char[], o: int) {
+extern string_to_int ::= (cs: const char[], o: int) {
     if (cs = null) stop;
     value ::= 0;
 
@@ -28,12 +28,12 @@ external string_to_int ::= (cs: const char[], o: int) {
     o := value;
 }
 
-external substring ::= (str: char[], begin: int, len: int, o: char[]) {
+extern substring ::= (str: char[], begin: int, len: int, o: char[]) {
     if (str = null) stop;
-    if (begin = null) halt "Substring beginning at null";
-    if (len = null) halt "Substring length was null";
-    if (begin < 0 || begin > |str|) halt "Substring beginning outside string";
-    if ((len < 0) || (begin+len > |str|)) halt "Substring length outside string";
+    if (begin = null) halt("Substring beginning at null");
+    if (len = null) halt("Substring length was null");
+    if (begin < 0 || begin > |str|) halt("Substring beginning outside string");
+    if ((len < 0) || (begin+len > |str|)) halt("Substring length outside string");
 
     o := new char[len];
 
