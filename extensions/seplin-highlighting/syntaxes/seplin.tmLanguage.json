@@ -14,7 +14,7 @@
 				"match": "\\b(reference|as)\\b"
 			},{
 				"name": "keyword",
-				"match": "\\b(entry|internal|external)\\b"
+				"match": "\\b(entry|intern|extern)\\b"
 			},{
 				"begin": "struct",
 				"end": ";",
