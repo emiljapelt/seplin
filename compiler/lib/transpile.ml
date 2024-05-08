@@ -1,7 +1,7 @@
 open ProgramRep
 
+(* force no optimization: #pragma GCC optimize ("O0") *)
 let definitions = "
-#pragma GCC optimize (\"O0\")
 typedef signed long long int full_t;
 typedef unsigned long long int ufull_t;
 typedef signed int half_t;
