@@ -120,6 +120,18 @@
 %type <Absyn.file> main
 %type <Absyn.inner_reference> inner_reference
 %%
+
+%public seperated_or_empty(S,C):
+  | {[]}
+  | C  {[$1]}
+  | C S seperated(S,C) {$1::$3}
+;
+
+%public seperated(S,C):
+  | C  {[$1]}
+  | C S seperated(S,C) {$1::$3}
+;
+
 main:
   topdecs EOF     { File $1 }
 ;
@@ -131,9 +143,13 @@ topdecs:
 
 topdec:
     accmod dec semi_opt                                           { GlobalDeclaration ($1, $2) }
-  | STRUCT NAME LPAR struct_params RPAR semi_opt                  { Struct ($2, [], $4) }
-  | STRUCT NAME LT typ_vars GT LPAR struct_params RPAR semi_opt   { Struct ($2, $4, $7) }
+  | STRUCT NAME LPAR params RPAR semi_opt                  { Struct ($2, [], $4) }
+  | STRUCT NAME LT type_vars GT LPAR params RPAR semi_opt   { Struct ($2, $4, $7) }
   | REFERENCE PATH AS NAME semi_opt                               { FileReference($4, $2) }
+;
+
+type_vars:
+  seperated(COMMA,TYPE_VAR) {$1}
 ;
 
 semi_opt:
@@ -152,19 +168,12 @@ accmod:
   | ENTRY    { Entry }
 ;
 
-typ_vars:
-    TYPE_VAR                  { [$1] }
-  | TYPE_VAR COMMA            { [$1] }
-  | TYPE_VAR COMMA typ_vars   { $1 :: $3 }
-;
-
 typ_args:
-    typ                       { [Some $1] }
-  | UNDERSCORE                { [None] }
-  | typ COMMA                 { [Some $1] }
-  | UNDERSCORE COMMA          { [None] }
-  | typ COMMA typ_args        { (Some $1) :: $3 }
-  | UNDERSCORE COMMA typ_args { None :: $3 }
+  seperated(COMMA,typ_arg) {$1}
+;
+typ_arg:
+    typ                       { Some $1 }
+  | UNDERSCORE                { None }
 ;
 
 simple_typ:
@@ -179,20 +188,21 @@ typ:
   | NAME                { T_Struct ($1, []) }
   | NAME LT typ_args GT { T_Struct ($1, $3) }
   | TYPE_VAR            { T_Generic $1 }
-  | LPAR typ_list RPAR  { T_Routine ([], $2) }
-  | LT typ_vars GT LPAR typ_list RPAR  { T_Routine ($2, $5) }
+  | LPAR arg_types RPAR  { T_Routine ([], $2) }
+  | LT type_vars GT LPAR arg_types RPAR  { T_Routine ($2, $5) }
 ;
 
-typ_list:
-   { [] }
-  | typ                           { [(Open, $1)] }  
-  | varmod typ                    { [($1, $2)] }
-  | typ COMMA typ_list            { (Open, $1)::$3 }
-  | varmod typ COMMA typ_list     { ($1, $2)::$4 }
+
+arg_types:
+  seperated_or_empty(COMMA,arg_type) {$1}
+;
+arg_type:
+  | typ                           { (Open, $1) }  
+  | varmod typ                    { ($1, $2) }
 ;
 
 block:
-  LBRACE stmtOrDecSeq RBRACE    { Block $2 }
+  LBRACE stmtOrDec* RBRACE    { Block $2 }
 ;
 
 expression:
@@ -239,14 +249,14 @@ simple_value:
   | CSTSTRING                                             { string_to_array_literal $1 }
   | NEW NAME LPAR arguments RPAR                          { NewStruct ($2, [], $4) }
   | NEW NAME LT typ_args GT LPAR arguments RPAR           { NewStruct ($2, $4, $7) }
-  | LBRACE arguments RBRACE                               { StructLiteral $2 }
+  | LBRACE arguments RBRACE    { StructLiteral $2 }
 ;
 
 value:
     simple_value { $1 }
   | expression_not_ternary binop expression_not_ternary { Binary_op ($2, $1, $3) }
   | LPAR params RPAR block                    { AnonRoutine ([], $2, $4) }
-  | LT typ_vars GT LPAR params RPAR block     { AnonRoutine ($2, $5, $7) }
+  | LT seperated(COMMA,TYPE_VAR) GT LPAR params RPAR block     { AnonRoutine ($2, $5, $7) }
 ;
 
 %inline binop:
@@ -266,19 +276,7 @@ value:
 ;
 
 arguments:
-                 { [] }
-  | arguments1   { $1 }
-;
-
-arguments1:
-    expression                     { [$1] }
-  | expression COMMA               { [$1] }
-  | expression COMMA arguments1    { $1 :: $3 }
-;
-
-stmtOrDecSeq:
-                               { [] }
-  | stmtOrDec stmtOrDecSeq     { $1 :: $2 }
+  seperated_or_empty(COMMA,expression) {$1}
 ;
 
 stmtOrDec:
@@ -303,42 +301,14 @@ stmt:
 stmt2:
     IF LPAR expression RPAR stmt1 ELSE stmt2       { If ($3, $5, $7) }
   | IF LPAR expression RPAR stmt                   { If ($3, $5, Block []) }
-  | IF LPAR expression RPAR is_cases ELSE stmt2      { transform_when $3 $7 $5 $symbolstartpos.pos_lnum }
-  | IF LPAR expression RPAR is_cases                 { transform_when $3 (Block[]) $5 $symbolstartpos.pos_lnum }
-  | WHILE LPAR expression RPAR stmt2               { While ($3, $5, None) }
-  | UNTIL LPAR expression RPAR stmt2               { While (Value (Unary_op("!", $3)), $5, None) }
-  | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt2    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, $9, Some($7)), $symbolstartpos.pos_lnum);]) }
-  | REPEAT LPAR const_value RPAR stmt2 { 
-    let var_name = new_var () in
-    Block([
-      Declaration(TypeDeclaration(Open, T_Int, var_name), $symbolstartpos.pos_lnum); 
-      Statement(While(
-        Value(Binary_op("<", Reference(LocalContext(Access var_name)), Value $3)), 
-        $5,
-        Some(Assign(LocalContext(Access var_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access var_name))))));
-      ),$symbolstartpos.pos_lnum);
-    ]) 
-  }
-  | REPEAT stmt2 { While(Value(Bool(true)), $2, None) }
-  | REPEAT LPAR expression_not_ternary RPAR stmt2 { 
-    let count_name = new_var () in
-    let limit_name = new_var () in
-    Block([
-      Declaration(AssignDeclaration(Const, Some T_Int, limit_name, Value(Unary_op("$", $3))), $symbolstartpos.pos_lnum); 
-      Declaration(TypeDeclaration(Open, T_Int, count_name), $symbolstartpos.pos_lnum); 
-      Statement(While(
-        Value(Binary_op("<", Reference(LocalContext(Access count_name)), Reference(LocalContext(Access limit_name)))), 
-        $5,
-        Some(Assign(LocalContext(Access count_name), Value(Binary_op("+", Value(Int 1), Reference(LocalContext(Access count_name))))));
-      ), $symbolstartpos.pos_lnum);
-    ]) 
-  }
+  | IF LPAR expression RPAR is_case+ ELSE stmt2      { transform_when $3 $7 $5 $symbolstartpos.pos_lnum }
+  | IF LPAR expression RPAR is_case+                 { transform_when $3 (Block[]) $5 $symbolstartpos.pos_lnum }
 ;
 
 stmt1: /* No unbalanced if-else */
     block                                              { $1 }
   | IF LPAR expression RPAR stmt1 ELSE stmt1       { If ($3, $5, $7) }
-  | IF LPAR expression RPAR is_cases ELSE stmt1    { transform_when $3 $7 $5 $symbolstartpos.pos_lnum }
+  | IF LPAR expression RPAR is_case+ ELSE stmt1    { transform_when $3 $7 $5 $symbolstartpos.pos_lnum }
   | WHILE LPAR expression RPAR stmt1               { While ($3, $5, None) }
   | UNTIL LPAR expression RPAR stmt1               { While (Value (Unary_op("!", $3)), $5, None) }
   | FOR LPAR dec SEMI expression SEMI non_control_flow_stmt RPAR stmt1    { Block([Declaration($3, $symbolstartpos.pos_lnum); Statement(While($5, $9, Some($7)), $symbolstartpos.pos_lnum);]) }
@@ -369,8 +339,7 @@ stmt1: /* No unbalanced if-else */
   }
   | STOP SEMI                                    { Stop }
   | HALT SEMI                                    { Halt }
-  //| HALT arguments1 SEMI                         { Block[Statement(Print $2, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
-  | HALT LPAR arguments1 RPAR SEMI               { Block[Statement(Print $3, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
+  | HALT LPAR arguments RPAR SEMI                { Block[Statement(Print $3, $symbolstartpos.pos_lnum); Statement(Halt, $symbolstartpos.pos_lnum);] }
   | BREAK SEMI                                   { Break }
   | CONTINUE SEMI                                { Continue }
   | non_control_flow_stmt SEMI { $1 }
@@ -381,13 +350,7 @@ is_case:
 ;
 
 const_values:
-  const_value { [Value $1] }
-  | const_value COMMA const_values { (Value $1)::$3 }
-;
-
-is_cases:
-  is_case { [$1] }
-  | is_case is_cases { $1::$2 }
+  seperated(COMMA, const_value) {List.map (fun v -> Value v) $1}
 ;
 
 non_control_flow_stmt:
@@ -398,40 +361,14 @@ non_control_flow_stmt:
   | reference NOT ASSIGNMENT expression    { Assign ($1, Value(Unary_op("!", $4))) }
   | reference LPAR arguments RPAR                      { Call ($1, [], $3) }
   | reference LT typ_args GT LPAR arguments RPAR       { Call ($1, $3, $6) }
-  | PRINT LPAR arguments1 RPAR                { Print $3 }
-  //| PRINT arguments1                          { Print $2 }
+  | PRINT LPAR arguments RPAR                { Print $3 }
 ;
+
 
 params:
-               { [] }
-  | params1    { $1 }
+  seperated_or_empty(COMMA,param) {$1}
 ;
-
-params1:
-    param                  { [$1] }
-  | param COMMA            { [$1] }
-  | param COMMA params1    { $1 :: $3 }
-;
-
 param:
-  | NAME COLON typ                  { (Open, $3, $1) }
-  | NAME COLON varmod typ           { ($3, $4, $1) }
-;
-
-
-
-struct_params:
-               { [] }
-  | struct_params1    { $1 }
-;
-
-struct_params1:
-    struct_param                        { [$1] }
-  | struct_param COMMA                  { [$1] }
-  | struct_param COMMA struct_params1   { $1 :: $3 }
-;
-
-struct_param:
   | NAME COLON typ                  { (Open, $3, $1) }
   | NAME COLON varmod typ           { ($3, $4, $1) }
 ;
