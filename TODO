@@ -1,20 +1,29 @@
 1. Look at syntax error handling, https://gallium.inria.fr/~fpottier/menhir/manual.html#sec69
 2. Setup some testing
-3. Fix assembly compiler
-4. Develope syntax highlighting for vscode, https://github.com/microsoft/vscode-textmate/tree/main/test-cases/themes/syntaxes
-5. Implement routine signature compatability check
-6. Implement routine name overloading
+3. Remake simple assembly compiler
+4. Look into LSP
 7. Fix variable modifiers, broken for const array index assignments
 8. Reduce instruction set
     - FieldAssign x, could be replaced by: PlaceInt (8*x); IntAdd; RefAssign.
 9. Attempt true seplin-to-C transpilation
     - Manually at first
-10. Make compiler monadic
 11. More type inference
-    - Requires a monadic compiler (i.e. need the var_env to be available and returnable everywhere)
+    - Requires a monadic compiler (i.e. need the var_env to be available and returnable everywhere, manually as argument is tedious)
     - Allow not specifying a type in simple declarations
         - 'x: int;' becomes 'x;'
     - Allow not specifying a type for routine arguments 
         - '(x : int) { x +:= 2; }' becomes '(x) { x +:= 2; }'
     - Introduce a new polymorphic type, 'T_Poly of string', which will represent these missing types
     - Carry a StringMap in 'var_env', in which specification of the polymorphics happen
+12. Indirect References 
+    - Should solve the quirk that fields and indices cannot be given as modifiable arguments
+    - Requires a new heap object type, increasing the number from 2 (struct/value).
+        - Which is a header, and a reference
+    - Requires a new instruction, 'Indirect', which consumes a reference from the stack, and produces a new reference to an indirect reference object.
+    - Instructions operating on references will need a rework to handle these
+        - Should be something along the lines: "If the object is on the heap, and an indirect, dereference it once more"
+    - Memory management need to be figured out
+        - Likely need a reference counter itself
+13. Move AST optimization to its own compiler step, instead of being part of toProgramRep
+14. Cleanup
+    - Try using the Option module functions more, instead of pattern-matching on options all the time
