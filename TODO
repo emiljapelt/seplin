@@ -15,15 +15,16 @@
         - '(x : int) { x +:= 2; }' becomes '(x) { x +:= 2; }'
     - Introduce a new polymorphic type, 'T_Poly of string', which will represent these missing types
     - Carry a StringMap in 'var_env', in which specification of the polymorphics happen
-12. Indirect References 
+12. Index References 
     - Should solve the quirk that fields and indices cannot be given as modifiable arguments
     - Requires a new heap object type, increasing the number from 2 (struct/value).
-        - Which is a header, and a reference
-    - Requires a new instruction, 'Indirect', which consumes a reference from the stack, and produces a new reference to an indirect reference object.
+        - Which is a header, and a reference (either to the struct start or directly to the index)
+        - The head has the same data as usual, but the 'size' data refers to which index is being referenced
+            - This is needed such that freeing an index reference, can find the header of the struct and decrease its 'ref_count'
+    - Requires a new instruction, 'Indirect', to create these heaps objects
     - Instructions operating on references will need a rework to handle these
         - Should be something along the lines: "If the object is on the heap, and an indirect, dereference it once more"
-    - Memory management need to be figured out
-        - Likely need a reference counter itself
+        - If 'x' is an index reference, and we write 'y := x', y should point to the same index reference object as 'x'.
 13. Move AST optimization to its own compiler step, instead of being part of toProgramRep
 14. Cleanup
     - Try using the Option module functions more, instead of pattern-matching on options all the time
