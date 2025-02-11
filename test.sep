@@ -2,11 +2,9 @@
 
 
 
-intern each ::= \<T>(a: T[], f: (T)) => for(i ::= 0; i < |a|; i +:= 1) f(a[i]);
+intern each ::= \<T>(a: T[], f: (T)) =>
+    for(i ::= 0; i < |a|; i +:= 1) f(a[i]);
 
 
-entry main ::= \{
-    print(2);
-    print(3);
-    each([2], \x => print(x));
-};
+
+entry main ::= \ => each([1,2,3], \x => print(x); );

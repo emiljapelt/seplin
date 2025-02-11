@@ -267,9 +267,9 @@ generics:
 ;
 
 routine:
-  | RARROW? stmt  { AnonRoutine ([],[],$2) }
-  | routine_param RARROW? stmt { AnonRoutine ([],[$1],$3) }
-  | generics routine_param RARROW? stmt { AnonRoutine ($1,[$2],$4) }
+  | RARROW stmt  { AnonRoutine ([],[],$2) }
+  | routine_param RARROW stmt { AnonRoutine ([],[$1],$3) }
+  | generics routine_param RARROW stmt { AnonRoutine ($1,[$2],$4) }
   | LPAR routine_params RPAR RARROW? stmt { AnonRoutine ([],$2,$5) }
   | generics LPAR routine_params RPAR RARROW? stmt { AnonRoutine ($1,$3,$6) }
 ;
