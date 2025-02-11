@@ -95,7 +95,7 @@
 %token <string> PATH
 %token <char> TYPE_VAR
 %token ASSIGNMENT
-%token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE
+%token LPAR RPAR LBRACE RBRACE LBRAKE RBRAKE BACKSLASH RARROW
 %token STOP HALT
 %token PLUS MINUS TIMES EQ NEQ LT GT LTEQ GTEQ
 %token LOGIC_AND LOGIC_OR PIPE NOT VALUE FSLASH PCT
@@ -257,8 +257,31 @@ simple_value:
 value:
     simple_value { $1 }
   | expression_not_ternary binop expression_not_ternary { Binary_op ($2, $1, $3) }
-  | LPAR routine_params RPAR stmt                       { AnonRoutine ([], $2, $4) }
-  | LT seperated(COMMA,TYPE_VAR) GT LPAR routine_params RPAR stmt     { AnonRoutine ($2, $5, $7) }
+  | BACKSLASH routine { $2 }
+  // | LPAR routine_params RPAR stmt                       { AnonRoutine ([], $2, $4) }
+  // | LT seperated(COMMA,TYPE_VAR) GT LPAR routine_params RPAR stmt     { AnonRoutine ($2, $5, $7) }
+;
+
+generics:
+  | LT seperated(COMMA,TYPE_VAR) GT { $2 }
+;
+
+routine:
+  | RARROW? stmt  { AnonRoutine ([],[],$2) }
+  | routine_param RARROW? stmt { AnonRoutine ([],[$1],$3) }
+  | generics routine_param RARROW? stmt { AnonRoutine ($1,[$2],$4) }
+  | LPAR routine_params RPAR RARROW? stmt { AnonRoutine ([],$2,$5) }
+  | generics LPAR routine_params RPAR RARROW? stmt { AnonRoutine ($1,$3,$6) }
+;
+
+routine_params:
+  seperated_or_empty(COMMA,routine_param) { $1 }
+;
+routine_param:
+  | NAME                            { (Open, None, $1) }
+  | NAME COLON typ                  { (Open, Some $3, $1) }
+  | NAME COLON varmod               { ($3, None, $1) }
+  | NAME COLON varmod typ           { ($3, Some $4, $1) }
 ;
 
 %inline binop:
@@ -364,17 +387,6 @@ non_control_flow_stmt:
   | reference LPAR arguments RPAR                      { Call ($1, [], $3) }
   | reference LT typ_args GT LPAR arguments RPAR       { Call ($1, $3, $6) }
   | PRINT LPAR arguments RPAR                { Print $3 }
-;
-
-
-routine_params:
-  seperated_or_empty(COMMA,routine_param) { $1 }
-;
-routine_param:
-  | NAME COLON                      { (Open, None, $1) }
-  | NAME COLON typ                  { (Open, Some $3, $1) }
-  | NAME COLON varmod               { ($3, None, $1) }
-  | NAME COLON varmod typ           { ($3, Some $4, $1) }
 ;
 
 struct_params:

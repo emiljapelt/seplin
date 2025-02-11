@@ -433,11 +433,16 @@ and well_defined_type typ_opt var_env =
     aux (List.combine typ_vars typ_args) []
 
 let rec fillout_missing_type t_opt expr = match t_opt, expr with
-  | Some T_Routine(_,p_params), Value AnonRoutine(generics,a_params,body) -> Value(AnonRoutine(generics, List.map ( fun (p_param,a_param) -> match p_param,a_param with
-    | (_,None),(_,None,_) -> raise_failure ("Nothing to fill out with")
-    | (_,Some t),(a_vm,None,n) -> (a_vm, Some t, n)
-    | _,(a_vm,Some t,n) -> (a_vm, Some t, n)) (List.combine p_params a_params), body
-  ))
+  | Some T_Routine(_,p_params), Value AnonRoutine(generics,a_params,body) -> 
+      Value(AnonRoutine(
+        generics, 
+        List.map ( fun (p_param,a_param) -> match p_param,a_param with
+        | (_,None),(_,None,_) -> raise_failure ("Nothing to fill out with")
+        | (_,Some t),(a_vm,None,n) -> (a_vm, Some t, n)
+        | _,(a_vm,Some t,n) -> (a_vm, Some t, n)) 
+        (if List.length p_params != List.length a_params then raise_failure "parameter/argument lenght mismatch" else List.combine p_params a_params), 
+        body
+      ))
   | Some T_Array(st_opt), Value ArrayLiteral(exprs) -> Value(ArrayLiteral(List.map (fun expr -> fillout_missing_type st_opt expr) exprs))
   | _,_ -> expr
 

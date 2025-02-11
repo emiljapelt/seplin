@@ -92,6 +92,8 @@ rule lex = parse
     |   '}'           { RBRACE }
     |   '['           { LBRAKE }
     |   ']'           { RBRAKE }
+    |   '\\'          { BACKSLASH }
+    |   "=>"          { RARROW }
     |   ','           { COMMA }
     |   '.'           { DOT }
     |   ';'           { SEMI }
