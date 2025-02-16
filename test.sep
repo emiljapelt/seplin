@@ -3,7 +3,8 @@
 
 
 intern each ::= \<T>(a: T[], f: (T)) =>
-    for(i ::= 0; i < |a|; i +:= 1) f(a[i]);
+    for(i ::= 0; i < |a|; i +:= 1) 
+        f(a[i]);
 
 
 
